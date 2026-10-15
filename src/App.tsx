@@ -9,6 +9,7 @@ import { FavouritesPage } from './pages/FavouritesPage';
 import { StudentDashboard } from './pages/StudentDashboard';
 import { VisitsPage } from './pages/VisitsPage';
 import { OwnerDashboard } from './pages/OwnerDashboard';
+import { ListingWizardPage } from './pages/ListingWizardPage';
 import { AdminPage } from './pages/AdminPage';
 import { HowItWorksPage } from './pages/HowItWorksPage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -27,6 +28,8 @@ export default function App() {
             <Route path="/favourites" element={<FavouritesPage />} />
             <Route path="/visits" element={<VisitsPage />} />
             <Route path="/owner" element={<OwnerDashboard />} />
+            <Route path="/owner/listing/new" element={<ListingWizardPage />} />
+            <Route path="/owner/listing/:id/edit" element={<ListingWizardPage />} />
             <Route path="/admin" element={<AdminPage />} />
             <Route path="/how-it-works" element={<HowItWorksPage />} />
             <Route path="*" element={<NotFoundPage />} />
