@@ -12,6 +12,9 @@ interface AppContextType {
   toggleFavourite: (hostelId: string) => void;
   isFavourite: (hostelId: string) => boolean;
   scheduleVisit: (data: Omit<VisitRequest, 'id' | 'status' | 'createdAt' | 'studentId' | 'studentName'>) => VisitRequest;
+  cancelVisit: (visitId: string) => void;
+  rescheduleVisit: (visitId: string, newDate: string) => void;
+  updateProfile: (data: Partial<Pick<User, 'name' | 'phone'>>) => void;
   updateHostelStatus: (hostelId: string, status: ListingStatus) => void;
   addHostel: (hostel: Hostel) => void;
   updateHostel: (hostel: Hostel) => void;
@@ -110,6 +113,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return visit;
   };
 
+  const cancelVisit = (visitId: string) => {
+    setVisits(prev => prev.map(v => v.id === visitId ? { ...v, status: 'cancelled' as const } : v));
+  };
+
+  const rescheduleVisit = (visitId: string, newDate: string) => {
+    setVisits(prev => prev.map(v => v.id === visitId ? { ...v, visitDate: newDate, status: 'confirmed' as const } : v));
+  };
+
+  const updateProfile = (data: Partial<Pick<User, 'name' | 'phone'>>) => {
+    if (!user) return;
+    setUser({ ...user, ...data });
+  };
+
   const updateHostelStatus = (hostelId: string, status: ListingStatus) => {
     setHostels(prev => prev.map(h => h.id === hostelId ? { ...h, status, updatedAt: new Date().toISOString().slice(0, 10) } : h));
   };
@@ -126,7 +142,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider value={{
       user, hostels, favourites, visits,
       login, logout, toggleFavourite, isFavourite,
-      scheduleVisit, updateHostelStatus, addHostel, updateHostel,
+      scheduleVisit, cancelVisit, rescheduleVisit, updateProfile,
+      updateHostelStatus, addHostel, updateHostel,
     }}>
       {children}
     </AppContext.Provider>
