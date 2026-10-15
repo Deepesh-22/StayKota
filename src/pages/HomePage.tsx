@@ -6,6 +6,13 @@ import { HostelCard } from '../components/hostel/HostelCard';
 import { LOCALITIES } from '../data/mockData';
 import type { SharingType } from '../types';
 
+const QUICK = [
+  { label: 'Girls hostels', params: { category: 'girls' } },
+  { label: 'Under ₹6k', params: { maxBudget: '6000' } },
+  { label: 'With mess', params: { amenities: 'Meals' } },
+  { label: 'Double sharing', params: { sharing: 'double' } },
+];
+
 export function HomePage() {
   const { hostels } = useApp();
   const navigate = useNavigate();
@@ -25,6 +32,10 @@ export function HomePage() {
     navigate(`/explore?${params.toString()}`);
   };
 
+  const applyQuick = (params: Record<string, string>) => {
+    navigate(`/explore?${new URLSearchParams(params).toString()}`);
+  };
+
   return (
     <div className="animate-fade-in">
       <section className="relative bg-[#faf8f5] overflow-hidden">
@@ -34,7 +45,7 @@ export function HomePage() {
               <div className="absolute inset-0 bg-gradient-to-br from-teal-900/40 to-transparent pointer-events-none" />
               <div className="relative z-10">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/20 text-teal-300 text-xs font-medium mb-5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-teal-400" aria-hidden />
                   Kota · Hostel & PG discovery
                 </div>
                 <h1 className="text-3xl sm:text-4xl lg:text-[2.75rem] font-bold leading-tight tracking-tight">
@@ -46,16 +57,18 @@ export function HomePage() {
                 <form onSubmit={handleSearch} className="mt-7 bg-white rounded-2xl p-2.5 shadow-xl">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
                     <div className="relative">
-                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <select value={locality} onChange={e => setLocality(e.target.value)}
+                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" aria-hidden />
+                      <label className="sr-only" htmlFor="home-locality">Locality</label>
+                      <select id="home-locality" value={locality} onChange={e => setLocality(e.target.value)}
                         className="w-full pl-9 pr-3 py-3 rounded-xl text-sm text-slate-800 bg-slate-50 border-0 focus:outline-none focus:ring-2 focus:ring-teal-500 appearance-none">
                         <option value="">Locality / near coaching</option>
                         {LOCALITIES.map(l => <option key={l} value={l}>{l}</option>)}
                       </select>
                     </div>
                     <div className="relative">
-                      <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <select value={maxBudget} onChange={e => setMaxBudget(e.target.value)}
+                      <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" aria-hidden />
+                      <label className="sr-only" htmlFor="home-budget">Budget</label>
+                      <select id="home-budget" value={maxBudget} onChange={e => setMaxBudget(e.target.value)}
                         className="w-full pl-9 pr-3 py-3 rounded-xl text-sm text-slate-800 bg-slate-50 border-0 focus:outline-none focus:ring-2 focus:ring-teal-500 appearance-none">
                         <option value="">Monthly budget</option>
                         <option value="5000">Under ₹5,000</option>
@@ -65,8 +78,9 @@ export function HomePage() {
                     </div>
                     <div className="relative flex gap-1.5">
                       <div className="relative flex-1">
-                        <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <select value={sharing} onChange={e => setSharing(e.target.value as SharingType | '')}
+                        <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" aria-hidden />
+                        <label className="sr-only" htmlFor="home-sharing">Sharing</label>
+                        <select id="home-sharing" value={sharing} onChange={e => setSharing(e.target.value as SharingType | '')}
                           className="w-full pl-9 pr-3 py-3 rounded-xl text-sm text-slate-800 bg-slate-50 border-0 focus:outline-none focus:ring-2 focus:ring-teal-500 appearance-none">
                           <option value="">Sharing</option>
                           <option value="single">Single</option>
@@ -74,25 +88,33 @@ export function HomePage() {
                           <option value="triple">Triple</option>
                         </select>
                       </div>
-                      <button type="submit" className="flex-shrink-0 px-5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-medium text-sm flex items-center gap-2">
+                      <button type="submit" className="flex-shrink-0 px-5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-medium text-sm flex items-center gap-2 transition-colors">
                         <Search className="w-4 h-4" /><span className="hidden sm:inline">Search</span>
                       </button>
                     </div>
                   </div>
                 </form>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {['Girls hostels', 'Under ₹6k', 'With mess'].map(l => (
-                    <button key={l} onClick={() => navigate('/explore')} className="px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 text-slate-200 hover:bg-white/20 border border-white/10">{l}</button>
+                  {QUICK.map(q => (
+                    <button key={q.label} type="button" onClick={() => applyQuick(q.params)}
+                      className="px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 text-slate-200 hover:bg-white/20 border border-white/10 transition-colors">
+                      {q.label}
+                    </button>
                   ))}
                 </div>
               </div>
             </div>
             <div className="relative rounded-3xl overflow-hidden min-h-[280px] animate-slide-up" style={{ animationDelay: '0.1s' }}>
-              <img src="https://images.unsplash.com/photo-1562774053-701939374585?w=900&q=80" alt="Kota campus" className="absolute inset-0 w-full h-full object-cover" />
+              <img
+                src="https://images.unsplash.com/photo-1562774053-701939374585?w=900&q=80"
+                alt="Student hostel room near Kota coaching campuses"
+                className="absolute inset-0 w-full h-full object-cover"
+                loading="eager"
+              />
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
               <div className="absolute bottom-5 left-5">
                 <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/95 shadow-lg text-sm">
-                  <span className="w-2 h-2 rounded-full bg-teal-500" />
+                  <span className="w-2 h-2 rounded-full bg-teal-500" aria-hidden />
                   <span className="font-medium text-slate-800">Demo listings for Kota students</span>
                 </div>
               </div>
@@ -101,12 +123,14 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6" aria-label="Popular localities">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium text-slate-500 mr-1">Popular:</span>
           {LOCALITIES.slice(0, 6).map((l, i) => (
             <Link key={l} to={`/explore?locality=${encodeURIComponent(l)}`}
-              className={`px-3.5 py-1.5 rounded-full text-sm font-medium ${i === 0 ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:border-teal-300'}`}>{l}</Link>
+              className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                i === 0 ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:border-teal-300'
+              }`}>{l}</Link>
           ))}
         </div>
       </section>
@@ -114,14 +138,16 @@ export function HomePage() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="flex items-end justify-between mb-6">
           <div>
-            <p className="text-sm text-teal-600 font-medium mb-1">Handpicked for this admission season</p>
+            <p className="text-sm text-teal-600 font-medium mb-1">Demo sample · not live inventory</p>
             <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Featured hostels near coaching hubs</h2>
           </div>
-          <Link to="/explore" className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-teal-700">View all stays <ArrowRight className="w-4 h-4" /></Link>
+          <Link to="/explore" className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-teal-700 hover:underline">
+            View all stays <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {featured.map((h, i) => (
-            <div key={h.id} className="animate-slide-up" style={{ animationDelay: `${i * 0.08}s` }}>
+            <div key={h.id} className="stagger-item" style={{ animationDelay: `${i * 0.08}s` }}>
               <HostelCard hostel={h} />
             </div>
           ))}
@@ -132,7 +158,7 @@ export function HomePage() {
         <div className="grid sm:grid-cols-3 gap-5">
           {[
             { icon: <FileText className="w-5 h-5" />, title: 'Transparent rent breakup', desc: 'Monthly rent, deposit and extras shown separately. No hidden charges.' },
-            { icon: <Phone className="w-5 h-5" />, title: 'Direct owner contact', desc: 'Request a visit in one step. No middlemen, no commission.' },
+            { icon: <Phone className="w-5 h-5" />, title: 'Direct owner contact', desc: 'Request a visit on a date. Owner coordinates the exact time later.' },
             { icon: <GraduationCap className="w-5 h-5" />, title: 'Built for students', desc: 'Filters for sharing type, mess and coaching distance.' },
           ].map((item, i) => (
             <div key={i} className="bg-white rounded-2xl border border-slate-100 p-6 hover:shadow-md transition-shadow">
@@ -148,12 +174,12 @@ export function HomePage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { num: '01', title: 'Search & compare', desc: 'Filter by budget, locality and sharing.' },
-            { num: '02', title: 'Request a visit', desc: 'Pick a date. Owner confirms on call.' },
+            { num: '02', title: 'Request a visit', desc: 'Pick a date only — no time slot.' },
             { num: '03', title: 'Visit the room', desc: 'Check room, mess and washrooms.' },
-            { num: '04', title: 'Move in', desc: 'Pay deposit with receipt.' },
+            { num: '04', title: 'Move in', desc: 'Agree terms with owner directly.' },
           ].map(s => (
             <div key={s.num} className="bg-white rounded-2xl border border-slate-100 p-5 relative overflow-hidden">
-              <span className="absolute top-4 right-4 text-3xl font-bold text-slate-100">{s.num}</span>
+              <span className="absolute top-4 right-4 text-3xl font-bold text-slate-100" aria-hidden>{s.num}</span>
               <div className="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center mb-3 text-slate-600"><Check className="w-4 h-4" /></div>
               <h3 className="font-semibold text-slate-900 text-sm">{s.title}</h3>
               <p className="mt-1 text-xs text-slate-500">{s.desc}</p>
