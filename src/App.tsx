@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import { Layout } from './components/layout/Layout';
 import { HomePage } from './pages/HomePage';
+import { ExplorePage } from './pages/ExplorePage';
 import { HostelDetailPage } from './pages/HostelDetailPage';
 import { LoginPage } from './pages/LoginPage';
 import { FavouritesPage } from './pages/FavouritesPage';
@@ -18,6 +19,7 @@ export default function App() {
         <Routes>
           <Route element={<Layout />}>
             <Route path="/" element={<HomePage />} />
+            <Route path="/explore" element={<ExplorePage />} />
             <Route path="/hostel/:id" element={<HostelDetailPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/favourites" element={<FavouritesPage />} />
