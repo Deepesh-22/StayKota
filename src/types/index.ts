@@ -56,9 +56,9 @@ export interface VisitRequest {
   hostelName: string;
   roomTypeId?: string;
   roomTypeName?: string;
-  visitDate: string; // YYYY-MM-DD only
+  visitDate: string;
   message?: string;
-  status: 'confirmed'; // frontend simulation always confirmed
+  status: 'confirmed' | 'cancelled';
   createdAt: string;
 }
 

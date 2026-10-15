@@ -6,6 +6,7 @@ import { ExplorePage } from './pages/ExplorePage';
 import { HostelDetailPage } from './pages/HostelDetailPage';
 import { LoginPage } from './pages/LoginPage';
 import { FavouritesPage } from './pages/FavouritesPage';
+import { StudentDashboard } from './pages/StudentDashboard';
 import { VisitsPage } from './pages/VisitsPage';
 import { OwnerDashboard } from './pages/OwnerDashboard';
 import { AdminPage } from './pages/AdminPage';
@@ -22,6 +23,7 @@ export default function App() {
             <Route path="/explore" element={<ExplorePage />} />
             <Route path="/hostel/:id" element={<HostelDetailPage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/dashboard" element={<StudentDashboard />} />
             <Route path="/favourites" element={<FavouritesPage />} />
             <Route path="/visits" element={<VisitsPage />} />
             <Route path="/owner" element={<OwnerDashboard />} />
