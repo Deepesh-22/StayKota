@@ -204,3 +204,21 @@ test('coaching radius filters stay consistent across map layers and city reset',
   await expect(page.locator('.city-stay')).toHaveCount(7);
   await expect(page.getByRole('button', { name: 'Satellite', exact: true })).toHaveAttribute('aria-pressed', 'true');
 });
+
+test('2D and 3D perspective controls are separate from imagery and explain the embed limit', async ({ page }) => {
+  await stubGoogleFrame(page);
+  await page.goto('/map?campus=allen-talwandi&radius=1&hostel=h1&view=3d');
+  const flat = page.getByRole('button', { name: '2D', exact: true });
+  const tilted = page.getByRole('button', { name: '3D tilt', exact: true });
+  await expect(flat).toHaveAttribute('aria-pressed', 'true');
+  await expect(tilted).toBeDisabled();
+  await expect(page.locator('#city-perspective-help')).toContainText('3D tilt requires');
+  await page.getByRole('button', { name: 'Satellite', exact: true }).click();
+  await expect(flat).toHaveAttribute('aria-pressed', 'true');
+  await expect(tilted).toBeDisabled();
+  await flat.click();
+  await expect(page).not.toHaveURL(/view=3d/);
+  await expect(page).toHaveURL(/hostel=h1/);
+  await expect(page).toHaveURL(/radius=1/);
+  await expect(page.getByTitle('Google map of the whole city of Kota')).toHaveAttribute('src', /t=k/);
+});

@@ -4,13 +4,14 @@ import {
   AdvancedMarker,
   APILoadingStatus,
   Map,
+  RenderingType,
   useApiLoadingStatus,
   useMap,
 } from '@vis.gl/react-google-maps';
 import { GraduationCap } from 'lucide-react';
 import { CAMPUSES } from '../../data/campuses';
 import { monthlyTotal } from '../../lib/discovery';
-import { CITY_TARGET, validCoordinates, type CityMapType, type MapTarget } from '../../lib/maps';
+import { CITY_TARGET, validCoordinates, type CityMapType, type MapTarget, type MapPerspective } from '../../lib/maps';
 import type { GoogleCityMapProps } from './GoogleCityMap';
 
 function Camera({ target }: { target: MapTarget }) {
@@ -18,6 +19,31 @@ function Camera({ target }: { target: MapTarget }) {
   useEffect(() => {
     if (map) map.moveCamera({ center: { lat: target.lat, lng: target.lng }, zoom: target.zoom });
   }, [map, target.id, target.lat, target.lng, target.zoom]);
+  return null;
+}
+/** Perspective changes adjust only the angle; selecting a listing still controls the centre. */
+function Perspective({ perspective, onAvailable }: {
+  perspective: MapPerspective;
+  onAvailable?: (available: boolean) => void;
+}) {
+  const map = useMap();
+  useEffect(() => {
+    if (!map) return;
+    const update = () => onAvailable?.(map.getRenderingType() === google.maps.RenderingType.VECTOR);
+    update();
+    const listener = map.addListener('renderingtype_changed', update);
+    return () => { listener.remove(); onAvailable?.(false); };
+  }, [map, onAvailable]);
+  useEffect(() => {
+    if (!map) return;
+    const update = () => {
+      const tilted = perspective === '3d' && map.getRenderingType() === google.maps.RenderingType.VECTOR;
+      map.moveCamera({ tilt: tilted ? 45 : 0, heading: 0 });
+    };
+    update();
+    const listener = map.addListener('renderingtype_changed', update);
+    return () => listener.remove();
+  }, [map, perspective]);
   return null;
 }
 function CampusRadius({ campus, radiusKm }: { campus: GoogleCityMapProps['campus']; radiusKm?: number }) {
@@ -68,6 +94,8 @@ export default function GoogleMapSDK({
   onUnavailable,
   radiusKm,
   activeCampusId,
+  perspective = '2d',
+  on3DAvailabilityChange,
 }: Props) {
   const selectedCampusId = activeCampusId ?? (onCampusSelect ? undefined : campus.id);
   return (
@@ -78,6 +106,10 @@ export default function GoogleMapSDK({
         defaultZoom={CITY_TARGET.zoom}
         mapId={import.meta.env.VITE_GOOGLE_MAPS_MAP_ID?.trim() || 'DEMO_MAP_ID'}
         mapTypeId={mapType}
+        renderingType={RenderingType.VECTOR}
+        tiltInteractionEnabled={perspective === '3d'}
+        headingInteractionEnabled={perspective === '3d'}
+        rotateControl={perspective === '3d'}
         gestureHandling="greedy"
         fullscreenControl
         streetViewControl
@@ -88,6 +120,7 @@ export default function GoogleMapSDK({
         style={{ width: '100%', height: '100%' }}
       >
         <Camera target={target} />
+        <Perspective perspective={perspective} onAvailable={on3DAvailabilityChange} />
         <CampusRadius campus={campus} radiusKm={radiusKm} />
         {CAMPUSES.map((c) => (
           <AdvancedMarker

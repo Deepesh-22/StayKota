@@ -3,6 +3,7 @@ import { distanceKm } from './discovery';
 /** City-wide starting view; panning is deliberately not restricted to a rectangle. */
 export const KOTA_VIEW = { lat: 25.183, lng: 75.839, zoom: 12 };
 export type CityMapType = 'roadmap' | 'satellite';
+export type MapPerspective = '2d' | '3d';
 export interface MapTarget {
   lat: number;
   lng: number;

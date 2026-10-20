@@ -36,6 +36,7 @@ export function KotaMapPage() {
   const query = params.get('q') || '';
   const [search, setSearch] = useState(query);
   const [notice, setNotice] = useState('');
+  const [supports3D, setSupports3D] = useState(false);
   const [showStays, setShowStays] = useState(false);
   const [revision, setRevision] = useState(0);
   const sidebar = useRef<HTMLElement>(null);
@@ -89,6 +90,7 @@ export function KotaMapPage() {
   const category = ['boys', 'girls', 'co-ed'].includes(params.get('category') || '')
     ? params.get('category')!
     : '';
+  const perspective = supports3D && params.get('view') === '3d' ? '3d' : '2d';
   const mapType: CityMapType = params.get('type') === 'satellite' ? 'satellite' : 'roadmap';
   const activeCampus = CAMPUSES.find(c => c.id === params.get('campus'));
   const radius = activeCampus && [1, 3, 5].includes(Number(params.get('radius')))
@@ -402,6 +404,13 @@ export function KotaMapPage() {
                 Satellite
               </button>
             </div>
+            <div className="city-layer-toggle city-perspective-toggle" role="group" aria-label="Map perspective">
+              <button type="button" aria-pressed={perspective === '2d'}
+                onClick={() => update({ view: null })}>2D</button>
+              <button type="button" aria-pressed={perspective === '3d'} disabled={!supports3D}
+                aria-describedby="city-perspective-help"
+                onClick={() => update({ view: '3d' })}>3D tilt</button>
+            </div>
             <button
               type="button"
               className="city-fullscreen"
@@ -448,6 +457,8 @@ export function KotaMapPage() {
               search={query}
               radiusKm={radius}
               activeCampusId={activeCampus?.id}
+              perspective={perspective}
+              on3DAvailabilityChange={setSupports3D}
             />
           </div>
           {selected && (
@@ -475,7 +486,8 @@ export function KotaMapPage() {
               </button>
             </div>
           )}
-          <p className="city-map-caption">
+          <p className="city-map-caption" id="city-perspective-help">
+            {supports3D ? '2D is flat; 3D tilt changes the viewing angle. Detailed 3D buildings depend on local coverage. ' : '3D tilt requires a configured Google vector map and a supported browser. '}
             Pan and zoom freely to explore Kota’s roads, neighbourhoods and landmarks. Hostel pins
             use sample coordinates.
           </p>

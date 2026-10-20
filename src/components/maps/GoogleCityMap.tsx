@@ -8,6 +8,7 @@ import {
   googleExternalUrl,
   type CityMapType,
   type MapTarget,
+  type MapPerspective,
 } from '../../lib/maps';
 import '../../styles/google-map.css';
 
@@ -27,6 +28,8 @@ export interface GoogleCityMapProps {
   search?: string;
   radiusKm?: number;
   activeCampusId?: string;
+  perspective?: MapPerspective;
+  on3DAvailabilityChange?: (available: boolean) => void;
 }
 export function GoogleCityMap(props: GoogleCityMapProps) {
   const { target = CITY_TARGET, mapType = 'roadmap', search = '' } = props;
@@ -39,6 +42,10 @@ export function GoogleCityMap(props: GoogleCityMapProps) {
   const unavailable = useCallback(() => setFailed(true), []);
   const isSDK = !!apiKey && !failed && !search.trim();
   const source = googleEmbedUrl(target, mapType, search);
+  const on3DAvailabilityChange = props.on3DAvailabilityChange;
+  useEffect(() => {
+    if (!isSDK) on3DAvailabilityChange?.(false);
+  }, [isSDK, on3DAvailabilityChange]);
   useEffect(() => {
     const node = container.current;
     if (!node) return;
