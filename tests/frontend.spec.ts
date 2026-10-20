@@ -127,7 +127,7 @@ test('city place search, campus and sample stay selection update Google view', a
   await stubGoogleFrame(page);
   await page.goto('/map');
   const frame = page.getByTitle('Google map of the whole city of Kota');
-  await page.getByLabel('Search an area, road or landmark in Kota').fill('Chambal Garden');
+  await page.getByLabel('Search a hostel, coaching or locality').fill('Chambal Garden');
   await page.getByRole('button', { name: 'Search', exact: true }).click();
   await expect(page).toHaveURL(/q=Chambal/);
   await expect(frame).toHaveAttribute('src', /Chambal/);
@@ -308,5 +308,42 @@ test('major demo coaching options include multiple ALLEN campuses, Vibrant and P
     await campuses.selectOption(id);
     await expect(page).toHaveURL(new RegExp(`campus=${id}`));
   }
-  await expect(page.locator('.google-city-map__fallback')).toContainText('hidden shop/temple labels require');
+  await expect(page.locator('.google-city-map__fallback')).toContainText('interactive map’s API key');
+});
+
+test('map location button starts, recentres and stops the same live location watch', async ({ page }) => {
+  await stubGoogleFrame(page);
+  await mockLiveLocation(page);
+  await page.goto('/map');
+  const locate = page.getByRole('button', { name: 'Use my current location on map', exact: true });
+  await expect(locate).toBeVisible();
+  await expect(locate).toHaveAttribute('aria-pressed', 'false');
+  await locate.click();
+  const centre = page.getByRole('button', { name: 'Centre map on my current location', exact: true });
+  await expect(centre).toHaveAttribute('aria-pressed', 'true');
+  await expect(centre).toHaveClass(/is-active/);
+  await expect(page.locator('.city-location-bar')).toContainText('Live location on');
+  await page.getByRole('button', { name: 'Show Comfort Stay Hostel on map' }).click();
+  await expect(page).toHaveURL(/hostel=h1/);
+  await centre.click();
+  await expect(page).not.toHaveURL(/hostel=/);
+  await expect(page.getByTitle('Google map of the whole city of Kota')).toHaveAttribute('src', /25.146%2C75.852/);
+  expect(await page.evaluate(() => (window as LocationMockWindow).__liveLocationMock.starts)).toBe(1);
+  await page.getByRole('button', { name: 'Turn off current location on map', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Use my current location on map', exact: true })).toHaveAttribute('aria-pressed', 'false');
+  expect(await page.evaluate(() => (window as LocationMockWindow).__liveLocationMock.stops)).toBe(1);
+});
+
+test('search selects our demo coaching and hostel pins instead of opening Google POIs', async ({ page }) => {
+  await stubGoogleFrame(page);
+  await page.goto('/map');
+  const search = page.getByLabel('Search a hostel, coaching or locality', { exact: true });
+  await search.fill('PW');
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
+  await expect(page).toHaveURL(/campus=pw-demo/);
+  await expect(page).not.toHaveURL(/q=/);
+  await search.fill('Comfort Stay');
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
+  await expect(page).toHaveURL(/hostel=h1/);
+  await expect(page).not.toHaveURL(/q=/);
 });

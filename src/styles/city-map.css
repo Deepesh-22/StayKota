@@ -644,3 +644,10 @@
 .city-location-bar button:disabled { opacity:.6; }
 .city-location-bar p { width:100%; color:#924b36; line-height:1.6; }
 @media(max-width:600px) { .city-location-bar { padding:8px 12px; font-size:10px; gap:8px; } .city-location-bar>span { flex:1; min-width:140px; } }
+
+.city-map-location-controls { position:absolute; right:12px; bottom:200px; z-index:8; display:grid; gap:6px; }
+.city-map-location-controls button { display:grid; place-items:center; width:44px; height:44px; border-radius:7px; background:#fff; color:#56615d; border:1px solid #d4dcd5; box-shadow:0 2px 7px #173b3526; }
+.city-map-location-controls button:hover { background:#f2f6ef; }
+.city-map-location-controls .is-active { color:#1a73e8; border-color:#a2c5f5; background:#eff6ff; }
+.city-map-location-controls button:disabled { cursor:wait; opacity:.7; }
+.city-map-location-controls .city-map-stop-location { height:32px; }

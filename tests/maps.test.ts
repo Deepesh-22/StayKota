@@ -1,3 +1,4 @@
+import { groupMapPins, type StudentMapPin } from '../src/lib/map-clusters';
 import { CAMPUSES } from '../src/data/campuses';
 import { describe, expect, it } from 'vitest';
 import { CITY_TARGET, googleEmbedUrl, googleExternalUrl, validCoordinates, nearestCampus, campusDistance, withinCampusRadius } from '../src/lib/maps';
@@ -67,5 +68,31 @@ describe('student location proximity', () => {
     expect(withinCampusRadius({ latitude: 25.148, longitude: 75.852 }, origin, 1)).toBe(true);
     expect(withinCampusRadius({ latitude: 25.216, longitude: 75.855 }, origin, 1)).toBe(false);
     expect(withinCampusRadius({ latitude: 25.148, longitude: 75.852 }, { latitude: 28.61, longitude: 77.2 }, 5)).toBe(false);
+  });
+});
+
+describe('zoom-aware student map pins', () => {
+  const pins: StudentMapPin[] = [
+    { id: 'h1', kind: 'hostel', latitude: 25.148, longitude: 75.852 },
+    { id: 'allen', kind: 'campus', latitude: 25.146, longitude: 75.852 },
+    { id: 'pw', kind: 'campus', latitude: 25.15, longitude: 75.854 },
+    { id: 'h2', kind: 'hostel', latitude: 25.216, longitude: 75.855 },
+  ];
+  it('groups nearby hostels and coaching pins at city zoom without losing any', () => {
+    const groups = groupMapPins(pins, 12);
+    expect(groups.some(group => group.pins.some(p => p.kind === 'hostel') && group.pins.some(p => p.kind === 'campus'))).toBe(true);
+    expect(groups.flatMap(group => group.pins.map(p => p.id)).sort()).toEqual(pins.map(p => p.id).sort());
+    expect(groups).toEqual(groupMapPins([...pins].reverse(), 12));
+  });
+  it('reveals individual pins on zoom in and keeps a selected hostel separate at every zoom', () => {
+    expect(groupMapPins(pins, 19)).toHaveLength(4);
+    const selected = groupMapPins(pins, 10, ['h1']).find(group => group.pins.some(p => p.id === 'h1'))!;
+    expect(selected.pins.map(p => p.id)).toEqual(['h1']);
+  });
+  it('does not invent pins for invalid coordinates or count duplicates after regrouping', () => {
+    const invalid = { id: 'missing', kind: 'hostel' as const, latitude: NaN, longitude: 75 };
+    expect(groupMapPins([invalid], 12)).toEqual([]);
+    expect(groupMapPins(pins, 8).flatMap(group => group.pins)).toHaveLength(pins.length);
+    expect(groupMapPins(pins, 19).flatMap(group => group.pins)).toHaveLength(pins.length);
   });
 });

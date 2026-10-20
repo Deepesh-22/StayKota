@@ -42,7 +42,7 @@ export function GoogleCityMap(props: GoogleCityMapProps) {
   const [visible, setVisible] = useState(false);
   const container = useRef<HTMLDivElement>(null);
   const unavailable = useCallback(() => setFailed(true), []);
-  const isSDK = !!apiKey && !failed && !search.trim();
+  const isSDK = !!apiKey && !failed;
   const source = googleEmbedUrl(target, mapType, search);
   const on3DAvailabilityChange = props.on3DAvailabilityChange;
   useEffect(() => {
@@ -132,7 +132,7 @@ export function GoogleCityMap(props: GoogleCityMapProps) {
       )}
       {!isSDK && !failed && (
         <p className="google-city-map__fallback" role="status">
-          {search.trim() ? 'Google place search view. Clear the search to return to StayKota pins.' : 'City map preview. Custom pins and hidden shop/temple labels require the configured interactive map.'}
+          Preview only: Google’s shops and other places are still visible here. Custom hostel/coaching pins and hidden place labels require the interactive map’s API key.
         </p>
       )}
       {failed && (

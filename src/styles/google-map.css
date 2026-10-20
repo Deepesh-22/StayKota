@@ -198,3 +198,16 @@
 .google-campus-pin:not(.is-selected)>span { display:none; }
 .google-campus-pin:hover>span,.google-campus-pin:focus-visible>span { display:block; }
 .google-campus-pin:focus-visible,.google-hostel-pin:focus-visible { outline:3px solid #bf8052; outline-offset:3px; }
+
+.google-hostel-pin { display:flex; align-items:center; gap:5px; min-height:40px; border:2px solid #51785c; box-shadow:0 3px 12px #173b3540; }
+.google-campus-pin { min-width:42px; min-height:42px; border:2px solid #255d48; background:#255d48; color:#fffef2; border-radius:12px; box-shadow:0 3px 12px #173b3540; white-space:nowrap; }
+.google-campus-pin:not(.is-selected)>span { display:block; }
+.google-campus-pin:not(.is-selected) small { display:none; }
+.google-campus-pin:hover small,.google-campus-pin:focus-visible small { display:block; }
+.google-pin-group { position:relative; display:grid; justify-items:center; gap:2px; min-width:66px; padding:8px 11px; border:3px solid white; border-radius:18px; background:#155b49; color:#fffdf3; box-shadow:0 3px 14px #173b3550; cursor:pointer; white-space:nowrap; }
+.google-pin-group strong { font-size:20px; line-height:1.1; }
+.google-pin-group span { display:flex; align-items:center; gap:5px; }
+.google-pin-group small { font-size:10px; }
+.google-pin-group:focus-visible { outline:3px solid #bf8052; outline-offset:3px; }
+.google-hostel-pin::after,.google-campus-pin::after,.google-pin-group::after { content:''; position:absolute; bottom:-7px; left:calc(50% - 6px); border-left:6px solid transparent; border-right:6px solid transparent; border-top:7px solid #255d48; }
+.google-hostel-pin::after { border-top-color:#51785c; }

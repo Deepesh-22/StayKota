@@ -102,6 +102,7 @@ export function KotaMapPage() {
     ? Number(params.get('radius')) : location ? 3 : undefined;
   const items = hostels
     .filter((h) => h.status === 'approved' && (!category || h.category === category))
+    .filter(h => !query || `${h.name} ${h.locality}`.toLowerCase().includes(query.toLowerCase()))
     .filter(h => !radius || (origin && withinCampusRadius(h, origin, radius)))
     .flatMap((hostel) => {
       const room = getMatchingRooms(hostel, { sharing, maxBudget: budget })[0];
@@ -140,8 +141,19 @@ export function KotaMapPage() {
   const submitSearch = (event: FormEvent) => {
     event.preventDefault();
     live.stop();
-    update({ q: search.trim().slice(0, 180) || null, hostel: null, campus: null });
+    const term = search.trim().slice(0, 180);
+    const normalized = term.toLowerCase();
+    const hostelMatch = term && hostels.find(h => h.status === 'approved' && h.name.toLowerCase().includes(normalized));
+    const campusMatch = term && CAMPUSES.find(c => `${c.institute} ${c.name} ${c.area}`.toLowerCase().includes(normalized));
+    if (hostelMatch) update({ q: null, hostel: hostelMatch.id, campus: null, radius: null });
+    else if (campusMatch) update({ q: null, hostel: null, campus: campusMatch.id });
+    else update({ q: term || null, hostel: null, campus: null });
     setShowStays(false);
+  };
+  const locate = () => {
+    setShowStays(false);
+    if (location) { update({ hostel: null, q: null }); setRevision(n => n + 1); }
+    else { live.start(); update({ campus: null, hostel: null, q: null, radius: '3' }); }
   };
   const fullscreen = async () => {
     try {
@@ -168,11 +180,11 @@ export function KotaMapPage() {
         <form className="city-search" onSubmit={submitSearch}>
           <Search size={17} />
           <label className="sr-only" htmlFor="city-search">
-            Search an area, road or landmark in Kota
+            Search a hostel, coaching or locality
           </label>
           <input
             id="city-search"
-            placeholder="Search an area, road or landmark"
+            placeholder="Search a hostel, coaching or locality"
             value={search}
             maxLength={180}
             onChange={(e) => setSearch(e.target.value)}
@@ -218,10 +230,7 @@ export function KotaMapPage() {
         </div>
       </div>
       <div className="city-location-bar">
-        <button type="button" onClick={() => {
-          if (location) { update({ hostel: null, q: null }); setRevision(n => n + 1); }
-          else { live.start(); update({ campus: null, hostel: null, q: null, radius: '3' }); }
-        }} disabled={live.pending}>
+        <button type="button" onClick={locate} disabled={live.pending}>
           <LocateFixed size={16} /> {live.pending ? 'Locating…' : location ? 'Centre on me' : 'Use my location'}
         </button>
         {live.tracking && <button type="button" onClick={live.stop}>Stop location</button>}
@@ -456,7 +465,7 @@ export function KotaMapPage() {
             <div className="city-search-context">
               <Search size={13} />
               <span>
-                Google place search: <strong>{query}</strong>
+                StayKota search: <strong>{query}</strong>
               </span>
               <button
                 type="button"
@@ -468,6 +477,15 @@ export function KotaMapPage() {
             </div>
           )}
           <div className="city-map-surface">
+            <div className="city-map-location-controls" role="group" aria-label="Current location map controls">
+              <button type="button" className={`city-map-locate${live.tracking ? ' is-active' : ''}`}
+                aria-label={location ? 'Centre map on my current location' : 'Use my current location on map'}
+                title={live.pending ? 'Finding your location…' : location ? 'Centre on your current location' : 'Show your current location'}
+                aria-pressed={live.tracking} aria-busy={live.pending} disabled={live.pending} onClick={locate}>
+                <LocateFixed size={22} className={live.pending ? 'animate-pulse' : undefined}/>
+              </button>
+              {live.tracking && <button type="button" className="city-map-stop-location" aria-label="Turn off current location on map" title="Turn off location" onClick={live.stop}><X size={17}/></button>}
+            </div>
             <GoogleCityMap
               campus={campus}
               items={items}

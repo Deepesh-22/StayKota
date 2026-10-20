@@ -9,9 +9,8 @@ import {
 } from '@vis.gl/react-google-maps';
 import { MapPinOverlay } from './MapPinOverlay';
 import { GraduationCap } from 'lucide-react';
-import { CAMPUSES } from '../../data/campuses';
-import { monthlyTotal } from '../../lib/discovery';
-import { CITY_TARGET, STUDENT_MAP_STYLES, validCoordinates, type CityMapType, type MapTarget, type MapPerspective } from '../../lib/maps';
+import { StudentMapPins } from './StudentMapPins';
+import { CITY_TARGET, STUDENT_MAP_STYLES, type CityMapType, type MapTarget, type MapPerspective } from '../../lib/maps';
 import type { GoogleCityMapProps } from './GoogleCityMap';
 
 function Camera({ target }: { target: MapTarget }) {
@@ -98,7 +97,6 @@ export default function GoogleMapSDK({
   on3DAvailabilityChange,
   userLocation,
 }: Props) {
-  const selectedCampusId = activeCampusId ?? (onCampusSelect ? undefined : campus.id);
   return (
     <APIProvider apiKey={apiKey} language="en" region="IN" onError={onUnavailable}>
       <LoadState onUnavailable={onUnavailable} />
@@ -129,39 +127,11 @@ export default function GoogleMapSDK({
           </MapPinOverlay>
           <CampusRadius campus={userLocation} radiusKm={Math.max(0, userLocation.accuracy) / 1000} />
         </>}
-        {CAMPUSES.map((c) => (
-          <MapPinOverlay
-            key={c.id}
-            lat={c.latitude} lng={c.longitude}
-            zIndex={c.id === selectedCampusId ? 10 : 5}
-          >
-            <button type="button" title={`${c.institute} ${c.name} — sample campus pin`} aria-label={`Select ${c.institute} ${c.name} — demo campus`} onClick={() => onCampusSelect?.(c.id)} className={`google-campus-pin${c.id === selectedCampusId ? ' is-selected' : ''}`}>
-              <GraduationCap size={17} />
-              <span>
-                {c.institute}
-                <small>{c.name}</small>
-              </span>
-            </button>
-          </MapPinOverlay>
-        ))}
-        {items
-          .filter(({ hostel }) => validCoordinates(hostel.latitude, hostel.longitude))
-          .map(({ hostel, room }) => (
-            <MapPinOverlay
-              key={hostel.id}
-              lat={hostel.latitude!} lng={hostel.longitude!}
-              zIndex={selectedHostelId === hostel.id ? 20 : 1}
-            >
-              <button type="button" title={`${hostel.name} — demo hostel`} aria-label={`Select ${hostel.name} on map`} aria-pressed={selectedHostelId === hostel.id} onClick={() => onSelect(hostel.id)}
-                className={`google-hostel-pin${selectedHostelId === hostel.id ? ' is-selected' : ''}`}
-              >
-                ₹{monthlyTotal(room).toLocaleString('en-IN')}
-              </button>
-            </MapPinOverlay>
-          ))}
+        <StudentMapPins campus={campus} items={items} activeCampusId={activeCampusId}
+          selectedHostelId={selectedHostelId} onSelect={onSelect} onCampusSelect={onCampusSelect} perspective={perspective}/>
       </Map>
       <div className="google-map-legend" aria-label="Map pin legend">
-        <span>₹ Hostel · monthly cost</span><span><GraduationCap size={14} /> Coaching campus</span>
+        <span>₹ Hostel · monthly cost</span><span>Numbered pins · click to zoom</span><span><GraduationCap size={14} /> Coaching campus</span>
         {userLocation && <span style={{ color: '#287ae4' }}>● Your location</span>}
         {radiusKm && <span>{radiusKm} km {userLocation ? 'near you' : 'coaching radius'}</span>}
       </div>
