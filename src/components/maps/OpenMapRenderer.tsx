@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Map, NavigationControl, ScaleControl, setWorkerUrl, type GeoJSONSource, type StyleSpecification } from 'maplibre-gl';
 import mapWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { useSatelliteLayer } from '../../hooks/useSatelliteLayer';
+import { SATELLITE_SOURCE_ID } from '../../lib/satellite-map';
 import { CITY_TARGET } from '../../lib/maps';
 import { OPEN_MAP_STYLE_URL, radiusPolygon, studentMapStyle } from '../../lib/open-map-style';
 import { CityMapContext } from './MapContext';
@@ -11,7 +13,7 @@ import type { KotaMapProps } from './KotaMap';
 
 setWorkerUrl(mapWorkerUrl);
 
-export default function OpenMapRenderer({ target = CITY_TARGET, perspective = '2d', userLocation, radiusKm, on3DAvailabilityChange, ...props }: KotaMapProps) {
+export default function OpenMapRenderer({ target = CITY_TARGET, perspective = '2d', basemap = 'street', userLocation, radiusKm, on3DAvailabilityChange, ...props }: KotaMapProps) {
   const container = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<Map | null>(null);
   const [ready, setReady] = useState(false);
@@ -46,7 +48,8 @@ export default function OpenMapRenderer({ target = CITY_TARGET, perspective = '2
           if (cancelled) return;
           clearTimeout(timer); setReady(true); availability.current?.(true);
         });
-        instance.on('error', () => {
+        instance.on('error', event => {
+          if ('sourceId' in event && event.sourceId === SATELLITE_SOURCE_ID) return;
           if (!cancelled) setError('Some map data could not load. Check your connection or retry. Hostel and coaching pins remain available.');
         });
         timer = setTimeout(() => { if (!cancelled) setError('Map data is taking longer than expected. Check your connection or retry.'); }, 15000);
@@ -89,10 +92,15 @@ export default function OpenMapRenderer({ target = CITY_TARGET, perspective = '2
       map.addLayer({ id: 'staykota-radius-line', type: 'line', source: 'staykota-radii', paint: { 'line-color': ['get', 'color'], 'line-width': 2 } });
     }
   }, [map, ready, props.campus.latitude, props.campus.longitude, radiusKm, userLocation]);
-  return <div className="student-city-map" data-map-mode="maplibre" data-target={`${target.lat},${target.lng}`} data-perspective={perspective}>
+  const satellite = useSatelliteLayer(map, ready, basemap);
+  return <div className="student-city-map" data-basemap={basemap} data-imagery-state={satellite.state} data-map-mode="maplibre" data-target={`${target.lat},${target.lng}`} data-perspective={perspective}>
     <div className="student-city-map__canvas" ref={container} role="region" aria-label="Interactive OpenStreetMap of Kota"/>
     {!ready && !error && <div className="student-city-map__loading" role="status">Loading Kota map…</div>}
     {error && <div className="student-city-map__error" role="alert">{error} <button type="button" onClick={() => setRevision(n => n + 1)}>Retry map</button></div>}
+    {basemap === 'satellite' && satellite.state === 'loading' && <div className="student-satellite-notice" role="status">Loading satellite imagery…</div>}
+    {basemap === 'satellite' && satellite.state === 'error' && <div className="student-satellite-notice is-error" role="alert">
+      Satellite imagery could not load. Showing the street map. <button type="button" onClick={satellite.retry}>Retry satellite</button>
+    </div>}
     {map && <CityMapContext.Provider value={map}>
       <StudentMapPins {...props} perspective={perspective}/>
       {userLocation && <MapPinOverlay lat={userLocation.latitude} lng={userLocation.longitude} zIndex={40}><span className="student-location-pin" role="img" aria-label="Your current location"/></MapPinOverlay>}

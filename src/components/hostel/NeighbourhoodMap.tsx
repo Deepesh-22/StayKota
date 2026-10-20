@@ -5,6 +5,8 @@ import type { Hostel, RoomType } from '../../types';
 import type { Campus } from '../../data/campuses';
 import { distanceKm, formatDistance, monthlyTotal } from '../../lib/discovery';
 import { CITY_TARGET, validCoordinates, type MapTarget } from '../../lib/maps';
+import { MapLayerToggle } from '../maps/MapLayerToggle';
+import type { MapBasemap } from '../../lib/satellite-map';
 import { KotaMap } from '../maps/KotaMap';
 export interface MappedHostel {
   hostel: Hostel;
@@ -17,6 +19,7 @@ interface Props {
   onActivate: (id: string) => void;
 }
 export function NeighbourhoodMap({ campus, items, activeHostelId, onActivate }: Props) {
+  const [basemap, setBasemap] = useState<MapBasemap>('street');
   const [target, setTarget] = useState<MapTarget>(CITY_TARGET);
   const selected = items.find(({ hostel }) => hostel.id === activeHostelId);
   const select = (id: string) => {
@@ -36,6 +39,7 @@ export function NeighbourhoodMap({ campus, items, activeHostelId, onActivate }: 
           Explore the whole city <ArrowUpRight size={13} />
         </Link>
       </div>
+      <div className="student-compact-layer"><MapLayerToggle basemap={basemap} onChange={setBasemap}/></div>
       <div className="student-map-panel__viewport">
         <KotaMap
           campus={campus}
@@ -43,6 +47,7 @@ export function NeighbourhoodMap({ campus, items, activeHostelId, onActivate }: 
           selectedHostelId={activeHostelId}
           onSelect={select}
           target={target}
+          basemap={basemap}
         />
       </div>
       {selected && (

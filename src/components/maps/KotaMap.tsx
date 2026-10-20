@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { LiveLocation } from '../../hooks/useLiveLocation';
 import type { Campus } from '../../data/campuses';
 import type { Hostel, RoomType } from '../../types';
+import type { MapBasemap } from '../../lib/satellite-map';
 import type { MapTarget, MapPerspective } from '../../lib/maps';
 import '../../styles/student-map.css';
 const OpenMapRenderer = lazy(() => import('./OpenMapRenderer'));
@@ -10,6 +11,7 @@ export interface KotaMapProps {
   campus: Campus; items: MapHostel[]; selectedHostelId?: string | null;
   onSelect: (id: string) => void; onCampusSelect?: (id: string) => void;
   target?: MapTarget; radiusKm?: number; activeCampusId?: string;
+  basemap?: MapBasemap;
   perspective?: MapPerspective; userLocation?: LiveLocation | null;
   on3DAvailabilityChange?: (available: boolean) => void;
 }

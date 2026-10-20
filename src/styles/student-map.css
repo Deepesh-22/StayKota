@@ -179,3 +179,11 @@
 .student-city-map .maplibregl-ctrl-attrib { font-size:10px; }
 
 .student-map-mount { width:100%; height:100%; min-height:inherit; position:relative; }
+
+.student-layer-toggle { display:inline-flex; padding:3px; border:1px solid #d9e3d1; border-radius:7px; background:#fffdf7; gap:2px; flex-shrink:0; }
+.student-layer-toggle button { display:flex; align-items:center; gap:5px; padding:7px 9px; border-radius:4px; font-size:10px; color:#71856b; white-space:nowrap; }
+.student-layer-toggle button[aria-pressed='true'] { background:#1f6048; color:white; }
+.student-compact-layer { padding:0 12px 10px; }
+.student-satellite-notice { position:absolute; left:14px; top:14px; right:70px; z-index:6; padding:10px 12px; border-radius:8px; background:#fffdf3; color:#586b50; font-size:11px; border:1px solid #d9e3d1; }
+.student-satellite-notice.is-error { color:#845338; background:#fff8e9; }
+.student-satellite-notice button { color:#087b68; text-decoration:underline; margin-left:5px; }

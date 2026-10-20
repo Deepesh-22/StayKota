@@ -1,3 +1,4 @@
+import { satelliteSource, SATELLITE_TILE_URL } from '../src/lib/satellite-map';
 import { OPEN_MAP_STYLE_URL, studentMapStyle, radiusPolygon } from '../src/lib/open-map-style';
 import type { StyleSpecification } from 'maplibre-gl';
 import { groupMapPins, type StudentMapPin } from '../src/lib/map-clusters';
@@ -93,5 +94,23 @@ describe('zoom-aware student map pins', () => {
     expect(groupMapPins([invalid], 12)).toEqual([]);
     expect(groupMapPins(pins, 8).flatMap(group => group.pins)).toHaveLength(pins.length);
     expect(groupMapPins(pins, 19).flatMap(group => group.pins)).toHaveLength(pins.length);
+  });
+});
+
+
+describe('satellite source', () => {
+  it('uses the ArcGIS z/y/x tile ordering and retains provider attribution without a key', () => {
+    const source = satelliteSource('Imagery contributor');
+    expect(source.type).toBe('raster');
+    expect(SATELLITE_TILE_URL).toContain('/tile/{z}/{y}/{x}');
+    expect(source.tiles).toEqual([SATELLITE_TILE_URL]);
+    expect(source.attribution).toContain('Esri');
+    expect(source.attribution).toContain('Imagery contributor');
+    expect(new URL(SATELLITE_TILE_URL).search).toBe('');
+  });
+  it('treats remote credit text as text rather than inserting active HTML', () => {
+    const source = satelliteSource('<script>alert("credits")</script>');
+    expect(source.attribution).not.toContain('<script>');
+    expect(source.attribution).toContain('&lt;script&gt;');
   });
 });

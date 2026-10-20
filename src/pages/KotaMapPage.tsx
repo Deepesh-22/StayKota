@@ -24,6 +24,7 @@ import {
   validCoordinates,
   type MapTarget,
 } from '../lib/maps';
+import { MapLayerToggle } from '../components/maps/MapLayerToggle';
 import { KotaMap } from '../components/maps/KotaMap';
 import '../styles/city-map.css';
 
@@ -90,6 +91,7 @@ export function KotaMapPage() {
   const category = ['boys', 'girls', 'co-ed'].includes(params.get('category') || '')
     ? params.get('category')!
     : '';
+  const basemap = params.get('type') === 'satellite' ? 'satellite' : 'street';
   const perspective = supports3D && params.get('view') === '3d' ? '3d' : '2d';
   const activeCampus = CAMPUSES.find(c => c.id === params.get('campus'));
   const origin = location || activeCampus;
@@ -403,6 +405,7 @@ export function KotaMapPage() {
           aria-label="Interactive whole-city Kota map"
         >
           <div className="city-map-tools">
+            <MapLayerToggle basemap={basemap} onChange={value => update({ type: value === 'satellite' ? 'satellite' : null })}/>
             <div className="city-layer-toggle city-perspective-toggle" role="group" aria-label="Map perspective">
               <button type="button" aria-pressed={perspective === '2d'}
                 onClick={() => update({ view: null })}>2D</button>
@@ -465,6 +468,7 @@ export function KotaMapPage() {
               activeCampusId={activeCampus?.id}
               userLocation={location}
               perspective={perspective}
+              basemap={basemap}
               on3DAvailabilityChange={setSupports3D}
             />
           </div>
@@ -494,7 +498,7 @@ export function KotaMapPage() {
             </div>
           )}
           <p className="city-map-caption" id="city-perspective-help">
-            2D shows streets; 3D tilts the map. Zoom in for buildings where OpenStreetMap data is available.
+            2D is flat; 3D tilts the map. Zoom in for buildings where OpenStreetMap data is available.
             Only StayKota hostel/coaching pins are shown. Locations are demo data; distances are straight-line.
           </p>
         </section>

@@ -128,7 +128,7 @@ test('keyless MapLibre map renders real demo pins, attribution and 2D/3D control
   await page.getByRole('button', { name: '2D', exact: true }).click();
   await expect(page.locator('.student-city-map')).toHaveAttribute('data-perspective', '2d');
   await expect(page.locator('iframe')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Satellite', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Satellite', exact: true })).toHaveAttribute('aria-pressed', 'false');
   expect(googleRequests).toEqual([]);
 });
 
@@ -316,4 +316,76 @@ test('search selects our demo coaching and hostel pins instead of opening Google
   await page.getByRole('button', { name: 'Search', exact: true }).click();
   await expect(page).toHaveURL(/hostel=h1/);
   await expect(page).not.toHaveURL(/q=/);
+});
+
+
+// A tiny solid-colour PNG validates real raster decoding without claiming live satellite imagery.
+async function stubSatellite(page: Page, fail = false) {
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEElEQVR4nGNwi7cBIgYIBQAY0gOFjy4btgAAAABJRU5ErkJggg==', 'base64');
+  await page.route('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer?f=json', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ copyrightText: 'Test imagery contributor credits' }) }));
+  await page.route('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/**', route => fail
+    ? route.fulfill({ status: 503, body: 'Test imagery outage' }) : route.fulfill({ contentType: 'image/png', body: png }));
+}
+
+test('satellite imagery keeps the same map, selected hostel, filters, pitch and attribution', async ({ page }) => {
+  await stubOpenMapStyle(page); await stubSatellite(page);
+  await page.goto('/map?campus=allen-talwandi&radius=1&hostel=h1&view=3d');
+  const canvas = await page.locator('.maplibregl-canvas').elementHandle();
+  const compass = page.locator('.maplibregl-ctrl-compass .maplibregl-ctrl-icon');
+  await expect(compass).toHaveAttribute('style', /rotateX\(50deg\)/);
+  const selected = page.locator('.student-hostel-pin.is-selected');
+  await expect(selected).toBeVisible();
+  const before = (await selected.boundingBox())!;
+  await page.getByRole('button', { name: 'Satellite', exact: true }).click();
+  await expect(page.locator('.student-city-map')).toHaveAttribute('data-imagery-state', 'ready');
+  await expect(page).toHaveURL(/type=satellite/);
+  await expect(page).toHaveURL(/radius=1/);
+  await expect(page.locator('.city-selected')).toContainText('Comfort Stay');
+  await expect(compass).toHaveAttribute('style', /rotateX\(50deg\)/);
+  const after = (await selected.boundingBox())!;
+  expect(after.x).toBeCloseTo(before.x, 0); expect(after.y).toBeCloseTo(before.y, 0);
+  expect(await canvas!.evaluate(node => node.isConnected)).toBe(true);
+  await expect(page.locator('.maplibregl-ctrl-attrib-inner')).toContainText('Test imagery contributor credits');
+  await page.getByRole('button', { name: 'Map', exact: true }).click();
+  await expect(page.locator('.student-city-map')).toHaveAttribute('data-imagery-state', 'off');
+  await expect(selected).toBeVisible();
+  await expect(page).not.toHaveURL(/type=satellite/);
+  await expect(page.locator('.maplibregl-ctrl-attrib-inner')).not.toContainText('Test imagery contributor credits');
+});
+
+test('a satellite outage falls back to streets and retry recovers without dropping pins', async ({ page }) => {
+  await stubOpenMapStyle(page); await stubSatellite(page, true);
+  await page.goto('/map?type=satellite');
+  await expect(page.getByRole('alert')).toContainText('Satellite imagery could not load');
+  await expect(page.locator('.student-city-map')).toHaveAttribute('data-imagery-state', 'error');
+  await expect(page.locator('.student-pin-group').first()).toBeVisible();
+  await stubSatellite(page);
+  await page.getByRole('button', { name: 'Retry satellite', exact: true }).click();
+  await expect(page.locator('.student-city-map')).toHaveAttribute('data-imagery-state', 'ready');
+  await expect(page.locator('.student-pin-group').first()).toBeVisible();
+});
+
+test('satellite switching preserves the active location watch and current-location marker', async ({ page }) => {
+  await stubOpenMapStyle(page); await stubSatellite(page); await mockLiveLocation(page);
+  await page.goto('/map');
+  await page.getByRole('button', { name: 'Use my current location on map', exact: true }).click();
+  await expect(page.getByRole('img', { name: 'Your current location', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Satellite', exact: true }).click();
+  await expect(page.locator('.student-city-map')).toHaveAttribute('data-imagery-state', 'ready');
+  await expect(page.getByRole('img', { name: 'Your current location', exact: true })).toBeVisible();
+  await expect(page.locator('.city-location-bar')).toContainText('Live location on');
+  expect(await page.evaluate(() => (window as LocationMockWindow).__liveLocationMock.starts)).toBe(1);
+});
+
+test('the compact Explore map supports satellite without changing room results', async ({ page }) => {
+  await stubOpenMapStyle(page); await stubSatellite(page);
+  await page.goto('/explore?campus=allen-talwandi&sharing=double');
+  await expect(page.locator('.student-city-map')).toBeVisible();
+  const cards = await page.locator('.discovery-grid').textContent();
+  await page.getByRole('button', { name: 'Satellite', exact: true }).click();
+  await expect(page.locator('.student-city-map')).toHaveAttribute('data-imagery-state', 'ready');
+  expect(await page.locator('.discovery-grid').textContent()).toBe(cards);
+  await expect(page).toHaveURL(/sharing=double/);
+  await page.getByRole('button', { name: 'Map', exact: true }).click();
+  await expect(page.locator('.student-city-map')).toHaveAttribute('data-imagery-state', 'off');
 });
