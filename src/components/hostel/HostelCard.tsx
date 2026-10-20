@@ -6,6 +6,7 @@ import { useApp } from '../../context/AppContext';
 import { useCompare } from '../../context/CompareContext';
 import { distanceKm, formatDistance, getMatchingRooms, monthlyTotal } from '../../lib/discovery';
 import '../../styles/discovery.css';
+import { RoomCardStage } from './RoomCardStage';
 
 export interface HostelCardProps {
   hostel: Hostel;
@@ -59,10 +60,7 @@ export function HostelCard({ hostel, room, campus, onHover, compact = false }: H
       onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onHover?.(null); }}
     >
       <div className="discovery-card-photo">
-        <Link to={href} aria-label={`View rooms at ${hostel.name}`} tabIndex={-1}>
-          <img src={hostel.coverImage || '/images/room-shared.webp'} alt={`Room at ${hostel.name}`} loading="lazy" decoding="async"
-            onError={event => { const img = event.currentTarget; if (!img.src.endsWith('/images/room-shared.webp')) img.src = '/images/room-shared.webp'; }} />
-        </Link>
+        <RoomCardStage hostel={hostel} room={selectedRoom} href={href}/>
         <span className="discovery-card-category">{hostel.category === 'co-ed' ? 'Co-ed' : hostel.category === 'girls' ? 'For girls' : 'For boys'}</span>
         <button type="button" className={`discovery-save${saved ? ' is-saved' : ''}`} onClick={save} disabled={studentOnly} aria-pressed={saved}
           aria-label={studentOnly ? 'A student account is needed to save hostels' : `${saved ? 'Remove' : 'Save'} ${hostel.name}${saved ? ' from saved hostels' : ' to saved hostels'}`}

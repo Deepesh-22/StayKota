@@ -1,19 +1,23 @@
+import { useId } from 'react';
+
 /** A decorative room sketch. It is not a measured floor plan or a property tour. */
 export function RoomShowcase({ capacity }: { capacity: number }) {
+  const uid = useId().replace(/:/g, '');
+  const wallId = `room-wall-${uid}`, floorId = `room-floor-${uid}`;
   const beds = [[128, 144], [228, 175], [331, 154], [278, 118]].slice(0, Math.max(1, Math.min(capacity, 4)));
   return (
     <svg viewBox="0 0 600 280" aria-hidden="true" className="detail-room-scene__illustration">
       <defs>
-        <linearGradient id="room-wall" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#f4f0e2" /><stop offset="1" stopColor="#e2dac6" /></linearGradient>
-        <linearGradient id="room-floor" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#e4d8bb" /><stop offset="1" stopColor="#f2e8d1" /></linearGradient>
+        <linearGradient id={wallId} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#f4f0e2" /><stop offset="1" stopColor="#e2dac6" /></linearGradient>
+        <linearGradient id={floorId} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#e4d8bb" /><stop offset="1" stopColor="#f2e8d1" /></linearGradient>
       </defs>
       <ellipse cx="300" cy="238" rx="215" ry="19" fill="#355541" opacity=".07" />
       <g transform="translate(0 13)">
-        <path d="M70 144 280 80 520 150 310 230Z" fill="url(#room-floor)" />
+        <path d="M70 144 280 80 520 150 310 230Z" fill={`url(#${floorId})`} />
         <path d="M70 144 310 230 310 241 70 155Z" fill="#d0c5a8" />
         <path d="M310 230 520 150 520 161 310 241Z" fill="#bcad8c" />
         <path d="M70 144 70 64 280 0 280 80Z" fill="#ece7d8" />
-        <path d="M280 80 280 0 520 70 520 150Z" fill="url(#room-wall)" />
+        <path d="M280 80 280 0 520 70 520 150Z" fill={`url(#${wallId})`} />
         <path d="M70 64 78 66 280 5 280 0Z" fill="#fffdf3" />
         <path d="M280 0 520 70 512 74 280 6Z" fill="#fffdf3" />
         <path d="M355 30 435 53 435 109 355 86Z" fill="#b6caba" stroke="#fbf8eb" strokeWidth="5" />

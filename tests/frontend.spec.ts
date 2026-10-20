@@ -389,3 +389,46 @@ test('the compact Explore map supports satellite without changing room results',
   await page.getByRole('button', { name: 'Map', exact: true }).click();
   await expect(page.locator('.student-city-map')).toHaveAttribute('data-imagery-state', 'off');
 });
+
+test('cutaway cards switch to photos without changing the matched room, costs or comparison', async ({ page }) => {
+  await stubOpenMapStyle(page);
+  await page.goto('/explore?campus=allen-talwandi&sharing=double&maxBudget=8000');
+  const card = page.locator('.discovery-grid article').first();
+  await expect(card.locator('.room-card-stage')).toHaveAttribute('data-preview', 'room');
+  await expect(card.locator('.room-card-sharing')).toHaveText('2 students / room');
+  await expect(card.locator('.room-card-disclaimer')).toContainText('not a measured floor plan');
+  const price = await card.locator('.discovery-card-pricing').textContent();
+  const href = await card.locator('.discovery-card-cta').getAttribute('href');
+  await card.getByRole('button', { name: 'Photos', exact: true }).click();
+  const image = card.locator('.room-card-photo');
+  const firstPhoto = await image.getAttribute('src');
+  await card.getByRole('button', { name: /Next photo of/ }).click();
+  await expect(image).not.toHaveAttribute('src', firstPhoto!);
+  await card.getByRole('button', { name: /Previous photo of/ }).click();
+  await expect(image).toHaveAttribute('src', firstPhoto!);
+  await card.getByRole('button', { name: /Add .* to comparison/ }).click();
+  await expect(card.getByRole('button', { name: /Remove .* from comparison/ })).toHaveAttribute('aria-pressed', 'true');
+  await card.getByRole('button', { name: 'Room', exact: true }).click();
+  expect(await card.locator('.discovery-card-pricing').textContent()).toBe(price);
+  await expect(card.locator('.discovery-card-cta')).toHaveAttribute('href', href!);
+  await card.locator('.discovery-card-cta').click();
+  await expect(page).toHaveURL(/hostel\/h1\?.*room=rt2/);
+});
+
+test('card preview buttons work with a keyboard and reduced motion on a narrow screen', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/explore?sharing=double&maxBudget=8000');
+  const card = page.locator('.discovery-grid article').first();
+  const photos = card.getByRole('button', { name: 'Photos', exact: true });
+  await photos.focus(); await page.keyboard.press('Enter');
+  await expect(card.locator('.room-card-stage')).toHaveAttribute('data-preview', 'photos');
+  expect(await card.locator('.room-card-photo').evaluate(node => getComputedStyle(node).animationName)).toBe('none');
+  const next = card.getByRole('button', { name: /Next photo of/ });
+  await next.focus(); await page.keyboard.press('Enter');
+  await expect(card.locator('.room-card-photo-controls')).toContainText('02');
+  await card.getByRole('button', { name: 'Room', exact: true }).click();
+  expect(await card.locator('.room-card-model').evaluate(node => getComputedStyle(node).transform)).toBe('none');
+  const widths = await page.evaluate(() => ({ actual: document.documentElement.scrollWidth, viewport: innerWidth }));
+  expect(widths.actual).toBeLessThanOrEqual(widths.viewport);
+});

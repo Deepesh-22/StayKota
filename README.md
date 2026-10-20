@@ -31,6 +31,7 @@ Browser tests use `/usr/bin/chromium` when available. Otherwise install the Play
 
 - **Landing:** custom isometric Kota illustration, accessible campus hotspots, synchronised search, a manually controlled hostel carousel and reduced-motion support.
 - **Discovery:** campus and URL filters, available-room matching, inclusive monthly-cost budgets, AC-included filtering, sorting, pagination, OpenFreeMap basemap, custom hostel/coaching pins and mobile list/map views.
+- **Hostel cards:** room cutaways with occupancy from the matched room, layered photo panels, subtle pointer depth and a Room/Photos switcher with manual photo controls. Touch, keyboard and reduced-motion preferences are supported. Save, compare and room pricing remain available.
 - **Details:** photo gallery, illustrative room cutaway, room selection, fixed monthly costs, separate deposits, metered-charge explanation, actual room features and consent-based visit enquiries.
 - **Comparison:** up to three published hostels, independent room selectors and shareable public listing/room IDs.
 - **Student:** favourites, requested visits, preferred-date changes, cancellation and profile persistence.
@@ -38,6 +39,8 @@ Browser tests use `/usr/bin/chromium` when available. Otherwise install the Play
 - **Admin:** review queue, approval/rejection, reports and local moderation activity.
 
 The basemap uses MapLibre with OpenFreeMap/OpenStreetMap vector tiles. Default shop, temple, institutional and transit POI labels are hidden; road/city labels remain for orientation. Custom StayKota hostel/coaching pins use illustrative coordinates. Distances are straight-line Haversine estimates, never walking routes or travel times.
+
+Card previews: [single card](docs/screenshots/room-card-concept.png) · [homepage carousel](docs/screenshots/room-card-carousel.png). The room drawing is an illustration, not a measured floor plan or a property tour.
 
 A matching available room must satisfy sharing, budget and room-specific AC requirements together. Card prices include mandatory monthly extras; deposits and optional or metered charges remain separate. Visit requests start as `requested` / coordination pending, never automatically confirmed.
 
