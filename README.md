@@ -1,139 +1,85 @@
-# StayKota — Hostel Booking Frontend (Phase 1)
+# StayKota
 
-Polished, responsive hostel & PG discovery + visit-scheduling prototype for students in **Kota, Rajasthan**.
+A responsive, interactive hostel-discovery frontend for students moving to Kota. Choose a coaching campus, explore available room options, compare monthly costs, and save a visit enquiry.
 
-**Scope:** Frontend only. No real backend, authentication, email, WhatsApp, or payments.
+**This is a frontend prototype.** Property photography is AI-generated illustration; listings, campus coordinates, prices and availability are sample data. Authentication, roles, moderation and requests operate in browser storage. No real SMS, owner notification, booking, payment or WhatsApp message is sent.
 
-**Stack:** React 19 · TypeScript · Vite 6 · Tailwind CSS 4 · React Router 7 · Lucide icons
+## Development
 
----
+Tested with Node.js 24 and npm 11.
 
-## Features
-
-| Role | Capabilities |
-|------|----------------|
-| **Visitor** | Browse/search approved hostels, view details, transparent room pricing |
-| **Student** | Demo login, favourites, date-only visit requests (auto-Confirmed), dashboard |
-| **Owner** | Demo login, listing CRUD wizard, draft/pending/live status, visit list |
-| **Admin** | Private route, moderation queue (approve/reject/suspend), reports (demo) |
-
-### Business rules enforced in UI
-
-- Visits are **date-only** — no time picker
-- Valid visit submission is immediately **Confirmed** (no owner-approval queue)
-- A visit is **not** a room reservation or payment
-- New/edited owner listings go to **Pending Review** until admin approves
-- Only **approved** listings appear on public Explore/Home
-- No public Admin signup (`/login?role=admin` is demo-only)
-
----
-
-## Quick start
-
-```bash
-npm install
+```sh
+npm ci
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173)
+Vite normally listens on port 5173. For an externally reachable development server, pass `-- --host 0.0.0.0`.
 
-| Script | Purpose |
-|--------|---------|
-| `npm run dev` | Dev server |
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Development server |
 | `npm run build` | Production build |
-| `npm run typecheck` | TypeScript project references check |
-| `npm run preview` | Preview production build |
+| `npm run preview` | Inspect the production build |
+| `npm run typecheck` | TypeScript project checks |
+| `npm run lint` | Oxlint |
+| `npm test` | Room matching, cost calculation and distance unit tests |
+| `npm run test:e2e` | Chromium browser tests; starts its own development server |
 
-### Demo login
+Browser tests use `/usr/bin/chromium` when available. Otherwise install the Playwright browser with `npx playwright install chromium`. No database, API credentials or external map service is required for this preview.
 
-1. Go to `/login`
-2. Choose **Student** / **Owner** (Admin: `/login?role=admin`)
-3. Enter any 10-digit mobile number
-4. OTP **4242** (or any 4 digits) — **no real SMS**
+## Experience
 
-Optional seed emails: `aarav@student.com`, `priya@owner.com`, `admin@staykota.com`
+- **Landing:** custom isometric Kota illustration, accessible campus hotspots, synchronised search, a manually controlled hostel carousel and reduced-motion support.
+- **Discovery:** campus and URL filters, available-room matching, inclusive monthly-cost budgets, AC-included filtering, sorting, pagination, schematic map and mobile list/map views.
+- **Details:** photo gallery, illustrative room cutaway, room selection, fixed monthly costs, separate deposits, metered-charge explanation, actual room features and consent-based visit enquiries.
+- **Comparison:** up to three published hostels, independent room selectors and shareable public listing/room IDs.
+- **Student:** favourites, requested visits, preferred-date changes, cancellation and profile persistence.
+- **Owner:** own listings and enquiries, five-step create/edit wizard, saved drafts and moderation submission.
+- **Admin:** review queue, approval/rejection, reports and local moderation activity.
 
----
+The map is schematic. Distance labels use Haversine calculations on sample coordinates; they do not represent walking routes, travel times or surveyed locations.
+
+A matching available room must satisfy sharing, budget and room-specific AC requirements together. Card prices include mandatory monthly extras; deposits and optional or metered charges remain separate. Visit requests start as `requested` / coordination pending, never automatically confirmed.
+
+## Demo accounts
+
+On `/login`, select Student or Owner and choose **Use sample account** to explore seeded content. Admin is available only through `/login?role=admin`; there is no public admin signup.
+
+Alternatively enter any ten-digit mobile number, then `4242` or any four digits. This is explicitly simulated authentication. Seed email identities are `aarav@student.com`, `priya@owner.com`, and `admin@staykota.com`.
+
+Browser storage keeps this device's demo session, listings, favourites, comparison and requests. It does not synchronise across devices or provide production security. Use sample personal information.
 
 ## Routes
 
-| Path | Page |
-|------|------|
-| `/` | Home / search hero |
-| `/explore` | Search results + filters |
-| `/hostel/:id` | Hostel details + visit flow |
-| `/login` | Role tabs + demo OTP |
-| `/dashboard` | Student dashboard (overview, saved, visits, profile) |
-| `/favourites` | Favourites (legacy alias) |
-| `/visits` | Visits (legacy alias) |
-| `/owner` | Owner dashboard |
-| `/owner/listing/new` | Create listing wizard |
-| `/owner/listing/:id/edit` | Edit listing wizard |
-| `/admin` | Admin moderation (private) |
-| `/how-it-works` | Help / about |
-| `*` | 404 |
+| Route | Page |
+| --- | --- |
+| `/` | Landing and campus search |
+| `/explore` | Search results and map |
+| `/hostel/:id` | Room details and visit flow |
+| `/compare` | Shared shortlist comparison |
+| `/login` | Demo sign-in |
+| `/dashboard` | Student overview, saved hostels, visits and profile |
+| `/favourites`, `/visits` | Redirects to the matching dashboard tab |
+| `/owner` | Owner workspace |
+| `/owner/listing/new`, `/owner/listing/:id/edit` | Listing wizard |
+| `/admin` | Demo moderation workspace |
+| `/how-it-works` | Help and FAQ |
+| `*` | Recovery/404 |
 
----
+## Stack and structure
 
-## Folder structure
+React 19, TypeScript, Vite 6, Tailwind CSS 4, React Router 7 and Lucide. Fonts and compressed WebP sample photos are hosted locally. SVG illustrations and CSS provide motion without a 3D engine or map API dependency.
 
-```
-src/
-  components/
-    ui/           Button, Input, Select, Badge, Card
-    layout/       Navbar, Footer, Layout
-    hostel/       HostelCard, SearchFilters
-  pages/          All route screens
-  context/        AppContext — shared mock state + localStorage
-  services/       mockApi.ts — async mock service layer (swap for Go APIs in Phase 2)
-  data/           mockData.ts — seed hostels, users, localities, amenities
-  types/          Hostel, RoomType, User, VisitRequest, ListingStatus, …
-  index.css       Design tokens + Tailwind
-```
+- `src/components/home/`: campus scene and landing illustration.
+- `src/components/hostel/`: cards, sample map and room cutaway.
+- `src/pages/`: public pages and workspaces.
+- `src/context/`: local prototype state and comparison.
+- `src/data/`: sample inventory and campus coordinates.
+- `src/lib/discovery.ts`: room prices, matching and distance helpers.
+- `tests/`: unit and browser regression checks.
 
----
+SPA rewrites for Vercel remain in `vercel.json`. Publishing or deployment is a separate step.
 
-## Design system
+## Before real use
 
-- Background: warm off-white `#faf8f5`
-- Primary: deep teal (`teal-600` / `#0d9488`)
-- Accents: dark navy / slate
-- Cards: rounded-2xl, light borders, soft shadows
-- Motion: `animate-fade-in`, card hovers; respects `prefers-reduced-motion`
-
----
-
-## State & mock API
-
-- **AppContext** holds user, hostels, favourites, visits
-- Persisted keys: `staykota_user`, `staykota_hostels`, `staykota_favourites`, `staykota_visits`
-- **`src/services/mockApi.ts`** mirrors future REST endpoints (`getHostels`, `createVisit`, `setHostelStatus`, …)
-- Phase 2: replace mockApi bodies with `fetch` to Go + PostgreSQL; keep function signatures
-
----
-
-## Prototype limitations
-
-- Demo OTP / Google button — **not secure auth**
-- No real SMS, email, WhatsApp, or payment
-- Image “upload” uses sample Unsplash URLs
-- Admin access is a frontend role flag only
-- Data lives in the browser `localStorage` of each device
-
----
-
-## Deploy
-
-Configured for Vercel SPA rewrites (`vercel.json`).
-
-```bash
-npm run build
-```
-
-Production: [https://stay-kota.vercel.app](https://stay-kota.vercel.app)
-
----
-
-## Phase 2 (out of scope)
-
-Go REST API · PostgreSQL · real JWT auth · moderation notifications · file uploads · WhatsApp/email
+Replace simulated authentication and browser data with a backend that enforces roles, resource ownership, validation, rate limits and consent handling. Use actual reviewed inventory, photographs and campus coordinates. Configure real contact delivery, privacy/retention rules, backups, monitoring and public-page metadata/rendering before a live launch. A prototype admin role flag is not production authorization.

@@ -22,7 +22,7 @@ export const MOCK_USERS: User[] = [
   { id: 'u3', name: 'Admin User', email: 'admin@staykota.com', role: 'admin' },
 ];
 
-export const MOCK_HOSTELS: Hostel[] = [
+const SEED_HOSTELS: Hostel[] = [
   {
     id: 'h1', ownerId: 'u2', name: 'Comfort Stay Hostel',
     description: 'Clean hostel near major coaching centres with reliable WiFi and meals.',
@@ -130,4 +130,19 @@ export const MOCK_HOSTELS: Hostel[] = [
   },
 ];
 
-export const DEMO_NOTE = 'Demo content — prices, availability and listings are sample data for prototype only.';
+const SAMPLE_COORDINATES: [number, number][] = [
+  [25.148, 75.852], [25.216, 75.855], [25.154, 75.861], [25.149, 75.858],
+  [25.161, 75.85], [25.146, 75.857], [25.163, 75.862], [25.144, 75.85],
+];
+const SAMPLE_PHOTOS = ['/images/room-shared.webp', '/images/hostel-exterior.webp', '/images/room-single.webp'];
+export const MOCK_HOSTELS: Hostel[] = SEED_HOSTELS.map((hostel, index) => ({
+  ...hostel,
+  coverImage: SAMPLE_PHOTOS[index % SAMPLE_PHOTOS.length],
+  images: [SAMPLE_PHOTOS[index % SAMPLE_PHOTOS.length], ...SAMPLE_PHOTOS.filter(p => p !== SAMPLE_PHOTOS[index % SAMPLE_PHOTOS.length])],
+  latitude: SAMPLE_COORDINATES[index][0],
+  longitude: SAMPLE_COORDINATES[index][1],
+  electricityPolicy: 'Metered separately; confirm the per-unit rate with the owner.',
+  houseRules: ['No smoking in shared spaces.', 'Visitor hours and gate timings must be agreed with the owner.', 'Ask for deposit refund and notice terms in writing before moving in.'],
+}));
+
+export const DEMO_NOTE = 'Frontend preview — listings, photos, campus pins, prices and availability are illustrative sample content.';

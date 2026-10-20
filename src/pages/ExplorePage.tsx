@@ -1,305 +1,162 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Search, SlidersHorizontal, X, ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { FormEvent } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, GraduationCap, Heart, LayoutGrid, Map, MapPin, RotateCcw, Scale, Search, SlidersHorizontal, Sparkles, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useCompare } from '../context/CompareContext';
+import { CAMPUSES } from '../data/campuses';
+import { distanceKm, getCampus, getMatchingRooms, monthlyTotal } from '../lib/discovery';
 import { HostelCard } from '../components/hostel/HostelCard';
-import { LOCALITIES } from '../data/mockData';
-import { Button } from '../components/ui/Button';
-import type { SharingType } from '../types';
+import { NeighbourhoodMap } from '../components/hostel/NeighbourhoodMap';
+import '../styles/discovery.css';
 
 const PAGE_SIZE = 6;
-const AMENITY_OPTIONS = ['Meals', 'WiFi', 'Laundry', 'Power Backup', 'AC', 'CCTV', 'Hot Water'];
-type SortKey = 'rent-asc' | 'rent-desc' | 'name';
+const AMENITIES = ['Meals', 'AC', 'WiFi', 'Laundry', 'Power Backup', 'CCTV', 'Study Room', 'Hot Water', 'Parking'];
+const QUICK_AMENITIES = [{ id: 'Meals', label: 'With mess' }, { id: 'AC', label: 'AC included' }, { id: 'WiFi', label: 'Wi-Fi' }, { id: 'Laundry', label: 'Laundry' }, { id: 'Study Room', label: 'Study room' }];
+const SHARING_OPTIONS = [{ id: '', label: 'Any sharing' }, { id: 'single', label: 'Single room' }, { id: 'double', label: 'Double sharing' }, { id: 'triple', label: 'Triple sharing' }, { id: 'four', label: 'Four sharing' }];
+type Sort = 'distance' | 'price-asc' | 'price-desc' | 'name';
+type Filters = { campus: string; sharing: string; minBudget: number; maxBudget?: number; category: string; amenities: string[]; sort: Sort; page: number };
+const numberParam = (value: string | null, fallback: number) => value != null && value.trim() && Number.isFinite(Number(value)) && Number(value) >= 0 ? Number(value) : fallback;
+
+function readFilters(params: URLSearchParams): Filters {
+  const sharing = params.get('sharing') || '', category = params.get('category') || '', sortValue = params.get('sort');
+  const sort: Sort = sortValue === 'price-asc' || sortValue === 'rent-asc' ? 'price-asc' : sortValue === 'price-desc' || sortValue === 'rent-desc' ? 'price-desc' : sortValue === 'name' ? 'name' : 'distance';
+  const minBudget = numberParam(params.get('minBudget'), 0), rawMax = params.get('maxBudget');
+  return {
+    campus: getCampus(params.get('campus')).id,
+    sharing: SHARING_OPTIONS.some(option => option.id === sharing) ? sharing : '',
+    minBudget,
+    maxBudget: rawMax != null ? Math.max(minBudget, numberParam(rawMax, 25000)) : undefined,
+    category: ['boys', 'girls', 'co-ed'].includes(category) ? category : '',
+    amenities: (params.get('amenities') || '').split(',').filter((value, index, all) => AMENITIES.includes(value) && all.indexOf(value) === index),
+    sort,
+    page: Math.max(1, Math.floor(numberParam(params.get('page'), 1))),
+  };
+}
+
+function writeFilters(filters: Filters) {
+  const params = new URLSearchParams();
+  params.set('campus', filters.campus);
+  if (filters.sharing) params.set('sharing', filters.sharing);
+  if (filters.minBudget > 0) params.set('minBudget', String(filters.minBudget));
+  if (filters.maxBudget != null) params.set('maxBudget', String(filters.maxBudget));
+  if (filters.category) params.set('category', filters.category);
+  if (filters.amenities.length) params.set('amenities', filters.amenities.join(','));
+  if (filters.sort !== 'distance') params.set('sort', filters.sort);
+  if (filters.page > 1) params.set('page', String(filters.page));
+  return params;
+}
 
 export function ExplorePage() {
   const { hostels } = useApp();
+  const { comparisonIds, toggleCompare, clearComparison } = useCompare();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [localities, setLocalities] = useState<string[]>(() => {
-    const l = searchParams.get('locality');
-    return l ? l.split(',').filter(Boolean) : [];
-  });
-  const [minBudget, setMinBudget] = useState(Number(searchParams.get('minBudget') || 0));
-  const [maxBudget, setMaxBudget] = useState(Number(searchParams.get('maxBudget') || 15000));
-  const [sharing, setSharing] = useState<SharingType | ''>((searchParams.get('sharing') as SharingType) || '');
-  const [category, setCategory] = useState(searchParams.get('category') || '');
-  const [amenities, setAmenities] = useState<string[]>(() => {
-    const a = searchParams.get('amenities');
-    return a ? a.split(',').filter(Boolean) : [];
-  });
-  const [applied, setApplied] = useState({ localities, minBudget, maxBudget, sharing, category, amenities });
-  const [sort, setSort] = useState<SortKey>('rent-asc');
-  const [page, setPage] = useState(1);
-  const [mobileFilters, setMobileFilters] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const paramsString = searchParams.toString();
+  const applied = useMemo(() => readFilters(new URLSearchParams(paramsString)), [paramsString]);
+  const [draft, setDraft] = useState<Filters>(applied);
+  const [view, setView] = useState<'list' | 'map'>('list');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [activeHostel, setActiveHostel] = useState<string | null>(null);
+  const filterDialog = useRef<HTMLDialogElement>(null);
+  const filterTrigger = useRef<HTMLButtonElement>(null);
+  const campus = getCampus(applied.campus);
 
+  useEffect(() => { setDraft(applied); }, [applied]);
   useEffect(() => {
-    const l = searchParams.get('locality');
-    const locs = l ? l.split(',').filter(Boolean) : [];
-    const min = Number(searchParams.get('minBudget') || 0);
-    const max = Number(searchParams.get('maxBudget') || 15000);
-    const sh = (searchParams.get('sharing') as SharingType) || '';
-    const cat = searchParams.get('category') || '';
-    const am = searchParams.get('amenities');
-    const amList = am ? am.split(',').filter(Boolean) : [];
-    setLocalities(locs); setMinBudget(min); setMaxBudget(max); setSharing(sh); setCategory(cat); setAmenities(amList);
-    setApplied({ localities: locs, minBudget: min, maxBudget: max, sharing: sh, category: cat, amenities: amList });
-    setPage(1);
-  }, [searchParams]);
+    if (filterOpen) filterDialog.current?.showModal();
+    else if (filterDialog.current?.open) filterDialog.current.close();
+  }, [filterOpen]);
 
-  const approved = useMemo(() => hostels.filter(h => h.status === 'approved'), [hostels]);
-  const localityCounts = useMemo(() => {
-    const map: Record<string, number> = {};
-    LOCALITIES.forEach(l => { map[l] = 0; });
-    approved.forEach(h => { map[h.locality] = (map[h.locality] || 0) + 1; });
-    return map;
-  }, [approved]);
-
-  const filtered = useMemo(() => {
-    let list = approved.filter(h => {
-      if (applied.localities.length && !applied.localities.includes(h.locality)) return false;
-      if (applied.category && h.category !== applied.category) return false;
-      const minRent = Math.min(...h.roomTypes.map(r => r.rent));
-      if (minRent < applied.minBudget || minRent > applied.maxBudget) return false;
-      if (applied.sharing && !h.roomTypes.some(r => r.sharingType === applied.sharing && r.available)) return false;
-      if (applied.amenities.length && !applied.amenities.every(a => h.amenities.includes(a))) return false;
-      return true;
-    });
-    return [...list].sort((a, b) => {
-      const ra = Math.min(...a.roomTypes.map(r => r.rent));
-      const rb = Math.min(...b.roomTypes.map(r => r.rent));
-      if (sort === 'rent-asc') return ra - rb;
-      if (sort === 'rent-desc') return rb - ra;
-      return a.name.localeCompare(b.name);
-    });
-  }, [approved, applied, sort]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageSafe = Math.min(page, totalPages);
-  const pageItems = filtered.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE);
-
-  const applyFilters = () => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (localities.length) params.set('locality', localities.join(','));
-    if (minBudget > 0) params.set('minBudget', String(minBudget));
-    if (maxBudget < 15000) params.set('maxBudget', String(maxBudget));
-    if (sharing) params.set('sharing', sharing);
-    if (category) params.set('category', category);
-    if (amenities.length) params.set('amenities', amenities.join(','));
-    setSearchParams(params);
-    setApplied({ localities, minBudget, maxBudget, sharing, category, amenities });
-    setPage(1);
-    setMobileFilters(false);
-    setTimeout(() => setLoading(false), 280);
+  const updateFilters = (patch: Partial<Filters>) => setSearchParams(writeFilters({ ...applied, ...patch, page: patch.page || 1 }));
+  const resetFilters = () => {
+    const next: Filters = { campus: applied.campus, sharing: '', minBudget: 0, maxBudget: undefined, category: '', amenities: [], sort: 'distance', page: 1 };
+    setDraft(next);
+    setSearchParams(writeFilters(next));
+  };
+  const applySearch = (event?: FormEvent) => {
+    event?.preventDefault();
+    setSearchParams(writeFilters({ ...draft, page: 1 }));
+    setFilterOpen(false);
   };
 
-  const clearAll = () => {
-    setLocalities([]); setMinBudget(0); setMaxBudget(15000); setSharing(''); setCategory(''); setAmenities([]);
-    setApplied({ localities: [], minBudget: 0, maxBudget: 15000, sharing: '', category: '', amenities: [] });
-    setSearchParams({}); setPage(1); setMobileFilters(false);
-  };
+  const results = useMemo(() => {
+    const matches = hostels.filter(hostel => hostel.status === 'approved')
+      .filter(hostel => !applied.category || hostel.category === applied.category)
+      .filter(hostel => applied.amenities.filter(amenity => amenity !== 'AC').every(amenity => hostel.amenities.includes(amenity)))
+      .flatMap(hostel => {
+        const room = getMatchingRooms(hostel, { sharing: applied.sharing, minBudget: applied.minBudget, maxBudget: applied.maxBudget }).find(candidate => {
+          if (!applied.amenities.includes('AC')) return true;
+          const hasOptionalAC = candidate.extraCharges.some(charge => charge.optional && /\bac\b/i.test(charge.name));
+          return candidate.included.some(value => /\bac\b/i.test(value))
+            || (!hasOptionalAC && candidate.features.some(value => /\bac\b/i.test(value)));
+        });
+        return room ? [{ hostel, room }] : [];
+      });
+    return matches.sort((a, b) => {
+      const priceDifference = monthlyTotal(a.room) - monthlyTotal(b.room);
+      if (applied.sort === 'price-asc') return priceDifference || a.hostel.name.localeCompare(b.hostel.name);
+      if (applied.sort === 'price-desc') return -priceDifference || a.hostel.name.localeCompare(b.hostel.name);
+      if (applied.sort === 'name') return a.hostel.name.localeCompare(b.hostel.name);
+      const aDistance = distanceKm(a.hostel, campus) ?? Infinity, bDistance = distanceKm(b.hostel, campus) ?? Infinity;
+      return (aDistance === bDistance ? priceDifference : aDistance - bDistance) || a.hostel.name.localeCompare(b.hostel.name);
+    });
+  }, [hostels, applied, campus]);
 
-  const toggleLocality = (l: string) => setLocalities(prev => prev.includes(l) ? prev.filter(x => x !== l) : [...prev, l]);
-  const toggleAmenity = (a: string) => setAmenities(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]);
-
-  const hasFilters = applied.localities.length > 0 || !!applied.sharing || !!applied.category || applied.minBudget > 0 || applied.maxBudget < 15000 || applied.amenities.length > 0;
-
-  const searchSummary = useMemo(() => {
-    const parts: string[] = [];
-    if (applied.localities.length) parts.push(applied.localities.join(', ')); else parts.push('Kota');
-    if (applied.minBudget > 0 || applied.maxBudget < 15000) parts.push(`₹${(applied.minBudget / 1000).toFixed(0)}k–₹${(applied.maxBudget / 1000).toFixed(0)}k`);
-    if (applied.sharing) parts.push(applied.sharing.charAt(0).toUpperCase() + applied.sharing.slice(1));
-    if (applied.category) parts.push(applied.category.charAt(0).toUpperCase() + applied.category.slice(1));
-    return parts.join(' · ');
-  }, [applied]);
-
-  const resultLabel = useMemo(() => {
-    if (applied.localities.length === 1) return `${filtered.length} stay${filtered.length !== 1 ? 's' : ''} in ${applied.localities[0]} & nearby`;
-    if (applied.localities.length > 1) return `${filtered.length} stay${filtered.length !== 1 ? 's' : ''} in selected areas`;
-    return `${filtered.length} stay${filtered.length !== 1 ? 's' : ''} in Kota`;
-  }, [filtered.length, applied.localities]);
-
-  const FiltersPanel = (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="font-semibold text-slate-900">Filters</h2>
-        {hasFilters && <button onClick={clearAll} className="text-sm text-teal-600 hover:text-teal-700 font-medium">Clear all</button>}
-      </div>
-      <div>
-        <h3 className="text-sm font-medium text-slate-700 mb-2.5">Locality</h3>
-        <div className="space-y-2 max-h-48 overflow-y-auto">
-          {LOCALITIES.map(l => (
-            <label key={l} className="flex items-center gap-2.5 cursor-pointer group">
-              <span className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${localities.includes(l) ? 'bg-teal-600 border-teal-600 text-white' : 'border-slate-300 group-hover:border-teal-400'}`}>
-                {localities.includes(l) && <Check className="w-3.5 h-3.5" />}
-              </span>
-              <input type="checkbox" className="sr-only" checked={localities.includes(l)} onChange={() => toggleLocality(l)} />
-              <span className="text-sm text-slate-700 flex-1">{l}</span>
-              <span className="text-xs text-slate-400">({localityCounts[l] || 0})</span>
-            </label>
-          ))}
-        </div>
-      </div>
-      <div>
-        <h3 className="text-sm font-medium text-slate-700 mb-2.5">Monthly budget</h3>
-        <input type="range" min={0} max={15000} step={500} value={maxBudget} onChange={e => setMaxBudget(Number(e.target.value))} className="w-full accent-teal-600" />
-        <div className="flex justify-between mt-2 gap-2">
-          <div className="flex-1">
-            <label className="text-[10px] text-slate-400 uppercase">Min</label>
-            <input type="number" min={0} max={maxBudget} step={500} value={minBudget} onChange={e => setMinBudget(Math.min(Number(e.target.value) || 0, maxBudget))} className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm" />
-          </div>
-          <div className="flex-1">
-            <label className="text-[10px] text-slate-400 uppercase">Max</label>
-            <input type="number" min={minBudget} max={20000} step={500} value={maxBudget} onChange={e => setMaxBudget(Math.max(Number(e.target.value) || 15000, minBudget))} className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm" />
-          </div>
-        </div>
-      </div>
-      <div>
-        <h3 className="text-sm font-medium text-slate-700 mb-2.5">Sharing type</h3>
-        <div className="flex flex-wrap gap-2">
-          {(['single', 'double', 'triple', 'four'] as SharingType[]).map(s => (
-            <button key={s} type="button" onClick={() => setSharing(sharing === s ? '' : s)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors capitalize ${sharing === s ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-slate-600 border-slate-200 hover:border-teal-300'}`}>
-              {s === 'four' ? 'Dorm' : s}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div>
-        <h3 className="text-sm font-medium text-slate-700 mb-2.5">Category</h3>
-        <div className="flex flex-wrap gap-2">
-          {['boys', 'girls', 'co-ed'].map(c => (
-            <button key={c} type="button" onClick={() => setCategory(category === c ? '' : c)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors capitalize ${category === c ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-slate-600 border-slate-200 hover:border-teal-300'}`}>
-              {c}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div>
-        <h3 className="text-sm font-medium text-slate-700 mb-2.5">Amenities</h3>
-        <div className="space-y-2">
-          {AMENITY_OPTIONS.map(a => (
-            <label key={a} className="flex items-center gap-2.5 cursor-pointer group">
-              <span className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${amenities.includes(a) ? 'bg-teal-600 border-teal-600 text-white' : 'border-slate-300 group-hover:border-teal-400'}`}>
-                {amenities.includes(a) && <Check className="w-3.5 h-3.5" />}
-              </span>
-              <input type="checkbox" className="sr-only" checked={amenities.includes(a)} onChange={() => toggleAmenity(a)} />
-              <span className="text-sm text-slate-700">{a === 'Meals' ? 'Mess included' : a === 'WiFi' ? 'Wi-Fi' : a}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-      <Button onClick={applyFilters} className="w-full rounded-xl">Show {filtered.length} stay{filtered.length !== 1 ? 's' : ''}</Button>
-    </div>
-  );
+  const totalPages = Math.max(1, Math.ceil(results.length / PAGE_SIZE)), page = Math.min(applied.page, totalPages);
+  const pageItems = results.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const selectedHostels = comparisonIds.map(id => hostels.find(hostel => hostel.id === id)).filter((hostel): hostel is NonNullable<typeof hostel> => Boolean(hostel));
+  const filterCount = applied.amenities.length + Number(Boolean(applied.sharing)) + Number(Boolean(applied.category)) + Number(applied.minBudget > 0 || applied.maxBudget != null);
+  const budgetValue = draft.maxBudget == null ? '' : [5000, 8000, 10000, 12000, 15000].includes(draft.maxBudget) && draft.minBudget === 0 ? String(draft.maxBudget) : 'custom';
+  const compareParams = new URLSearchParams({ campus: campus.id });
+  if (applied.sharing) compareParams.set('sharing', applied.sharing);
+  if (applied.minBudget > 0) compareParams.set('minBudget', String(applied.minBudget));
+  if (applied.maxBudget != null) compareParams.set('maxBudget', String(applied.maxBudget));
+  const toggleQuickAmenity = (amenity: string) => updateFilters({ amenities: applied.amenities.includes(amenity) ? applied.amenities.filter(value => value !== amenity) : [...applied.amenities, amenity] });
+  const closeFilters = () => { setFilterOpen(false); filterTrigger.current?.focus(); };
 
   return (
-    <div className="animate-fade-in min-h-[70vh] bg-[#faf8f5]">
-      <div className="border-b border-slate-100 bg-white/80 backdrop-blur-sm sticky top-16 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex items-center gap-2 bg-white rounded-full border border-slate-200 shadow-sm px-4 py-2">
-            <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
-            <span className="flex-1 text-sm text-slate-700 truncate">{searchSummary || 'All hostels in Kota'}</span>
-            <button type="button" onClick={() => setMobileFilters(true)} className="lg:hidden flex items-center gap-1.5 text-sm text-slate-600 px-2 py-1 rounded-lg hover:bg-slate-50">
-              <SlidersHorizontal className="w-4 h-4" /> Filters
-            </button>
-            <Button size="sm" onClick={applyFilters} className="rounded-full px-5 flex-shrink-0">Search</Button>
-          </div>
+    <div className={`discovery-page${selectedHostels.length ? ' discovery-page--comparing' : ''}`}>
+      <section className="discovery-intro discovery-shell">
+        <div className="discovery-breadcrumb"><Link to="/">Home</Link><span>/</span><span>Find your stay</span></div>
+        <div className="discovery-eyebrow"><span />A little closer to your goals</div>
+        <div className="discovery-intro-heading"><h1>Less commute.<br className="discovery-mobile-break" /> More <em>possibility.</em></h1><p>A room you love, near the campus you choose.<br />Find your own corner of Kota.</p></div>
+      </section>
+      <div className="discovery-shell">
+        <form className="discovery-search" onSubmit={applySearch}>
+          <label className="discovery-search-field discovery-search-campus"><span>YOUR COACHING CAMPUS</span><div><GraduationCap size={19} aria-hidden="true" /><select value={draft.campus} onChange={event => setDraft(value => ({ ...value, campus: event.target.value }))} aria-label="Your coaching campus">{CAMPUSES.map(option => <option key={option.id} value={option.id}>{option.institute} · {option.name}</option>)}</select><ChevronDown size={15} aria-hidden="true" /></div></label>
+          <label className="discovery-search-field"><span>MONTHLY FIXED BUDGET</span><div><span className="discovery-rupee" aria-hidden="true">₹</span><select value={budgetValue} onChange={event => { if (event.target.value !== 'custom') setDraft(value => ({ ...value, minBudget: 0, maxBudget: event.target.value ? Number(event.target.value) : undefined })); }} aria-label="Monthly fixed budget"><option value="">Any budget</option><option value="5000">Up to ₹5,000</option><option value="8000">Up to ₹8,000</option><option value="10000">Up to ₹10,000</option><option value="12000">Up to ₹12,000</option><option value="15000">Up to ₹15,000</option>{budgetValue === 'custom' && <option value="custom">₹{draft.minBudget.toLocaleString('en-IN')}–{draft.maxBudget?.toLocaleString('en-IN') || 'any'}</option>}</select><ChevronDown size={15} aria-hidden="true" /></div></label>
+          <label className="discovery-search-field"><span>YOUR ROOM, YOUR WAY</span><div><Heart size={17} aria-hidden="true" /><select value={draft.sharing} onChange={event => setDraft(value => ({ ...value, sharing: event.target.value }))} aria-label="Room sharing type">{SHARING_OPTIONS.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select><ChevronDown size={15} aria-hidden="true" /></div></label>
+          <button className="discovery-search-button" type="submit"><Search size={18} aria-hidden="true" />Find my stay<ArrowUpRight size={18} aria-hidden="true" /></button>
+        </form>
+        <div className="discovery-filter-row">
+          <button type="button" className={`discovery-filter-all${filterCount ? ' is-active' : ''}`} ref={filterTrigger} onClick={() => setFilterOpen(true)}><SlidersHorizontal size={16} aria-hidden="true" />All filters{filterCount > 0 && <span>{filterCount}</span>}</button><span className="discovery-filter-divider" />
+          <div className="discovery-quick-filters">{QUICK_AMENITIES.map(amenity => <button type="button" key={amenity.id} className={applied.amenities.includes(amenity.id) ? 'is-active' : ''} onClick={() => toggleQuickAmenity(amenity.id)} aria-pressed={applied.amenities.includes(amenity.id)}>{applied.amenities.includes(amenity.id) && <Check size={12} aria-hidden="true" />}{amenity.label}</button>)}</div>
+          {filterCount > 0 && <button type="button" className="discovery-clear" onClick={resetFilters}><X size={13} aria-hidden="true" />Clear filters</button>}
         </div>
+        <div className="discovery-results-heading">
+          <div><span className="discovery-eyebrow discovery-eyebrow--small"><MapPin size={13} aria-hidden="true" />YOUR CAMPUS NEIGHBOURHOOD</span><h2>Rooms near <em>{campus.institute} {campus.name}</em></h2><p aria-live="polite">{results.length} sample {results.length === 1 ? 'stay' : 'stays'} with rooms that match{applied.sharing ? ` · ${SHARING_OPTIONS.find(option => option.id === applied.sharing)?.label.toLowerCase()}` : ''}.</p></div>
+          <label className="discovery-sort"><span>Sort by</span><select aria-label="Sort hostels" value={applied.sort} onChange={event => updateFilters({ sort: event.target.value as Sort })}><option value="distance">Nearest campus</option><option value="price-asc">Monthly cost: low to high</option><option value="price-desc">Monthly cost: high to low</option><option value="name">Name: A to Z</option></select><ChevronDown size={14} aria-hidden="true" /></label>
+        </div>
+        <div className="discovery-view-toggle" aria-label="Results view"><button type="button" className={view === 'list' ? 'is-active' : ''} onClick={() => setView('list')} aria-pressed={view === 'list'}><LayoutGrid size={16} aria-hidden="true" />List view</button><button type="button" className={view === 'map' ? 'is-active' : ''} onClick={() => setView('map')} aria-pressed={view === 'map'}><Map size={16} aria-hidden="true" />Map view</button></div>
+        <div className={`discovery-results-layout discovery-results-layout--${view}`}>
+          <div className="discovery-results-list">
+            {results.length > 0 ? <div className="discovery-grid">{pageItems.map(({ hostel, room }) => <HostelCard key={hostel.id} hostel={hostel} room={room} campus={campus} onHover={setActiveHostel} />)}</div> : <div className="discovery-no-results"><div><Search size={29} strokeWidth={1.3} aria-hidden="true" /></div><span className="discovery-eyebrow">A LITTLE MORE ROOM TO EXPLORE</span><h3>Your next room is still out there.</h3><p>No available sample rooms match all your filters.<br />Try a wider budget or another sharing type.</p><button type="button" onClick={resetFilters}><RotateCcw size={16} aria-hidden="true" />Reset my filters</button></div>}
+            {totalPages > 1 && <nav className="discovery-pagination" aria-label="Results pages"><button type="button" onClick={() => updateFilters({ page: page - 1 })} disabled={page <= 1} aria-label="Previous results page"><ArrowLeft size={15} /></button>{Array.from({ length: totalPages }, (_, index) => index + 1).map(value => <button type="button" key={value} className={page === value ? 'is-active' : ''} onClick={() => updateFilters({ page: value })} aria-current={page === value ? 'page' : undefined} aria-label={`Results page ${value}`}>{value}</button>)}<button type="button" onClick={() => updateFilters({ page: page + 1 })} disabled={page >= totalPages} aria-label="Next results page"><ArrowRight size={15} /></button></nav>}
+          </div>
+          <aside className="discovery-results-map"><NeighbourhoodMap campus={campus} items={pageItems} activeHostelId={activeHostel} onActivate={setActiveHostel} /></aside>
+        </div>
+        <p className="discovery-results-disclaimer"><Sparkles size={13} aria-hidden="true" />A preview of better hostel hunting. Listings, photos, prices and locations are sample content.</p>
       </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex gap-8">
-          <aside className="hidden lg:block w-64 flex-shrink-0">
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 sticky top-36 shadow-sm">{FiltersPanel}</div>
-          </aside>
-
-          <div className="flex-1 min-w-0">
-            {hasFilters && (
-              <div className="flex flex-wrap gap-2 mb-4">
-                {applied.localities.map(l => (
-                  <span key={l} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-50 text-teal-800 text-xs font-medium border border-teal-100">{l}</span>
-                ))}
-                {(applied.minBudget > 0 || applied.maxBudget < 15000) && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-50 text-teal-800 text-xs font-medium border border-teal-100">₹{applied.minBudget.toLocaleString()}–₹{applied.maxBudget.toLocaleString()}</span>
-                )}
-                {applied.sharing && <span className="inline-flex px-3 py-1 rounded-full bg-teal-50 text-teal-800 text-xs font-medium border border-teal-100 capitalize">{applied.sharing}</span>}
-                {applied.category && <span className="inline-flex px-3 py-1 rounded-full bg-teal-50 text-teal-800 text-xs font-medium border border-teal-100 capitalize">{applied.category}</span>}
-                {applied.amenities.map(a => (
-                  <span key={a} className="inline-flex px-3 py-1 rounded-full bg-teal-50 text-teal-800 text-xs font-medium border border-teal-100">{a}</span>
-                ))}
-                <button onClick={clearAll} className="text-xs text-teal-600 font-medium hover:underline">Clear all</button>
-              </div>
-            )}
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-              <h1 className="text-lg font-semibold text-slate-900">{resultLabel}</h1>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-slate-500">Sort:</span>
-                <select value={sort} onChange={e => { setSort(e.target.value as SortKey); setPage(1); }} className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500">
-                  <option value="rent-asc">Rent: Low to High</option>
-                  <option value="rent-desc">Rent: High to Low</option>
-                  <option value="name">Name A–Z</option>
-                </select>
-              </div>
-            </div>
-
-            {loading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="bg-white rounded-2xl border border-slate-100 overflow-hidden animate-pulse">
-                    <div className="aspect-[4/3] bg-slate-200" /><div className="p-4 space-y-3"><div className="h-4 bg-slate-200 rounded w-3/4" /><div className="h-3 bg-slate-100 rounded w-1/2" /></div>
-                  </div>
-                ))}
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="text-center py-20 bg-white rounded-2xl border border-slate-100">
-                <p className="text-slate-500 text-lg">No hostels match your filters</p>
-                <p className="text-sm text-slate-400 mt-2">Try adjusting locality, budget or sharing type</p>
-                <Button variant="outline" className="mt-4" onClick={clearAll}>Clear all filters</Button>
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {pageItems.map((h, i) => (
-                    <div key={h.id} className="animate-slide-up" style={{ animationDelay: `${Math.min(i, 5) * 0.05}s` }}>
-                      <HostelCard hostel={h} />
-                    </div>
-                  ))}
-                </div>
-                {totalPages > 1 && (
-                  <div className="mt-10 flex items-center justify-center gap-1.5">
-                    <button disabled={pageSafe <= 1} onClick={() => setPage(p => Math.max(1, p - 1))} className="w-9 h-9 rounded-full border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 disabled:opacity-40" aria-label="Previous">
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                      <button key={p} onClick={() => setPage(p)} className={`w-9 h-9 rounded-full text-sm font-medium ${pageSafe === p ? 'bg-slate-900 text-white' : 'border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>{p}</button>
-                    ))}
-                    <button disabled={pageSafe >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))} className="w-9 h-9 rounded-full border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 disabled:opacity-40" aria-label="Next">
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-            <p className="mt-6 text-center text-xs text-slate-400">Demo content only · Prices and availability are sample data</p>
-          </div>
-        </div>
-      </div>
-
-      {mobileFilters && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setMobileFilters(false)} />
-          <div className="absolute bottom-0 left-0 right-0 max-h-[85vh] overflow-y-auto bg-white rounded-t-3xl p-6 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Filters</h2>
-              <button onClick={() => setMobileFilters(false)} className="p-2 rounded-full hover:bg-slate-100" aria-label="Close"><X className="w-5 h-5" /></button>
-            </div>
-            {FiltersPanel}
-          </div>
-        </div>
-      )}
+      {selectedHostels.length > 0 && <aside className="discovery-compare-tray" aria-label="Selected hostel comparison"><div className="discovery-compare-thumbs">{selectedHostels.map(hostel => <div className="discovery-compare-item" key={hostel.id}><img src={hostel.coverImage || '/images/room-shared.webp'} alt="" /><span><strong>{hostel.name}</strong><small>{hostel.locality}</small></span><button type="button" onClick={() => toggleCompare(hostel.id)} aria-label={`Remove ${hostel.name} from comparison`}><X size={14} /></button></div>)}</div><div className="discovery-compare-actions"><span aria-live="polite">{comparisonIds.length} of 3 selected</span><button type="button" className="discovery-compare-clear" onClick={clearComparison} aria-label="Clear selected hostels">Clear</button><Link to={`/compare?${compareParams.toString()}`} className="discovery-compare-link"><Scale size={17} aria-hidden="true" /><span>Compare<span className="discovery-compare-link-extra"> selected</span></span><ArrowUpRight size={16} aria-hidden="true" /></Link></div></aside>}
+      <dialog className="discovery-filter-dialog" ref={filterDialog} onCancel={closeFilters} onClose={() => setFilterOpen(false)} onClick={event => { if (event.target === event.currentTarget) closeFilters(); }} aria-labelledby="discovery-filter-title">
+        <form onSubmit={applySearch}><div className="discovery-dialog-header"><div><span className="discovery-eyebrow">MAKE YOURSELF AT HOME</span><h2 id="discovery-filter-title">A room that fits you.</h2></div><button type="button" onClick={closeFilters} aria-label="Close filters"><X size={21} /></button></div>
+          <fieldset><legend>Monthly fixed cost <small>Per student, excluding deposit</small></legend><div className="discovery-budget-fields"><label>Minimum ₹<input type="number" min="0" step="100" value={draft.minBudget} onChange={event => { const minBudget = Math.max(0, Number(event.target.value) || 0); setDraft(value => ({ ...value, minBudget, maxBudget: value.maxBudget != null && value.maxBudget < minBudget ? minBudget : value.maxBudget })); }} /></label><span>—</span><label>Maximum ₹<input type="number" min={draft.minBudget} step="100" value={draft.maxBudget ?? ''} placeholder="Any budget" onChange={event => setDraft(value => ({ ...value, maxBudget: event.target.value === '' ? undefined : Math.max(value.minBudget, Number(event.target.value) || 0) }))} /></label></div><p className="discovery-dialog-hint">Includes rent and mandatory fixed extras. Variable charges and optional services are shown in room details.</p></fieldset>
+          <fieldset><legend>Sharing type</legend><div className="discovery-filter-options">{SHARING_OPTIONS.map(option => <button key={option.id} type="button" className={draft.sharing === option.id ? 'is-active' : ''} onClick={() => setDraft(value => ({ ...value, sharing: option.id }))} aria-pressed={draft.sharing === option.id}>{option.label}</button>)}</div></fieldset>
+          <fieldset><legend>Hostel category</legend><div className="discovery-filter-options">{[{ id: '', label: 'All hostels' }, { id: 'boys', label: 'For boys' }, { id: 'girls', label: 'For girls' }, { id: 'co-ed', label: 'Co-ed' }].map(option => <button type="button" key={option.id} className={draft.category === option.id ? 'is-active' : ''} onClick={() => setDraft(value => ({ ...value, category: option.id }))} aria-pressed={draft.category === option.id}>{option.label}</button>)}</div></fieldset>
+          <fieldset><legend>Little things that matter</legend><div className="discovery-amenity-options">{AMENITIES.map(amenity => <label key={amenity}><input type="checkbox" checked={draft.amenities.includes(amenity)} onChange={() => setDraft(value => ({ ...value, amenities: value.amenities.includes(amenity) ? value.amenities.filter(item => item !== amenity) : [...value.amenities, amenity] }))} /><span>{amenity === 'Meals' ? 'Mess available' : amenity === 'AC' ? 'AC included' : amenity === 'WiFi' ? 'Wi-Fi' : amenity}</span></label>)}</div></fieldset>
+          <div className="discovery-dialog-footer"><button type="button" onClick={() => setDraft(value => ({ ...value, sharing: '', minBudget: 0, maxBudget: undefined, category: '', amenities: [] }))}>Reset filters</button><button type="submit" className="discovery-search-button">Show matching stays<ArrowRight size={17} aria-hidden="true" /></button></div>
+        </form>
+      </dialog>
     </div>
   );
 }

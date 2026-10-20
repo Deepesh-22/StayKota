@@ -1,14 +1,17 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Shield, LayoutGrid, Building2, Users, Flag, Settings,
-  Clock, CheckCircle, XCircle, Search, Eye, X
+  Clock, CheckCircle, XCircle, Search, Eye
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { MOCK_USERS } from '../data/mockData';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { Modal } from '../components/ui/Modal';
+import { monthlyTotal } from '../lib/discovery';
+import '../styles/workspaces.css';
 import type { Hostel, ListingStatus } from '../types';
 
 type Section = 'queue' | 'listings' | 'users' | 'reports' | 'settings';
@@ -55,9 +58,19 @@ export function AdminPage() {
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [toast, setToast] = useState('');
-  const [reports, setReports] = useState(DEMO_REPORTS);
+  const [reports, setReports] = useState<DemoReport[]>(() => {
+    try {
+      const value: unknown = JSON.parse(localStorage.getItem('staykota_reports') || 'null');
+      if (Array.isArray(value)) return value.filter((r): r is DemoReport => Boolean(r && typeof r.id === 'string' && typeof r.hostelId === 'string' && typeof r.hostelName === 'string' && typeof r.reason === 'string' && typeof r.reporter === 'string' && typeof r.createdAt === 'string' && ['open', 'resolved'].includes(r.status)));
+    } catch { /* Use clearly labelled seed reports if storage is unavailable. */ }
+    return DEMO_REPORTS;
+  });
   const [history, setHistory] = useState<{ id: string; action: string; at: string }[]>([]);
 
+  const [rejectError, setRejectError] = useState('');
+  useEffect(() => {
+    try { localStorage.setItem('staykota_reports', JSON.stringify(reports)); } catch { /* Keep the current session usable. */ }
+  }, [reports]);
   const PAGE_SIZE = 8;
 
   if (!user || user.role !== 'admin') {
@@ -81,7 +94,7 @@ export function AdminPage() {
     return o?.name || 'Owner';
   };
 
-  const filtered = useMemo(() => {
+  const filtered = (() => {
     let list = [...hostels];
     if (statusFilter) list = list.filter(h => h.status === statusFilter);
     if (search.trim()) {
@@ -96,10 +109,11 @@ export function AdminPage() {
       list.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt) || a.createdAt.localeCompare(b.createdAt));
     }
     return list;
-  }, [hostels, statusFilter, search, section]);
+  })();
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pageSafe = Math.min(page, totalPages);
+  const pageItems = filtered.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -119,6 +133,7 @@ export function AdminPage() {
 
   const confirmReject = () => {
     if (!rejectId) return;
+    if (!rejectReason.trim()) { setRejectError('Please give the owner a reason for rejection.'); return; }
     const h = hostels.find(x => x.id === rejectId);
     updateHostelStatus(rejectId, 'rejected');
     logAction(`Rejected “${h?.name || rejectId}”${rejectReason ? `: ${rejectReason}` : ''}`);
@@ -138,7 +153,8 @@ export function AdminPage() {
   const restore = (id: string, name: string) => {
     updateHostelStatus(id, 'approved');
     logAction(`Restored “${name}”`);
-    showToast('Listing restored to Live');
+    showToast('Listing restored to published in this demo');
+    setReviewHostel(null);
   };
 
   const statusBadge = (status: ListingStatus) => {
@@ -160,7 +176,7 @@ export function AdminPage() {
   ];
 
   const rentRange = (h: Hostel) => {
-    const rents = h.roomTypes.map(r => r.rent);
+    const rents = h.roomTypes.map(monthlyTotal);
     if (!rents.length) return '—';
     const min = Math.min(...rents);
     const max = Math.max(...rents);
@@ -170,22 +186,21 @@ export function AdminPage() {
   };
 
   return (
-    <div className="animate-fade-in bg-[#faf8f5] min-h-[70vh]">
-      <div className="bg-amber-900 text-amber-50 text-center text-xs sm:text-sm py-2 px-4">
-        Private admin view · Only StayKota moderators can see this page · Frontend prototype (not secure auth)
-      </div>
+    <div className="workspace-shell admin-workspace animate-fade-in">
+      <p className="workspace-local-note"><Shield size={15} /> Local moderation workspace · Sign-in and permissions are simulated in this frontend demo.</p>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="workspace-admin-inner">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
           <div>
+            <p className="workspace-eyebrow">Behind every good stay</p>
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
-              {section === 'queue' ? 'Moderation queue' :
+              {section === 'queue' ? 'Review listings' :
                section === 'listings' ? 'All listings' :
                section === 'users' ? 'Users' :
                section === 'reports' ? 'Reports' : 'Settings'}
             </h1>
             <p className="text-sm text-slate-500 mt-1">
-              {pending.length} listings waiting · Demo moderation · No visit-approval queue
+              {pending.length} awaiting review · Publication approval is separate from property verification
             </p>
           </div>
           {section === 'queue' && (
@@ -195,7 +210,7 @@ export function AdminPage() {
                 <input
                   value={search}
                   onChange={e => { setSearch(e.target.value); setPage(1); }}
-                  placeholder="Search listing, owner…"
+                  aria-label="Search listings and owners" placeholder="Search listing, owner…"
                   className="pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
               </div>
@@ -207,17 +222,18 @@ export function AdminPage() {
         </div>
 
         {toast && (
-          <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-100 text-sm text-emerald-800 animate-fade-in">{toast}</div>
+          <div role="status" className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-100 text-sm text-emerald-800 animate-fade-in">{toast}</div>
         )}
 
         <div className="flex flex-col lg:flex-row gap-6">
-          <aside className="lg:w-56 flex-shrink-0">
+          <aside className="lg:w-56 flex-shrink-0 workspace-admin-sidebar">
             <Card className="p-3 sticky top-24">
               <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Admin menu</p>
               <nav className="space-y-0.5">
                 {menu.map(m => (
                   <button
                     key={m.id}
+                    aria-current={section === m.id ? 'page' : undefined}
                     type="button"
                     onClick={() => {
                       setSection(m.id);
@@ -272,10 +288,10 @@ export function AdminPage() {
                   <div className="p-4 border-b border-slate-100 flex flex-wrap gap-3">
                     <div className="relative flex-1 min-w-[180px]">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} placeholder="Search…"
+                      <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} aria-label="Search all listings" placeholder="Search…"
                         className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-sm" />
                     </div>
-                    <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value as ListingStatus | ''); setPage(1); }}
+                    <select aria-label="Filter listing status" value={statusFilter} onChange={e => { setStatusFilter(e.target.value as ListingStatus | ''); setPage(1); }}
                       className="px-3 py-2 rounded-xl border border-slate-200 text-sm">
                       <option value="">All statuses</option>
                       <option value="pending">Pending</option>
@@ -325,7 +341,7 @@ export function AdminPage() {
                                 {h.status === 'pending' && (
                                   <>
                                     <Button size="sm" className="h-8 rounded-lg bg-emerald-600 hover:bg-emerald-700" onClick={() => approve(h.id, h.name)}>Approve</Button>
-                                    <Button size="sm" variant="outline" className="h-8 rounded-lg text-red-600 border-red-200" onClick={() => { setRejectId(h.id); setRejectReason(''); }}>Reject</Button>
+                                    <Button size="sm" variant="outline" className="h-8 rounded-lg text-red-600 border-red-200" onClick={() => { setRejectId(h.id); setRejectReason(''); setRejectError(''); }}>Reject</Button>
                                   </>
                                 )}
                                 {h.status === 'approved' && (
@@ -347,7 +363,7 @@ export function AdminPage() {
                   <div className="p-4 border-t border-slate-100 flex justify-center gap-2">
                     {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
                       <button key={p} type="button" onClick={() => setPage(p)}
-                        className={`w-9 h-9 rounded-full text-sm font-medium ${page === p ? 'bg-slate-900 text-white' : 'border border-slate-200'}`}>{p}</button>
+                        className={`w-9 h-9 rounded-full text-sm font-medium ${pageSafe === p ? 'bg-slate-900 text-white' : 'border border-slate-200'}`}>{p}</button>
                     ))}
                   </div>
                 )}
@@ -371,7 +387,7 @@ export function AdminPage() {
                   ))}
                 </ul>
                 <p className="mt-4 text-xs text-slate-400">
-                  Visit requests in prototype: {visits.length} total (all auto-confirmed — no admin visit queue).
+                  Visit requests saved in this demo: {visits.length}. A request does not confirm a visit or reserve a room.
                 </p>
               </Card>
             )}
@@ -438,74 +454,34 @@ export function AdminPage() {
         </div>
       </div>
 
-      {reviewHostel && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setReviewHostel(null)} />
-          <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white rounded-t-3xl sm:rounded-2xl shadow-xl p-6 animate-slide-up">
-            <div className="flex items-start justify-between gap-3 mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900">{reviewHostel.name}</h3>
-                <p className="text-sm text-slate-500 mt-0.5">
-                  {reviewHostel.locality} · {ownerName(reviewHostel.ownerId)} · {statusBadge(reviewHostel.status)}
-                </p>
-              </div>
-              <button type="button" onClick={() => setReviewHostel(null)} className="p-1 text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <img src={reviewHostel.coverImage} alt="" className="w-full h-40 object-cover rounded-xl mb-4" />
-            <p className="text-sm text-slate-600 mb-3">{reviewHostel.description}</p>
-            <p className="text-xs text-slate-500 mb-2">
-              {reviewHostel.category} · {reviewHostel.amenities.slice(0, 6).join(', ')}
-            </p>
-            <div className="space-y-2 mb-4">
-              {reviewHostel.roomTypes.map(r => (
-                <div key={r.id} className="flex justify-between text-sm px-3 py-2 rounded-lg bg-slate-50">
-                  <span>{r.name} ({r.sharingType})</span>
-                  <span className="font-medium">₹{r.rent.toLocaleString()}/mo · dep ₹{r.deposit.toLocaleString()}</span>
-                </div>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {reviewHostel.status === 'pending' && (
-                <>
-                  <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => approve(reviewHostel.id, reviewHostel.name)}>Approve</Button>
-                  <Button variant="outline" className="text-red-600 border-red-200" onClick={() => { setRejectId(reviewHostel.id); setRejectReason(''); }}>Reject</Button>
-                </>
-              )}
-              {reviewHostel.status === 'approved' && (
-                <Button variant="outline" className="text-red-600" onClick={() => suspend(reviewHostel.id, reviewHostel.name)}>Suspend</Button>
-              )}
-              {reviewHostel.status === 'rejected' && (
-                <Button onClick={() => restore(reviewHostel.id, reviewHostel.name)}>Restore to Live</Button>
-              )}
-              <Link to={`/hostel/${reviewHostel.id}`} target="_blank">
-                <Button variant="ghost">Open public page</Button>
-              </Link>
-            </div>
-            <p className="mt-4 text-xs text-slate-400">
-              Approve makes the listing public on Explore. Reject/suspend hides it. Updates shared mock state with Owner dashboard.
-            </p>
+      <Modal open={Boolean(reviewHostel)} onClose={() => setReviewHostel(null)} title="Review listing" wide>
+        {reviewHostel && <div className="admin-review-content">
+          <div className="workspace-section-heading"><div><h2>{reviewHostel.name}</h2><p className="workspace-muted">{reviewHostel.locality} · {ownerName(reviewHostel.ownerId)}</p></div>{statusBadge(reviewHostel.status)}</div>
+          <img src={reviewHostel.coverImage} alt={reviewHostel.name} className="admin-review-cover" />
+          <p className="workspace-muted">{reviewHostel.description}</p>
+          <p className="workspace-muted"><strong>Address:</strong> {reviewHostel.address}</p>
+          <div className="admin-review-rooms">{reviewHostel.roomTypes.map(room => <article key={room.id}>
+            <div><strong>{room.name}</strong><span>{room.available ? 'Available · owner provided' : 'Unavailable'}</span></div>
+            <dl><div><dt>Fixed monthly / student</dt><dd>₹{monthlyTotal(room).toLocaleString('en-IN')}</dd></div><div><dt>Deposit, separately</dt><dd>₹{room.deposit.toLocaleString('en-IN')}</dd></div></dl>
+            <p>Rent ₹{room.rent.toLocaleString('en-IN')}{room.extraCharges.filter(c => !c.optional).map(c => ` + ${c.name} ₹${c.amount.toLocaleString('en-IN')}`).join('')}</p>
+          </article>)}</div>
+          <p className="workspace-muted"><strong>Electricity:</strong> {reviewHostel.electricityPolicy || 'Not provided — clarify before publishing.'}</p>
+          <p className="workspace-muted"><strong>Amenities:</strong> {reviewHostel.amenities.join(', ')}</p>
+          <div className="admin-review-note"><Shield size={20} /><div><strong>Approval is a publication decision.</strong><p>It does not claim owner identity, a site visit, or room availability has been independently verified. This demo has no verification service.</p></div></div>
+          <div className="workspace-modal-actions">
+            {reviewHostel.status === 'pending' && <><Button onClick={() => approve(reviewHostel.id, reviewHostel.name)}>Approve listing</Button><Button variant="outline" onClick={() => { setRejectId(reviewHostel.id); setRejectReason(''); setRejectError(''); }}>Reject with reason</Button></>}
+            {reviewHostel.status === 'approved' && <><Button variant="outline" onClick={() => suspend(reviewHostel.id, reviewHostel.name)}>Hide listing</Button><Link className="workspace-inline-link" to={`/hostel/${reviewHostel.id}`}>Open public page</Link></>}
+            {reviewHostel.status === 'rejected' && <Button onClick={() => restore(reviewHostel.id, reviewHostel.name)}>Restore to published</Button>}
           </div>
-        </div>
-      )}
-
-      {rejectId && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setRejectId(null)} />
-          <Card className="relative w-full max-w-md p-6 shadow-xl">
-            <h3 className="font-semibold text-slate-900">Reject listing</h3>
-            <p className="text-sm text-slate-500 mt-1">Optional reason (stored in session history only).</p>
-            <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} rows={3}
-              placeholder="e.g. Unclear photos, incomplete rent breakup…"
-              className="mt-3 w-full px-3 py-2 rounded-xl border border-slate-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-teal-500" />
-            <div className="mt-4 flex gap-2">
-              <Button variant="danger" className="flex-1" onClick={confirmReject}>Reject</Button>
-              <Button variant="ghost" onClick={() => setRejectId(null)}>Cancel</Button>
-            </div>
-          </Card>
-        </div>
-      )}
+        </div>}
+      </Modal>
+      <Modal open={Boolean(rejectId)} onClose={() => setRejectId(null)} title="Reject listing">
+        <p className="workspace-muted">Explain what needs to change. The reason is recorded in this session's local moderation history.</p>
+        <label className="workspace-modal-label" htmlFor="reject-reason">Reason for rejection</label>
+        <textarea id="reject-reason" className="workspace-modal-input" value={rejectReason} maxLength={600} onChange={e => { setRejectReason(e.target.value); setRejectError(''); }} rows={4} placeholder="For example: Please add the mandatory mess charge and clearer room photos." />
+        {rejectError && <p role="alert" className="workspace-form-error">{rejectError}</p>}
+        <div className="workspace-modal-actions"><Button variant="danger" onClick={confirmReject}>Reject listing</Button><Button variant="ghost" onClick={() => setRejectId(null)}>Keep reviewing</Button></div>
+      </Modal>
     </div>
   );
 }

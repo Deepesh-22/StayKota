@@ -43,6 +43,9 @@ export interface Hostel {
   videoUrl?: string;
   latitude?: number;
   longitude?: number;
+  houseRules?: string[];
+  electricityPolicy?: string;
+  extraChargesNote?: string;
   roomTypes: RoomType[];
   createdAt: string;
   updatedAt: string;
@@ -58,7 +61,9 @@ export interface VisitRequest {
   roomTypeName?: string;
   visitDate: string;
   message?: string;
-  status: 'confirmed' | 'cancelled';
+  studentPhone?: string;
+  consentAt?: string;
+  status: 'requested' | 'confirmed' | 'cancelled';
   createdAt: string;
 }
 

@@ -1,476 +1,371 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useEffect, useId, useRef, useState, type ReactNode, type SyntheticEvent, type FormEvent } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
-  MapPin, Heart, Share2, Check, Calendar, Phone,
-  Shield, Wifi, Wind, Utensils, Droplets, X, ChevronLeft, ChevronRight,
-  Camera, Zap, Car, BookOpen, Eye
+  ArrowLeft, ArrowUpRight, BedDouble, BookOpen, Calendar, Camera, Check,
+  CheckCircle2, ChevronLeft, ChevronRight, Clock3, Droplets, Flag, Heart,
+  Info, MapPin, Share2, ShieldCheck, Users, Utensils, Wifi, Wind, X, Zap,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
-import { DEMO_NOTE } from '../data/mockData';
-import type { RoomType } from '../types';
+import { RoomShowcase } from '../components/hostel/RoomShowcase';
+import { CAMPUSES } from '../data/campuses';
+import { distanceKm, formatDistance, getCampus, getMatchingRooms, monthlyTotal } from '../lib/discovery';
+import type { RoomType, VisitRequest } from '../types';
+import '../styles/detail.css';
 
-const amenityMeta: Record<string, { icon: React.ReactNode; label: string }> = {
-  Meals: { icon: <Utensils className="w-3.5 h-3.5" />, label: 'Mess (veg)' },
-  WiFi: { icon: <Wifi className="w-3.5 h-3.5" />, label: 'Wi-Fi' },
-  Laundry: { icon: <Droplets className="w-3.5 h-3.5" />, label: 'Laundry' },
-  CCTV: { icon: <Eye className="w-3.5 h-3.5" />, label: 'CCTV & warden' },
-  'Power Backup': { icon: <Zap className="w-3.5 h-3.5" />, label: 'Power backup' },
-  'Study Room': { icon: <BookOpen className="w-3.5 h-3.5" />, label: 'Study hall' },
-  'RO Water': { icon: <Droplets className="w-3.5 h-3.5" />, label: 'RO water' },
-  Parking: { icon: <Car className="w-3.5 h-3.5" />, label: 'Parking' },
-  AC: { icon: <Wind className="w-3.5 h-3.5" />, label: 'AC' },
-  'Hot Water': { icon: <Droplets className="w-3.5 h-3.5" />, label: 'Hot water' },
-  Gym: { icon: <Zap className="w-3.5 h-3.5" />, label: 'Gym' },
-  Housekeeping: { icon: <Check className="w-3.5 h-3.5" />, label: 'Housekeeping' },
+const money = (amount: number) => '₹' + amount.toLocaleString('en-IN');
+const localToday = () => {
+  const now = new Date();
+  return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+};
+const readableDate = (value: string) => new Date(value + 'T12:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+const imageFallback = (event: SyntheticEvent<HTMLImageElement>) => {
+  if (!event.currentTarget.src.endsWith('/images/room-shared.webp')) event.currentTarget.src = '/images/room-shared.webp';
 };
 
-const HOUSE_RULES = [
-  'Gate closes at 10:30 PM',
-  'Visitors allowed till 7 PM in common room',
-  'No smoking or alcohol on premises',
-  '1 month notice before vacating',
-];
+const amenityIcons: Record<string, ReactNode> = {
+  WiFi: <Wifi />, AC: <Wind />, Meals: <Utensils />, Laundry: <Droplets />,
+  'Study Room': <BookOpen />, 'Power Backup': <Zap />, 'Hot Water': <Droplets />,
+  'RO Water': <Droplets />, CCTV: <ShieldCheck />,
+};
+const amenityLabel = (value: string) => ({ WiFi: 'Wi-Fi', Meals: 'Mess facility', CCTV: 'CCTV', 'Study Room': 'Study space' }[value] || value);
+
+function DetailDialog({ open, onClose, title, children, gallery = false }: {
+  open: boolean; onClose: () => void; title: string; children: ReactNode; gallery?: boolean;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!dialog) return;
+    if (open && !dialog.open) dialog.showModal();
+    if (!open && dialog.open) dialog.close();
+    if (!open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previous; };
+  }, [open]);
+  return (
+    <dialog ref={ref} className={'detail-dialog' + (gallery ? ' detail-dialog--gallery' : '')}
+      aria-labelledby={titleId} onCancel={event => { event.preventDefault(); onClose(); }} onClose={onClose}
+      onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
+      <div className="detail-dialog__inner">
+        <div className="detail-dialog__header">
+          <h2 id={titleId}>{title}</h2>
+          <button type="button" className="detail-icon-button" onClick={onClose} aria-label="Close dialog"><X size={20} /></button>
+        </div>
+        {children}
+      </div>
+    </dialog>
+  );
+}
+
+function RoomPrice({ room, electricity, notes }: { room: RoomType; electricity?: string; notes?: string }) {
+  const mandatory = room.extraCharges.filter(charge => !charge.optional);
+  const optional = room.extraCharges.filter(charge => charge.optional);
+  return (
+    <div className="detail-price">
+      <div className="detail-price__label">PER STUDENT · PER MONTH</div>
+      <dl>
+        <div><dt>Room rent</dt><dd>{money(room.rent)}</dd></div>
+        {mandatory.map((charge, index) => <div key={charge.name + index}><dt>{charge.name}</dt><dd>{money(charge.amount)}</dd></div>)}
+        <div className="detail-price__total"><dt>Fixed monthly total</dt><dd>{money(monthlyTotal(room))}</dd></div>
+        <div><dt>Electricity</dt><dd>{electricity || 'Confirm charging policy with owner'}</dd></div>
+        <div className="detail-price__deposit"><dt>Refundable deposit <small>One-time · refund terms apply</small></dt><dd>{money(room.deposit)}</dd></div>
+      </dl>
+      {room.included.length > 0 && <p className="detail-price__included"><Check size={14} /> Included in rent: {room.included.map(amenityLabel).join(', ')}</p>}
+      {optional.length > 0 && <p className="detail-price__optional">Optional: {optional.map(charge => charge.name + ' ' + money(charge.amount) + '/month').join(' · ')}. Not included in the fixed total.</p>}
+      {notes && <p className="detail-price__optional">{notes}</p>}
+    </div>
+  );
+}
 
 export function HostelDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { hostels, user, toggleFavourite, isFavourite, scheduleVisit } = useApp();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const hostel = hostels.find(h => h.id === id && h.status === 'approved');
+  const { hostels, user, toggleFavourite, isFavourite, scheduleVisit, updateProfile } = useApp();
+  const hostel = hostels.find(item => item.id === id && item.status === 'approved');
+  const campus = getCampus(searchParams.get('campus'));
+  const availableRooms = hostel ? getMatchingRooms(hostel) : [];
+  const roomId = searchParams.get('room');
+  const selectedRoom = availableRooms.find(room => room.id === roomId)
+    || availableRooms.find(room => room.sharingType === 'double') || availableRooms[0];
+  const galleryImages = hostel ? [...new Set([hostel.coverImage, ...hostel.images].filter(Boolean))] : [];
+  if (!galleryImages.length) galleryImages.push('/images/room-shared.webp');
 
-  const [selectedRoom, setSelectedRoom] = useState<RoomType | null>(null);
-  const [visitDate, setVisitDate] = useState('');
-  const [message, setMessage] = useState('');
-  const [step, setStep] = useState<'idle' | 'date' | 'confirm' | 'submitting' | 'success' | 'error'>('idle');
-  const [error, setError] = useState('');
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
-  const [shareCopied, setShareCopied] = useState(false);
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const [visitOpen, setVisitOpen] = useState(false);
+  const [visitDate, setVisitDate] = useState('');
+  const [phone, setPhone] = useState('');
+  const [message, setMessage] = useState('');
+  const [consent, setConsent] = useState(false);
+  const [visitError, setVisitError] = useState('');
+  const [receipt, setReceipt] = useState<VisitRequest | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const receiptHeading = useRef<HTMLHeadingElement>(null);
+  const [shareState, setShareState] = useState<'idle' | 'copied' | 'manual'>('idle');
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState('Incorrect price or availability');
+  const [reportSaved, setReportSaved] = useState(false);
+  const [reportError, setReportError] = useState('');
 
   useEffect(() => {
-    if (!hostel) return;
-    const available = hostel.roomTypes.filter(r => r.available);
-    if (available.length === 0) return;
-    const sorted = [...available].sort((a, b) => a.rent - b.rent);
-    const double = sorted.find(r => r.sharingType === 'double');
-    setSelectedRoom(double || sorted[0]);
-  }, [hostel]);
+    setGalleryOpen(false);
+    setGalleryIndex(0);
+    setVisitOpen(false);
+    setReceipt(null);
+    setShareState('idle');
+  }, [id]);
+  useEffect(() => {
+    if (visitOpen && !receipt) setPhone(user?.phone || '');
+  }, [visitOpen, user?.phone, receipt]);
+  useEffect(() => {
+    if (user?.role === 'student' && searchParams.get('request') === 'visit' && selectedRoom) {
+      setVisitOpen(true);
+      const params = new URLSearchParams(searchParams);
+      params.delete('request');
+      setSearchParams(params, { replace: true });
+    }
+  }, [user?.role, searchParams, selectedRoom, setSearchParams]);
+  useEffect(() => { if (receipt) receiptHeading.current?.focus(); }, [receipt]);
+  useEffect(() => {
+    if (shareState !== 'copied') return;
+    const timeout = window.setTimeout(() => setShareState('idle'), 3500);
+    return () => window.clearTimeout(timeout);
+  }, [shareState]);
+  useEffect(() => {
+    if (!galleryOpen) return;
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+      event.preventDefault();
+      setGalleryIndex(index => (index + (event.key === 'ArrowRight' ? 1 : -1) + galleryImages.length) % galleryImages.length);
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [galleryOpen, galleryImages.length]);
 
-  if (!hostel) {
-    return (
-      <div className="max-w-3xl mx-auto px-4 py-20 text-center animate-fade-in">
-        <h1 className="text-2xl font-bold text-slate-900">Hostel not found</h1>
-        <p className="mt-2 text-slate-500">This listing may be pending approval or does not exist.</p>
-        <Link to="/explore" className="mt-6 inline-block text-teal-600 font-medium hover:underline">← Browse hostels</Link>
-      </div>
-    );
-  }
+  if (!hostel) return (
+    <section className="detail-not-found">
+      <MapPin size={40} strokeWidth={1.3} />
+      <p className="detail-eyebrow">A DIFFERENT TURN</p>
+      <h1>This stay isn’t on the map.</h1>
+      <p>The listing may be unavailable or awaiting review. Let’s find another room near your campus.</p>
+      <Link className="detail-primary" to={'/explore?campus=' + campus.id}><ArrowLeft size={17} /> Explore hostels</Link>
+    </section>
+  );
 
-  const images = hostel.images.length > 0 ? hostel.images : [hostel.coverImage];
-  const galleryImages = images.length >= 4 ? images : [...images, ...Array(Math.max(0, 4 - images.length)).fill(hostel.coverImage)];
-  const fav = isFavourite(hostel.id);
-  const minRent = Math.min(...hostel.roomTypes.map(r => r.rent));
-  const depositForSelected = selectedRoom?.deposit;
-  const categoryLabel = hostel.category === 'boys' ? 'Boys' : hostel.category === 'girls' ? 'Girls' : 'Co-ed';
-
-  const mostPopularId = useMemo(() => {
-    const doubles = hostel.roomTypes.filter(r => r.sharingType === 'double' && r.available);
-    if (doubles.length) return doubles.sort((a, b) => a.rent - b.rent)[0].id;
-    const avail = hostel.roomTypes.filter(r => r.available);
-    return avail.length ? avail.sort((a, b) => a.rent - b.rent)[0].id : null;
-  }, [hostel]);
-
-  const openGallery = (index: number) => { setGalleryIndex(index); setGalleryOpen(true); };
-
+  const displayedImage = galleryImages[galleryIndex % galleryImages.length] || '/images/room-shared.webp';
+  const saved = isFavourite(hostel.id);
+  const distance = distanceKm(hostel, campus);
+  const category = hostel.category === 'co-ed' ? 'Co-ed stay' : hostel.category === 'girls' ? 'Girls hostel' : 'Boys hostel';
+  const directionsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(hostel.address);
+  const viewRoom = (room: RoomType) => {
+    if (!room.available) return;
+    const params = new URLSearchParams(searchParams);
+    params.set('campus', campus.id);
+    params.set('room', room.id);
+    setSearchParams(params, { replace: true });
+  };
+  const loginRedirect = (request = false) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('campus', campus.id);
+    if (selectedRoom) params.set('room', selectedRoom.id);
+    if (request) params.set('request', 'visit');
+    navigate('/login?role=student&redirect=' + encodeURIComponent('/hostel/' + hostel.id + '?' + params.toString()));
+  };
+  const startVisit = () => {
+    if (!selectedRoom) return;
+    if (user?.role !== 'student') { loginRedirect(true); return; }
+    setReceipt(null);
+    setConsent(false);
+    setVisitError('');
+    submittingRef.current = false;
+    setVisitOpen(true);
+  };
+  const handleSave = () => user?.role === 'student' ? toggleFavourite(hostel.id) : loginRedirect();
   const handleShare = async () => {
     const url = window.location.href;
+    if (navigator.share) {
+      try { await navigator.share({ title: hostel.name + ' · StayKota', url }); return; }
+      catch (error) { if (error instanceof DOMException && error.name === 'AbortError') return; }
+    }
     try {
-      if (navigator.share) await navigator.share({ title: hostel.name, url });
-      else { await navigator.clipboard.writeText(url); setShareCopied(true); setTimeout(() => setShareCopied(false), 2000); }
-    } catch {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
       await navigator.clipboard.writeText(url);
-      setShareCopied(true);
-      setTimeout(() => setShareCopied(false), 2000);
-    }
+      setShareState('copied');
+    } catch { setShareState('manual'); }
   };
-
-  const startVisitFlow = () => {
-    setError('');
-    if (!user || user.role !== 'student') {
-      navigate(`/login?role=student&redirect=${encodeURIComponent(`/hostel/${id}`)}`);
-      return;
-    }
-    setStep('date');
-  };
-
-  const goToConfirm = () => {
-    setError('');
-    if (!visitDate) { setError('Please select a visit date'); return; }
-    if (visitDate < today) { setError('Visit date cannot be in the past'); return; }
-    setStep('confirm');
-  };
-
-  const submitVisit = () => {
-    if (step === 'submitting') return;
-    setError('');
-    setStep('submitting');
-    setTimeout(() => {
-      try {
-        scheduleVisit({
-          hostelId: hostel.id,
-          hostelName: hostel.name,
-          roomTypeId: selectedRoom?.id,
-          roomTypeName: selectedRoom?.name,
-          visitDate,
-          message: message.trim() || undefined,
-        });
-        setStep('success');
-      } catch {
-        setError('Something went wrong. Please try again.');
-        setStep('error');
-      }
-    }, 600);
-  };
-
-  const formatDisplayDate = (iso: string) => {
+  const submitVisit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (submittingRef.current) return;
+    setVisitError('');
+    if (!selectedRoom || !selectedRoom.available) { setVisitError('Choose an available room before requesting a visit.'); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(visitDate) || visitDate < localToday()) { setVisitError('Choose today or a future date for your visit.'); return; }
+    const digits = phone.replace(/\D/g, '');
+    const normalizedPhone = digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : digits;
+    if (!/^[6-9]\d{9}$/.test(normalizedPhone)) { setVisitError('Enter a valid 10-digit Indian mobile number.'); return; }
+    if (!consent) { setVisitError('Please agree to sharing your contact details for this visit.'); return; }
+    submittingRef.current = true;
+    setSubmitting(true);
     try {
-      return new Date(iso + 'T12:00:00').toLocaleDateString('en-IN', {
-        weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+      const request = scheduleVisit({
+        hostelId: hostel.id, hostelName: hostel.name, roomTypeId: selectedRoom.id,
+        roomTypeName: selectedRoom.name, visitDate, message: message.trim() || undefined,
+        studentPhone: '+91' + normalizedPhone, consentAt: new Date().toISOString(),
       });
-    } catch { return iso; }
+      updateProfile({ phone: '+91' + normalizedPhone });
+      setReceipt(request);
+    } catch (error) {
+      setVisitError(error instanceof Error ? error.message : 'We couldn’t save this request. Please try again.');
+      submittingRef.current = false;
+    } finally { setSubmitting(false); }
+  };
+  const saveReport = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setReportError('');
+    try {
+      const value = localStorage.getItem('staykota_reports');
+      const existing: unknown = value ? JSON.parse(value) : [];
+      const reports = Array.isArray(existing) ? existing : [];
+      localStorage.setItem('staykota_reports', JSON.stringify([{
+        id: 'report-' + Date.now(), hostelId: hostel.id, hostelName: hostel.name,
+        reason: reportReason, reporter: user?.name || 'Visitor', createdAt: new Date().toISOString(), status: 'open',
+      }, ...reports]));
+      setReportSaved(true);
+    } catch { setReportError('Your browser could not save this report. Please try again.'); }
   };
 
   return (
-    <div className="animate-fade-in bg-[#faf8f5] min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <nav className="flex items-center gap-1.5 text-sm text-slate-500 mb-4 flex-wrap">
-          <Link to="/" className="hover:text-teal-700">Home</Link>
-          <span>/</span>
-          <Link to={`/explore?locality=${encodeURIComponent(hostel.locality)}`} className="hover:text-teal-700">{hostel.locality}</Link>
-          <span>/</span>
-          <span className="text-slate-800 font-medium truncate">{hostel.name}</span>
+    <div className="detail-page">
+      <div className="detail-shell">
+        <nav className="detail-breadcrumb" aria-label="Breadcrumb">
+          <Link to={'/explore?campus=' + campus.id}><ArrowLeft size={15} /> Back to nearby stays</Link>
+          <span aria-hidden="true">/</span><span>{hostel.name}</span>
         </nav>
 
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-5">
+        <header className="detail-heading">
           <div>
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">{hostel.name}</h1>
-              <span className="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">{categoryLabel}</span>
-            </div>
-            <div className="flex items-center gap-1.5 mt-2 text-sm text-slate-600 flex-wrap">
-              <MapPin className="w-4 h-4 flex-shrink-0 text-slate-400" />
-              <span>{hostel.address}</span>
-              <span className="text-slate-300">·</span>
-              <button type="button" className="text-teal-700 font-medium hover:underline">View on map</button>
-            </div>
+            <div className="detail-heading__top"><span className="detail-eyebrow">A LITTLE CLOSER TO YOUR NEXT CHAPTER</span><span className="detail-category">{category}</span></div>
+            <h1>{hostel.name}</h1>
+            <p><MapPin size={16} /> {hostel.locality}, Kota <span className="detail-heading__dot">·</span> <a href="#detail-location">See neighbourhood <ArrowUpRight size={14} /></a></p>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {user?.role === 'student' && (
-              <button onClick={() => toggleFavourite(hostel.id)}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium transition-colors ${
-                  fav ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
-                }`}>
-                <Heart className={`w-4 h-4 ${fav ? 'fill-current' : ''}`} />
-                {fav ? 'Saved' : 'Save'}
-              </button>
-            )}
-            <button onClick={handleShare}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:border-slate-300">
-              <Share2 className="w-4 h-4" />
-              {shareCopied ? 'Copied!' : 'Share'}
-            </button>
+          <div className="detail-heading__actions">
+            <button type="button" className={'detail-outline' + (saved ? ' is-saved' : '')} onClick={handleSave} aria-pressed={saved}><Heart size={17} fill={saved ? 'currentColor' : 'none'} />{saved ? 'Saved' : 'Save stay'}</button>
+            <button type="button" className="detail-outline" onClick={handleShare}><Share2 size={17} />{shareState === 'copied' ? 'Link copied' : 'Share'}</button>
           </div>
-        </div>
+        </header>
+        {shareState === 'copied' && <p className="detail-notice" role="status">Link copied. Share this room with a parent or friend.</p>}
+        {shareState === 'manual' && <div className="detail-share-fallback" role="status"><label htmlFor="detail-share-link">Copy this link to share your selected room</label><input id="detail-share-link" value={window.location.href} readOnly onFocus={event => event.target.select()} /></div>}
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 rounded-2xl overflow-hidden mb-8">
-          <button type="button" onClick={() => openGallery(0)}
-            className="md:col-span-2 md:row-span-2 relative aspect-[4/3] md:aspect-auto md:min-h-[320px] bg-slate-100 group">
-            <img src={galleryImages[0]} alt={hostel.name}
-              className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
-              onError={(e) => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800&q=80'; }} />
+        <section className={'detail-gallery' + (galleryImages.length === 1 ? ' detail-gallery--single' : '')} aria-label="Hostel photos">
+          <button type="button" className="detail-gallery__main" onClick={() => { setGalleryIndex(0); setGalleryOpen(true); }} aria-label="Open hostel photo gallery">
+            <img src={galleryImages[0] || '/images/room-shared.webp'} alt={'Illustrative room photo for ' + hostel.name} onError={imageFallback} fetchPriority="high" />
+            <span className="detail-gallery__caption"><BedDouble size={15} /> A space to settle in</span>
           </button>
-          {[1, 2, 3].map((i) => (
-            <button key={i} type="button" onClick={() => openGallery(i)}
-              className={`relative aspect-[4/3] bg-slate-100 group overflow-hidden ${i === 3 ? 'hidden sm:block' : ''}`}>
-              <img src={galleryImages[i] || hostel.coverImage} alt=""
-                className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
-                onError={(e) => { (e.target as HTMLImageElement).src = hostel.coverImage; }} />
-              {i === 3 && images.length > 4 && (
-                <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-medium text-sm">
-                  <Camera className="w-4 h-4 mr-1.5" />+{images.length - 3} photos
-                </div>
-              )}
-            </button>
-          ))}
+          {galleryImages.length > 1 && <div className={'detail-gallery__side' + (galleryImages.length === 2 ? ' detail-gallery__side--single' : '')}>
+            {galleryImages.slice(1, 3).map((image, index) => <button type="button" key={image} onClick={() => { setGalleryIndex(index + 1); setGalleryOpen(true); }} aria-label={'View hostel photo ' + (index + 2)}>
+              <img src={image} alt={'Illustrative property photo ' + (index + 2)} onError={imageFallback} />
+              {index === Math.min(galleryImages.length - 2, 1) && <span className="detail-gallery__all"><Camera size={15} /> View all photos</span>}
+            </button>)}
+          </div>}
+          <span className="detail-gallery__sample">Illustrative photos · sample listing</span>
+        </section>
+
+        <div className="detail-campus-strip">
+          <span className="detail-campus-strip__icon"><MapPin size={21} /></span>
+          <div><span className="detail-eyebrow">YOUR DAILY COMMUTE</span><p><strong>{formatDistance(distance)}</strong> from {campus.name}<span>Approximate straight-line distance · demo locations</span></p></div>
+          <label className="detail-campus-select"><span className="sr-only">Choose coaching campus</span><select value={campus.id} onChange={event => { const params = new URLSearchParams(searchParams); params.set('campus', event.target.value); setSearchParams(params, { replace: true }); }}>{CAMPUSES.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
-            <Card className="p-6">
-              <h2 className="text-lg font-semibold text-slate-900 mb-3">About this hostel</h2>
-              <p className="text-slate-600 leading-relaxed">{hostel.description}</p>
-              <p className="mt-3 text-xs text-slate-400">{DEMO_NOTE}</p>
-
-              <h3 className="font-semibold text-slate-900 mt-6 mb-3">Amenities</h3>
-              <div className="flex flex-wrap gap-2">
-                {hostel.amenities.map(a => {
-                  const meta = amenityMeta[a] || { icon: <Check className="w-3.5 h-3.5" />, label: a };
-                  return (
-                    <span key={a} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-100 text-sm text-slate-700">
-                      {meta.icon}{meta.label}
-                    </span>
-                  );
-                })}
+        <div className="detail-columns">
+          <div className="detail-main">
+            <section className="detail-section" id="detail-rooms" aria-labelledby="room-heading">
+              <div className="detail-section__heading"><div><p className="detail-eyebrow">FIND YOUR FIT</p><h2 id="room-heading">One hostel. Your kind of room.</h2></div><span className="detail-tiny-note">Per student / month</span></div>
+              <p className="detail-section__intro">A little privacy or a little company? Choose a room to see its full monthly cost.</p>
+              <div className="detail-room-options">
+                {hostel.roomTypes.map(room => <button key={room.id} type="button" disabled={!room.available} onClick={() => viewRoom(room)} aria-pressed={selectedRoom?.id === room.id} className={'detail-room-option' + (selectedRoom?.id === room.id ? ' is-selected' : '')}>
+                  <span className="detail-room-option__icon"><BedDouble size={25} strokeWidth={1.3} />{selectedRoom?.id === room.id && <span><Check size={12} /></span>}</span>
+                  <span className="detail-room-option__name">{room.name}</span>
+                  <strong>{money(monthlyTotal(room))}<small>/month</small></strong>
+                  <span className={'detail-room-option__availability' + (!room.available ? ' is-full' : '')}>{room.available ? 'Available in demo' : 'Currently full'}</span>
+                </button>)}
               </div>
+              {selectedRoom && <div className="detail-room-scene" key={'scene-' + selectedRoom.id}><div><span className="detail-eyebrow">A LITTLE ROOM TO IMAGINE</span><h3>{selectedRoom.name}</h3><p>Room layout illustration.<br />Not a measured floor plan.</p></div><RoomShowcase capacity={selectedRoom.capacity} /></div>}
+              {selectedRoom ? <div className="detail-room-facts" key={selectedRoom.id}>
+                <div><Users size={17} /><span>{selectedRoom.capacity} {selectedRoom.capacity === 1 ? 'student' : 'students'} per room</span></div>
+                {selectedRoom.features.map((feature, index) => <div key={feature + index}><Check size={17} /><span>{feature}</span></div>)}
+              </div> : <div className="detail-info"><Info size={18} /><p>No room is currently available. Try another stay near your campus.</p></div>}
+            </section>
 
-              <h3 className="font-semibold text-slate-900 mt-6 mb-3">House rules</h3>
-              <div className="grid sm:grid-cols-2 gap-2.5">
-                {HOUSE_RULES.map(rule => (
-                  <div key={rule} className="flex items-start gap-2 text-sm text-slate-600">
-                    <Check className="w-4 h-4 text-teal-600 flex-shrink-0 mt-0.5" />
-                    <span>{rule}</span>
-                  </div>
-                ))}
+            <section className="detail-section detail-section--cost" aria-labelledby="cost-heading">
+              <div className="detail-section__heading"><div><p className="detail-eyebrow">NO GUESSWORK</p><h2 id="cost-heading">Know what you’ll pay.</h2></div></div>
+              <p className="detail-section__intro">Monthly charges and your one-time deposit, kept separate.</p>
+              {selectedRoom ? <RoomPrice room={selectedRoom} electricity={hostel.electricityPolicy} notes={hostel.extraChargesNote} /> : <p>Select an available room to see its costs.</p>}
+            </section>
+
+            <section className="detail-section" aria-labelledby="life-heading">
+              <div className="detail-section__heading"><div><p className="detail-eyebrow">THE EVERYDAY DETAILS</p><h2 id="life-heading">A place for your routine.</h2></div></div>
+              <p className="detail-about">{hostel.description}</p>
+              <div className="detail-amenities">{hostel.amenities.map(amenity => <div key={amenity}><span>{amenityIcons[amenity] || <Check />}</span><p>{amenityLabel(amenity)}</p></div>)}</div>
+              <p className="detail-small-print">Hostel facilities can differ from room inclusions. Check your selected room’s features and costs above.</p>
+            </section>
+
+            <section className="detail-section" aria-labelledby="rules-heading">
+              <div className="detail-section__heading"><div><p className="detail-eyebrow">GOOD TO KNOW</p><h2 id="rules-heading">Before you move in.</h2></div></div>
+              {hostel.houseRules?.length ? <ul className="detail-rules">{hostel.houseRules.map((rule, index) => <li key={rule + index}><Check size={17} /><span>{rule}</span></li>)}</ul> : <p className="detail-about">House rules haven’t been provided. Ask the owner about gate timings, visitors, notice periods and deposit refunds before deciding.</p>}
+              <div className="detail-info"><Info size={18} /><p><strong>Owner-provided information.</strong> This is a sample listing, not an independently verified property. Confirm the room, costs and policies in person.</p></div>
+            </section>
+
+            <section className="detail-section" id="detail-location" aria-labelledby="location-heading">
+              <div className="detail-section__heading"><div><p className="detail-eyebrow">YOUR NEW NEIGHBOURHOOD</p><h2 id="location-heading">A little closer to class.</h2></div></div>
+              <div className="detail-location-card">
+                <div className="detail-map-art" aria-hidden="true"><span className="detail-map-art__road road-one" /><span className="detail-map-art__road road-two" /><span className="detail-map-art__road road-three" /><span className="detail-map-art__park" /><span className="detail-map-art__pin"><MapPin size={24} fill="currentColor" /></span><span className="detail-map-art__campus"><BookOpen size={17} /></span><small>Illustrative neighbourhood</small></div>
+                <div className="detail-location-card__copy"><span className="detail-category">{hostel.locality}</span><h3>{hostel.name}</h3><p>{hostel.address}</p><p className="detail-location-card__distance"><MapPin size={15} /> {formatDistance(distance)} straight-line to {campus.name}</p><a className="detail-text-link" href={directionsUrl} target="_blank" rel="noopener noreferrer">Open address in Google Maps <ArrowUpRight size={16} /></a><small>Sample location. Confirm the actual address with the owner.</small></div>
               </div>
-            </Card>
-
-            <Card className="p-6">
-              <h2 className="text-lg font-semibold text-slate-900 mb-1">Room types & rent</h2>
-              <p className="text-sm text-slate-500 mb-5">Rent is monthly. Deposit and extras are separate — see breakup below.</p>
-
-              <div className="grid sm:grid-cols-3 gap-4">
-                {hostel.roomTypes.map(rt => {
-                  const isSelected = selectedRoom?.id === rt.id;
-                  const isPopular = rt.id === mostPopularId;
-                  return (
-                    <div key={rt.id}
-                      className={`relative rounded-2xl border-2 p-4 transition-all ${
-                        isSelected ? 'border-teal-500 bg-teal-50/40 shadow-sm' : 'border-slate-100 bg-white hover:border-slate-200'
-                      } ${!rt.available ? 'opacity-60' : ''}`}>
-                      {isPopular && rt.available && (
-                        <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-teal-600 text-white text-[10px] font-semibold uppercase tracking-wide">
-                          Most popular
-                        </span>
-                      )}
-                      <h3 className="font-semibold text-slate-900 text-sm mt-1">{rt.name}</h3>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {rt.capacity} bed{rt.capacity > 1 ? 's' : ''}
-                        {rt.sharingType === 'single' ? ' · attached bath' : ' · common bath'}
-                      </p>
-                      <div className="mt-3">
-                        <span className="text-xl font-bold text-slate-900">₹{rt.rent.toLocaleString()}</span>
-                        <span className="text-xs text-slate-500">/mo</span>
-                      </div>
-                      <p className="text-xs mt-1">
-                        {rt.available
-                          ? <span className="text-emerald-600 font-medium">Available</span>
-                          : <span className="text-amber-600 font-medium">Currently full</span>}
-                      </p>
-                      <Button size="sm" variant={isSelected ? 'primary' : 'outline'} className="w-full mt-3 rounded-xl"
-                        disabled={!rt.available} onClick={() => setSelectedRoom(rt)}>
-                        {isSelected ? 'Selected' : 'Select'}
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {selectedRoom && (
-                <div className="mt-6 rounded-xl bg-slate-50 border border-slate-100 p-5">
-                  <h3 className="font-semibold text-slate-900 text-sm mb-3">Transparent price breakup ({selectedRoom.name})</h3>
-                  <dl className="space-y-2.5 text-sm">
-                    <div className="flex justify-between">
-                      <dt className="text-slate-600">Monthly rent</dt>
-                      <dd className="font-medium text-slate-900">₹{selectedRoom.rent.toLocaleString()}</dd>
-                    </div>
-                    {selectedRoom.included.map(item => (
-                      <div key={item} className="flex justify-between">
-                        <dt className="text-slate-600">{item}</dt>
-                        <dd className="text-slate-500">Included</dd>
-                      </div>
-                    ))}
-                    <div className="flex justify-between">
-                      <dt className="text-slate-600">Refundable deposit (one-time)</dt>
-                      <dd className="font-medium text-slate-900">
-                        {selectedRoom.deposit > 0 ? `₹${selectedRoom.deposit.toLocaleString()}` : 'Not specified'}
-                      </dd>
-                    </div>
-                    {selectedRoom.extraCharges.map(ec => (
-                      <div key={ec.name} className="flex justify-between">
-                        <dt className="text-slate-600">{ec.name}{ec.optional ? ' (optional)' : ''}</dt>
-                        <dd className="font-medium text-slate-900">₹{ec.amount.toLocaleString()}{ec.optional ? ' / month' : ''}</dd>
-                      </div>
-                    ))}
-                    <div className="flex justify-between pt-2 border-t border-slate-200">
-                      <dt className="text-slate-600">Electricity</dt>
-                      <dd className="text-slate-500">Actuals, sub-metered</dd>
-                    </div>
-                  </dl>
-                </div>
-              )}
-            </Card>
+            </section>
+            <button type="button" className="detail-report" onClick={() => { setReportOpen(true); setReportSaved(false); setReportError(''); }}><Flag size={15} /> Something doesn’t look right? Report this listing <ArrowUpRight size={15} /></button>
           </div>
 
-          <div className="lg:col-span-1">
-            <div className="sticky top-24 space-y-4">
-              <Card className="p-5 shadow-md border-slate-100">
-                {step === 'success' ? (
-                  <div className="text-center py-4 animate-fade-in">
-                    <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4 animate-slide-up">
-                      <Check className="w-8 h-8 text-emerald-600" />
-                    </div>
-                    <p className="text-lg font-bold text-emerald-800">Visit Confirmed</p>
-                    <p className="text-sm text-slate-600 mt-2">
-                      <strong>{formatDisplayDate(visitDate)}</strong>
-                      {selectedRoom && <> · {selectedRoom.name}</>}
-                    </p>
-                    <p className="text-sm text-slate-500 mt-3 leading-relaxed">
-                      Exact visit time will be coordinated with the owner later.
-                    </p>
-                    <p className="text-xs text-slate-400 mt-4 px-2">
-                      This is a <strong>visit request</strong>, not a room reservation or payment.
-                      Demo only — nothing was emailed or messaged.
-                    </p>
-                    <Button variant="outline" className="mt-5 w-full rounded-xl"
-                      onClick={() => { setStep('idle'); setVisitDate(''); setMessage(''); }}>
-                      Request another visit
-                    </Button>
-                    <Link to="/visits" className="block mt-3 text-sm text-teal-700 font-medium hover:underline">
-                      View my visits →
-                    </Link>
-                  </div>
-                ) : (
-                  <>
-                    <div className="mb-4">
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-2xl font-bold text-slate-900">₹{(selectedRoom?.rent ?? minRent).toLocaleString()}</span>
-                        <span className="text-sm text-slate-500">onwards / month</span>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {depositForSelected != null && depositForSelected > 0
-                          ? `+ ₹${depositForSelected.toLocaleString()} refundable deposit`
-                          : 'Deposit not specified'}
-                        {' · No brokerage'}
-                      </p>
-                    </div>
-
-                    {(step === 'date' || step === 'confirm' || step === 'submitting' || step === 'error') && (
-                      <div className="mb-4 space-y-3">
-                        <div>
-                          <label className="block text-sm font-medium text-slate-700 mb-1.5">Visit date</label>
-                          <input type="date" min={today} value={visitDate}
-                            onChange={e => { setVisitDate(e.target.value); setError(''); }}
-                            disabled={step === 'confirm' || step === 'submitting'}
-                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:bg-slate-50" />
-                          <p className="text-xs text-slate-400 mt-1">Date only — no time selection</p>
-                        </div>
-                        {step === 'date' && (
-                          <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1.5">Message (optional)</label>
-                            <textarea value={message} onChange={e => setMessage(e.target.value)} rows={2}
-                              placeholder="Any questions for the owner…"
-                              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none" />
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {step === 'confirm' && (
-                      <div className="mb-4 p-3 rounded-xl bg-teal-50 border border-teal-100 text-sm">
-                        <p className="font-medium text-teal-900">Confirm visit request</p>
-                        <p className="text-teal-800 mt-1">{hostel.name}</p>
-                        <p className="text-teal-700 mt-0.5">
-                          {formatDisplayDate(visitDate)}
-                          {selectedRoom && ` · ${selectedRoom.name}`}
-                        </p>
-                        <p className="text-xs text-teal-600 mt-2">Not a reservation. Owner will coordinate exact time later.</p>
-                      </div>
-                    )}
-
-                    {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
-
-                    {step === 'idle' && (
-                      <Button className="w-full rounded-xl" size="lg" onClick={startVisitFlow}>
-                        <Calendar className="w-4 h-4" /> Request a visit
-                      </Button>
-                    )}
-                    {step === 'date' && (
-                      <div className="space-y-2">
-                        <Button className="w-full rounded-xl" size="lg" onClick={goToConfirm}>Continue</Button>
-                        <Button variant="ghost" className="w-full" onClick={() => setStep('idle')}>Cancel</Button>
-                      </div>
-                    )}
-                    {step === 'confirm' && (
-                      <div className="space-y-2">
-                        <Button className="w-full rounded-xl" size="lg" onClick={submitVisit}>Confirm visit request</Button>
-                        <Button variant="ghost" className="w-full" onClick={() => setStep('date')}>Back</Button>
-                      </div>
-                    )}
-                    {step === 'submitting' && (
-                      <Button className="w-full rounded-xl" size="lg" disabled loading>Submitting…</Button>
-                    )}
-                    {step === 'error' && (
-                      <Button className="w-full rounded-xl" size="lg" onClick={submitVisit}>Try again</Button>
-                    )}
-
-                    <button type="button"
-                      className="w-full mt-3 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-                      onClick={() => alert('Demo only: owner contact would open here. No real call is placed.')}>
-                      <Phone className="w-4 h-4" /> Call owner
-                    </button>
-
-                    <div className="mt-5 pt-4 border-t border-slate-100 flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-800 font-semibold text-sm flex-shrink-0">RS</div>
-                      <div>
-                        <p className="text-sm font-medium text-slate-900">Hostel Owner</p>
-                        <p className="text-xs text-slate-500">On StayKota · Demo listing</p>
-                        <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1">
-                          <Shield className="w-3 h-3 text-teal-600" />
-                          Never pay token money online. Always visit first.
-                        </p>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </Card>
+          <aside className="detail-sidebar" aria-label="Selected room and visit request">
+            <div className="detail-enquiry">
+              <div className="detail-enquiry__top"><span className="detail-eyebrow">YOUR NEXT CHAPTER</span><span className="detail-enquiry__symbol"><BedDouble size={24} strokeWidth={1.2} /></span></div>
+              {selectedRoom ? <><h2>{selectedRoom.name}</h2><p className="detail-enquiry__price">{money(monthlyTotal(selectedRoom))}<span>/ month</span></p><p className="detail-enquiry__unit">Fixed charges per student. Electricity separate.</p><RoomPrice room={selectedRoom} electricity={hostel.electricityPolicy} /><button type="button" className="detail-primary detail-primary--full" onClick={startVisit}><Calendar size={18} /> Request a visit <ArrowUpRight size={17} /></button><p className="detail-enquiry__disclaimer">A visit request does not reserve a room.</p></> : <><h2>Full for now.</h2><p className="detail-about">There are no available room options at this stay.</p><Link to={'/explore?campus=' + campus.id} className="detail-primary detail-primary--full">Find another stay <ArrowUpRight size={17} /></Link></>}
+              <div className="detail-enquiry__footer"><ShieldCheck size={19} /><p>Visit first. Ask questions.<br /><strong>Choose with confidence.</strong></p></div>
             </div>
-          </div>
+            <div className="detail-sidebar-note"><span className="detail-sidebar-note__spark">✳</span><p>A room for your books,<br />your big plans,<br /><em>and a fresh start.</em></p></div>
+          </aside>
         </div>
       </div>
 
-      {galleryOpen && (
-        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 text-white">
-            <span className="text-sm">{galleryIndex + 1} / {images.length}</span>
-            <button onClick={() => setGalleryOpen(false)} className="p-2 rounded-full hover:bg-white/10" aria-label="Close gallery">
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-          <div className="flex-1 flex items-center justify-center relative px-4">
-            <button onClick={() => setGalleryIndex(i => (i - 1 + images.length) % images.length)}
-              className="absolute left-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20" aria-label="Previous">
-              <ChevronLeft className="w-6 h-6" />
-            </button>
-            <img src={images[galleryIndex]} alt="" className="max-h-[80vh] max-w-full object-contain rounded-lg" />
-            <button onClick={() => setGalleryIndex(i => (i + 1) % images.length)}
-              className="absolute right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20" aria-label="Next">
-              <ChevronRight className="w-6 h-6" />
-            </button>
-          </div>
-          <div className="flex justify-center gap-2 pb-6 overflow-x-auto px-4">
-            {images.map((src, i) => (
-              <button key={i} onClick={() => setGalleryIndex(i)}
-                className={`w-14 h-10 rounded-lg overflow-hidden flex-shrink-0 border-2 ${
-                  i === galleryIndex ? 'border-white' : 'border-transparent opacity-60'
-                }`}>
-                <img src={src} alt="" className="w-full h-full object-cover" />
-              </button>
-            ))}
-          </div>
+      {selectedRoom && <div className="detail-mobile-bar"><div><span>{selectedRoom.name}</span><strong>{money(monthlyTotal(selectedRoom))}<small>/mo</small></strong></div><button type="button" className="detail-primary" onClick={startVisit}>Request a visit <ArrowUpRight size={17} /></button></div>}
+
+      <DetailDialog open={galleryOpen} onClose={() => setGalleryOpen(false)} title={hostel.name + ' · photos'} gallery>
+        <div className="detail-lightbox">
+          <img src={displayedImage} alt={'Illustrative hostel photo ' + (galleryIndex + 1)} onError={imageFallback} />
+          <div className="detail-lightbox__controls"><button type="button" className="detail-icon-button" aria-label="Previous photo" disabled={galleryImages.length < 2} onClick={() => setGalleryIndex(index => (index - 1 + galleryImages.length) % galleryImages.length)}><ChevronLeft /></button><span>{galleryIndex + 1} / {galleryImages.length || 1} <small>Illustrative sample photos</small></span><button type="button" className="detail-icon-button" aria-label="Next photo" disabled={galleryImages.length < 2} onClick={() => setGalleryIndex(index => (index + 1) % galleryImages.length)}><ChevronRight /></button></div>
         </div>
-      )}
+      </DetailDialog>
+
+      <DetailDialog open={visitOpen} onClose={() => setVisitOpen(false)} title={receipt ? 'Your visit request' : 'Come and see your next room'}>
+        {receipt ? <div className="detail-receipt"><div className="detail-receipt__icon"><CheckCircle2 size={35} strokeWidth={1.4} /></div><p className="detail-eyebrow">ONE STEP CLOSER</p><h3 ref={receiptHeading} tabIndex={-1}>Request saved.</h3><p>Your visit request is saved on this device.</p><div className="detail-receipt__summary"><strong>{hostel.name}</strong><span>{receipt.roomTypeName}</span><span><Calendar size={16} /> {readableDate(receipt.visitDate)}</span><small>Reference: {receipt.id}</small><span className="detail-status"><Clock3 size={14} /> Coordination pending</span></div><div className="detail-info"><Info size={18} /><p>This is a frontend demo. No owner has been notified, and the visit is not confirmed. It does not reserve a room.</p></div><Link className="detail-primary detail-primary--full" to="/dashboard?tab=visits" onClick={() => setVisitOpen(false)}>View my requests <ArrowUpRight size={17} /></Link><button className="detail-text-link" type="button" onClick={() => setVisitOpen(false)}>Keep exploring this stay</button></div> : <form className="detail-visit-form" onSubmit={submitVisit} noValidate>
+          <div className="detail-visit-property"><img src={hostel.coverImage} alt="" onError={imageFallback} /><div><strong>{hostel.name}</strong><span>{selectedRoom?.name}</span><span>{selectedRoom ? money(monthlyTotal(selectedRoom)) : '—'} fixed / student / month</span></div></div>
+          <p className="detail-form-intro">Choose a date that works for you. Exact timing needs to be coordinated with the owner.</p>
+          <div className="detail-form-field"><label htmlFor="visit-date">Preferred visit date</label><input id="visit-date" name="visitDate" type="date" min={localToday()} required value={visitDate} onChange={event => { setVisitDate(event.target.value); setVisitError(''); }} /><small>Date only. This does not reserve a time slot.</small></div>
+          <div className="detail-form-row"><div className="detail-form-field"><label htmlFor="visit-name">Your profile name</label><input id="visit-name" value={user?.name || ''} readOnly autoComplete="name" /></div><div className="detail-form-field"><label htmlFor="visit-phone">Mobile number</label><input id="visit-phone" type="tel" name="phone" autoComplete="tel" inputMode="tel" placeholder="10-digit mobile number" value={phone} onChange={event => setPhone(event.target.value)} required /></div></div>
+          <div className="detail-form-field"><label htmlFor="visit-message">Anything you’d like to ask? <span>(optional)</span></label><textarea id="visit-message" name="message" rows={3} maxLength={500} placeholder="Ask about the room, mess or visit arrangements…" value={message} onChange={event => setMessage(event.target.value)} /></div>
+          <label className="detail-consent"><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} /><span>I agree to share my contact details with this hostel’s owner for visit coordination when the live service is connected.</span></label>
+          <p className="detail-form-demo"><Info size={15} /> Demo: this request stays on your device. No SMS, call or message will be sent.</p>
+          {visitError && <p role="alert" className="detail-form-error">{visitError}</p>}
+          <button type="submit" className="detail-primary detail-primary--full" disabled={submitting || !selectedRoom}>{submitting ? 'Saving request…' : 'Save visit request'}<ArrowUpRight size={17} /></button>
+          <p className="detail-enquiry__disclaimer">A visit request is not a room reservation or payment.</p>
+        </form>}
+      </DetailDialog>
+
+      <DetailDialog open={reportOpen} onClose={() => setReportOpen(false)} title="Help keep the details accurate">
+        {reportSaved ? <div className="detail-receipt"><CheckCircle2 size={40} /><h3>Report saved on this device.</h3><p>Thanks for helping improve the sample listing. This demo does not send reports to a moderation team.</p><button type="button" className="detail-primary" onClick={() => setReportOpen(false)}>Back to the hostel</button></div> : <form className="detail-visit-form" onSubmit={saveReport}><p className="detail-form-intro">What should be checked on {hostel.name}?</p><div className="detail-form-field"><label htmlFor="report-reason">Reason</label><select id="report-reason" value={reportReason} onChange={event => setReportReason(event.target.value)}><option>Incorrect price or availability</option><option>Photos or address do not match</option><option>Unclear or unexpected charges</option><option>Other listing information</option></select></div><p className="detail-form-demo"><Info size={15} /> Reports are saved locally in this frontend demo.</p>{reportError && <p role="alert" className="detail-form-error">{reportError}</p>}<button className="detail-primary detail-primary--full" type="submit">Save report <Flag size={16} /></button></form>}
+      </DetailDialog>
     </div>
   );
 }

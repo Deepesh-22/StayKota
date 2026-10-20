@@ -1,5 +1,7 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import { AppProvider } from './context/AppContext';
+import { CompareProvider } from './context/CompareContext';
 import { Layout } from './components/layout/Layout';
 import { HomePage } from './pages/HomePage';
 import { ExplorePage } from './pages/ExplorePage';
@@ -13,15 +15,29 @@ import { ListingWizardPage } from './pages/ListingWizardPage';
 import { AdminPage } from './pages/AdminPage';
 import { HowItWorksPage } from './pages/HowItWorksPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { ComparePage } from './pages/ComparePage';
+
+function RouteEffects() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    const labels: Record<string, string> = { '/': 'Your Kota starts here', '/explore': 'Find your stay', '/compare': 'Compare your shortlist', '/login': 'Your student journey', '/dashboard': 'Your student space', '/owner': 'Owner workspace', '/admin': 'Listing moderation', '/how-it-works': 'How it works' };
+    document.title = `${labels[pathname] || (pathname.startsWith('/hostel/') ? 'Room details' : pathname.startsWith('/owner/listing/') ? 'Listing editor' : 'Find your way')} · StayKota`;
+  }, [pathname]);
+  return null;
+}
 
 export default function App() {
   return (
     <AppProvider>
+      <CompareProvider>
       <BrowserRouter>
+        <RouteEffects />
         <Routes>
           <Route element={<Layout />}>
             <Route path="/" element={<HomePage />} />
             <Route path="/explore" element={<ExplorePage />} />
+            <Route path="/compare" element={<ComparePage />} />
             <Route path="/hostel/:id" element={<HostelDetailPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/dashboard" element={<StudentDashboard />} />
@@ -36,6 +52,7 @@ export default function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      </CompareProvider>
     </AppProvider>
   );
 }

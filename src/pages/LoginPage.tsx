@@ -4,6 +4,7 @@ import { Check, Calendar, Heart, Shield } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Button } from '../components/ui/Button';
 import type { UserRole } from '../types';
+import '../styles/public-support.css';
 
 type AuthStep = 'phone' | 'otp' | 'loading' | 'success';
 
@@ -14,7 +15,8 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preferredRole = (searchParams.get('role') as UserRole) || 'student';
-  const redirect = searchParams.get('redirect') || '/';
+  const requestedRedirect = searchParams.get('redirect') || '/';
+  const redirect = requestedRedirect.startsWith('/') && !requestedRedirect.startsWith('//') && !requestedRedirect.includes('\\') ? requestedRedirect : '/';
   const showAdmin = searchParams.get('admin') === '1' || preferredRole === 'admin';
 
   const [role, setRole] = useState<UserRole>(
@@ -144,57 +146,23 @@ export function LoginPage() {
         : 'Log in to save hostels and track visit requests.';
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-[#faf8f5] flex items-center justify-center px-4 py-10 animate-fade-in">
-      <div className="w-full max-w-5xl grid lg:grid-cols-2 rounded-3xl overflow-hidden shadow-xl border border-slate-100 bg-white">
-        {/* Left panel */}
-        <div className="relative hidden lg:flex flex-col justify-between p-10 text-white min-h-[560px]">
-          <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: "url('https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=900&q=80')" }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-900/85 via-slate-900/70 to-teal-900/60" />
-
-          <div className="relative z-10">
-            <Link to="/" className="inline-flex items-center gap-2">
-              <div className="w-9 h-9 rounded-xl bg-teal-500 flex items-center justify-center font-bold text-white">S</div>
-              <span className="font-semibold text-lg">StayKota</span>
-            </Link>
+    <div className="login-page min-h-[calc(100vh-4rem)] bg-[#faf8f5] flex items-center justify-center px-4 py-10 animate-fade-in">
+      <div className="login-shell w-full max-w-5xl grid lg:grid-cols-2 rounded-3xl overflow-hidden shadow-xl border border-slate-100 bg-white">
+        <div className="login-art-panel relative hidden lg:flex flex-col justify-between">
+          <Link to="/" className="login-brand inline-flex items-center gap-2.5 self-start"><div className="w-9 h-9 flex items-center justify-center font-bold text-white">S</div><span className="font-semibold text-lg">StayKota</span></Link>
+          <div>
+            <p className="public-eyebrow mb-4">Same city. Bigger dreams.</p>
+            <h2>Your next chapter<br/>starts close by.</h2>
+            <p className="mt-4 text-sm leading-relaxed max-w-xs">A room near your coaching. A little space to make your own. Find your starting point in Kota.</p>
+            <svg className="login-scene" viewBox="0 0 420 230" aria-hidden="true"><ellipse cx="208" cy="191" rx="174" ry="25" fill="#dce4d2"/><path d="M32 168 147 120 251 171 379 106" fill="none" stroke="#fffdf5" strokeWidth="24"/><path d="M32 168 147 120 251 171 379 106" fill="none" stroke="#b8c4ac" strokeWidth="2" strokeDasharray="6 8"/><g><path d="m85 92 59-28 61 28v82l-61 28-59-28z" fill="#e4cfaf"/><path d="m144 120 61-28v82l-61 28z" fill="#c9b38f"/><path d="m85 92 59-28 61 28-61 28z" fill="#fff7e7"/><path d="m102 109 12 6v14l-12-6m24-2 12 6v14l-12-6m-24 5 12 6v14l-12-6m24-2 12 6v14l-12-6" fill="#9eac99"/><path d="m159 130 13-6v15l-13 6m15-23 13-6v15l-13 6m-28 16 13-6v15l-13 6m15-23 13-6v15l-13 6" fill="#8d9e85"/></g><path d="M289 39c-25 0-42 18-42 40 0 29 42 64 42 64s42-35 42-64c0-22-17-40-42-40" fill="#0f766e"/><circle cx="289" cy="78" r="13" fill="#fffdf5"/><path d="m262 145 25-12 27 12v41l-27 12-25-12z" fill="#d3bea1"/><path d="m287 157 27-12v41l-27 12z" fill="#bda480"/><circle cx="61" cy="124" r="17" fill="#b4c5a1"/><path d="M61 137v24" stroke="#8b9d78" strokeWidth="5"/><circle cx="356" cy="148" r="22" fill="#acbd98"/><path d="M356 167v26" stroke="#8b9d78" strokeWidth="5"/><path d="m218 56 4 7 7 2-7 3-4 7-3-7-7-3 7-2z" fill="#c9986f"/></svg>
+            <div className="login-benefits"><span><Check size={12}/> Clear room costs</span><span><Heart size={12}/> Your shortlist</span><span><Calendar size={12}/> Plan a visit</span></div>
           </div>
-
-          <div className="relative z-10 space-y-6">
-            <h2 className="text-3xl font-bold leading-tight">
-              Your Kota room,<br />without the running around.
-            </h2>
-            <ul className="space-y-3 text-sm text-slate-200">
-              <li className="flex items-center gap-2.5">
-                <span className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center">
-                  <Check className="w-3.5 h-3.5 text-teal-300" />
-                </span>
-                Clear rent breakup on every listing
-              </li>
-              <li className="flex items-center gap-2.5">
-                <span className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center">
-                  <Calendar className="w-3.5 h-3.5 text-teal-300" />
-                </span>
-                Book visits in one tap
-              </li>
-              <li className="flex items-center gap-2.5">
-                <span className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center">
-                  <Heart className="w-3.5 h-3.5 text-teal-300" />
-                </span>
-                Save and compare hostels
-              </li>
-            </ul>
-          </div>
-
-          <p className="relative z-10 text-xs text-slate-300">
-            Frontend prototype · Demo login only — no real SMS or passwords
-          </p>
+          <p className="login-reassurance">Frontend preview · all listings are sample content.<br/>Demo login saves your session on this device. No real SMS is sent.</p>
         </div>
 
         {/* Right panel */}
-        <div className="p-8 sm:p-10 flex flex-col justify-center">
-          <div className="lg:hidden mb-6">
+        <div className="login-form-panel p-8 sm:p-10 flex flex-col justify-center">
+          <div className="login-mobile-brand lg:hidden mb-6">
             <Link to="/" className="inline-flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center text-white font-bold text-sm">S</div>
               <span className="font-semibold text-slate-900">StayKota</span>
@@ -202,15 +170,17 @@ export function LoginPage() {
           </div>
 
           <h1 className="text-2xl font-bold text-slate-900">
-            {mode === 'signup' ? 'Create account' : 'Welcome back'}
+            {mode === 'signup' ? 'Create a demo account' : 'Make yourself at home.'}
           </h1>
           <p className="mt-1.5 text-sm text-slate-500">{subtitle}</p>
 
-          <div className="mt-6 inline-flex p-1 rounded-full bg-slate-100 self-start">
+          <div className="login-role-tabs mt-6 inline-flex p-1 rounded-full bg-slate-100 self-start" role="group" aria-label="Choose your role">
             {roleTabs.map(r => (
               <button
                 key={r.id}
                 type="button"
+                disabled={step === 'loading'}
+                aria-pressed={role === r.id}
                 onClick={() => {
                   setRole(r.id);
                   setError('');
@@ -218,7 +188,7 @@ export function LoginPage() {
                   setOtp(['', '', '', '']);
                 }}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  role === r.id ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                  role === r.id ? 'selected bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 {r.label}
@@ -233,7 +203,7 @@ export function LoginPage() {
             </div>
           )}
 
-          <p className="mt-4 text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
+          <p className="login-demo-note mt-4 text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
             Demo auth: enter any 10-digit number, then OTP <strong className="text-slate-600">{DEMO_OTP}</strong> (or any 4 digits).
             No real SMS is sent.
           </p>
@@ -249,10 +219,11 @@ export function LoginPage() {
           ) : (
             <form onSubmit={step === 'otp' ? handleVerifyOtp : handleSendOtp} className="mt-6 space-y-5">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Mobile number</label>
+                <label htmlFor="login-phone" className="block text-sm font-medium text-slate-700 mb-1.5">Mobile number</label>
                 <div className="flex rounded-xl border border-slate-200 overflow-hidden focus-within:ring-2 focus-within:ring-teal-500 focus-within:border-transparent transition-shadow">
                   <span className="px-3 py-2.5 bg-slate-50 text-slate-500 text-sm border-r border-slate-200 select-none">+91</span>
                   <input
+                    id="login-phone"
                     type="tel"
                     inputMode="numeric"
                     maxLength={10}
@@ -265,7 +236,9 @@ export function LoginPage() {
                     }}
                     disabled={step === 'loading'}
                     className="flex-1 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none disabled:bg-slate-50"
-                    autoComplete="tel"
+                    autoComplete="tel-national"
+                    aria-invalid={Boolean(error)}
+                    aria-describedby="login-error"
                   />
                 </div>
               </div>
@@ -294,7 +267,7 @@ export function LoginPage() {
                   </div>
                   <p className="mt-2 text-xs text-slate-500">
                     {resendIn > 0 ? (
-                      <>OTP sent · Resend in {resendIn}s</>
+                      <>Demo code ready · Try again in {resendIn}s</>
                     ) : (
                       <button type="button" onClick={() => handleSendOtp()} className="text-teal-700 font-medium hover:underline">
                         Resend OTP
@@ -304,7 +277,7 @@ export function LoginPage() {
                 </div>
               )}
 
-              {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
+              <p id="login-error" className="text-sm text-red-600" role="alert">{error}</p>
 
               <Button type="submit" className="w-full rounded-xl" size="lg" loading={step === 'loading'} disabled={step === 'loading'}>
                 {step === 'otp' || (step === 'loading' && otp.some(Boolean)) ? 'Verify & log in' : 'Send OTP'}
@@ -320,7 +293,7 @@ export function LoginPage() {
                 type="button"
                 onClick={handleGoogleDemo}
                 disabled={step === 'loading'}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                className="login-google w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden>
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -328,17 +301,22 @@ export function LoginPage() {
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                 </svg>
-                Continue with Google
+                Try Google demo
+              </button>
+              <button
+                type="button"
+                disabled={step === 'loading'}
+                onClick={() => completeLogin(role === 'student' ? 'aarav@student.com' : role === 'owner' ? 'priya@owner.com' : 'admin@staykota.com')}
+                className="w-full py-2 text-xs font-semibold text-teal-700 hover:underline disabled:opacity-50"
+              >
+                Use sample {role} account
               </button>
             </form>
           )}
 
-          <p className="mt-6 text-center text-xs text-slate-400 leading-relaxed">
-            By continuing you agree to our{' '}
-            <Link to="/how-it-works" className="text-slate-600 hover:underline">Terms</Link>
-            {' '}&{' '}
-            <Link to="/how-it-works" className="text-slate-600 hover:underline">Privacy Policy</Link>.
-            {' '}New here? An account is created automatically.
+          <p className="login-legal mt-6 text-center leading-relaxed">
+            This preview uses browser storage. Please use sample details.<br/>
+            <Link to="/how-it-works">Learn how this demo works</Link>
           </p>
 
           <p className="mt-4 text-center text-sm text-slate-500">
