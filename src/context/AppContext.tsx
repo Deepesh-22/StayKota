@@ -31,7 +31,7 @@ function loadHostels(): Hostel[] {
   return storedList<Hostel>('staykota_hostels', MOCK_HOSTELS).filter(h => typeof h.id === 'string' && Array.isArray(h.roomTypes)).map(h => {
     const seed = MOCK_HOSTELS.find(x => x.id === h.id);
     const externalSample = h.coverImage?.startsWith('https://images.unsplash.com/');
-    return { ...seed, ...h, latitude: h.latitude ?? seed?.latitude, longitude: h.longitude ?? seed?.longitude,
+    return { ...seed, ...h, latitude: h.location ? h.latitude : h.latitude ?? seed?.latitude, longitude: h.location ? h.longitude : h.longitude ?? seed?.longitude,
       electricityPolicy: h.electricityPolicy ?? seed?.electricityPolicy,
       houseRules: h.houseRules ?? seed?.houseRules,
       coverImage: externalSample ? seed?.coverImage ?? '/images/room-shared.webp' : h.coverImage,

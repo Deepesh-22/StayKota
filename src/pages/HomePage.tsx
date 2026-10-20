@@ -22,17 +22,18 @@ export function HomePage() {
   const [campusId, setCampusId] = useState(DEFAULT_CAMPUS_ID);
   const [maxBudget, setMaxBudget] = useState('');
   const [sharing, setSharing] = useState<SharingType | ''>('');
+  const [category, setCategory] = useState('');
   const [activeCard, setActiveCard] = useState(0);
   const [deckPosition, setDeckPosition] = useState({ atStart: true, atEnd: false });
   const deckRef = useRef<HTMLDivElement>(null);
   const campus = getCampus(campusId);
 
   const featured = useMemo(() => hostels
-    .filter(hostel => hostel.status === 'approved')
+    .filter(hostel => hostel.status === 'approved' && (!category || hostel.category === category))
     .map(hostel => ({ hostel, rooms: getMatchingRooms(hostel, { sharing, maxBudget: maxBudget ? Number(maxBudget) : undefined }) }))
     .filter(item => item.rooms.length > 0)
     .sort((a, b) => (distanceKm(a.hostel, campus) ?? Infinity) - (distanceKm(b.hostel, campus) ?? Infinity))
-    .slice(0, 4), [hostels, campus, sharing, maxBudget]);
+    .slice(0, 4), [hostels, campus, sharing, maxBudget, category]);
 
   useEffect(() => {
     const deck = deckRef.current;
@@ -48,6 +49,7 @@ export function HomePage() {
     const params = new URLSearchParams({ campus: campusId });
     if (maxBudget) params.set('maxBudget', maxBudget);
     if (sharing) params.set('sharing', sharing);
+    if (category) params.set('category', category);
     return params.toString();
   };
 
@@ -110,6 +112,7 @@ export function HomePage() {
               </div>
               <button className="home-search-submit" type="submit"><Search size={19} aria-hidden="true" /><span>Find my stay</span><ArrowUpRight size={18} className="home-search-arrow" aria-hidden="true" /></button>
             </form>
+            <div className="home-category-choice" role="group" aria-label="Hostel preference"><span>A stay for</span>{[{value:'', label:'Everyone'}, {value:'boys', label:'Boys'}, {value:'girls', label:'Girls'}, {value:'co-ed', label:'Co-ed'}].map(option => <button key={option.value} type="button" aria-pressed={category === option.value} onClick={() => { setCategory(option.value); resetDeck(); }}>{option.label}</button>)}</div>
             <div className="home-search-caption"><span><span className="home-caption-dot" /> Explore first. No sign-up needed.</span><span>Demo experience · sample stays & locations</span></div>
           </div>
         </div>
@@ -136,7 +139,7 @@ export function HomePage() {
               }
             }}>{featured.map(({ hostel, rooms }, index) => <div key={hostel.id} className={`home-deck-item ${activeCard === index ? 'is-focused' : ''}`} role="group" aria-roledescription="slide" aria-label={`${index + 1} of ${featured.length}`} onMouseEnter={() => setActiveCard(index)} onFocus={() => setActiveCard(index)}><HostelCard hostel={hostel} room={rooms[0]} campus={campus} /></div>)}</div>
             <div className="home-deck-footer"><div className="home-deck-progress" aria-hidden="true">{featured.map(item => <span key={item.hostel.id} className={item.hostel.id === selectedItem?.hostel.id ? 'is-active' : ''} />)}</div><p><span>0{Math.min(activeCard + 1, featured.length)}</span> / 0{featured.length}</p><div className="home-deck-controls"><button type="button" aria-label="Previous featured hostel" onClick={() => scrollDeck(-1)} disabled={deckPosition.atStart}><ArrowLeft size={18} /></button><button type="button" aria-label="Next featured hostel" onClick={() => scrollDeck(1)} disabled={deckPosition.atEnd || featured.length <= 1}><ArrowRight size={18} /></button></div></div>
-          </> : <div className="home-empty"><SlidersHorizontal size={27} /><h3>A little more room in your search?</h3><p>No sample rooms match these preferences. Try another budget or sharing type.</p><button onClick={() => { setMaxBudget(''); setSharing(''); resetDeck(); }} type="button">Reset room preferences <ArrowRight size={17} /></button></div>}
+          </> : <div className="home-empty"><SlidersHorizontal size={27} /><h3>A little more room in your search?</h3><p>No sample rooms match these preferences. Try another budget or sharing type.</p><button onClick={() => { setMaxBudget(''); setSharing(''); setCategory(''); resetDeck(); }} type="button">Reset room preferences <ArrowRight size={17} /></button></div>}
         </div>
       </section>
 

@@ -432,3 +432,73 @@ test('card preview buttons work with a keyboard and reduced motion on a narrow s
   const widths = await page.evaluate(() => ({ actual: document.documentElement.scrollWidth, viewport: innerWidth }));
   expect(widths.actual).toBeLessThanOrEqual(widths.viewport);
 });
+
+test('homepage hostel preference reaches results and can be reset', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('group', { name: 'Hostel preference' }).getByRole('button', { name: 'Girls', exact: true }).click();
+  await page.getByRole('button', { name: 'Find my stay', exact: true }).click();
+  await expect(page).toHaveURL(/category=girls/);
+  for (const card of await page.locator('.discovery-grid article').all()) await expect(card).toContainText('For girls');
+  await page.getByRole('button', { name: 'Clear filters', exact: true }).click();
+  await expect(page.locator('.discovery-grid article')).toHaveCount(6);
+});
+
+test('list and map selection stays linked across result pages and campus changes', async ({ page }) => {
+  await stubOpenMapStyle(page);
+  await page.goto('/explore?campus=allen-talwandi');
+  const first = page.locator('.discovery-grid article').first();
+  const id = await first.getAttribute('data-hostel-id');
+  await first.getByRole('button', { name: 'Show on map' }).click();
+  await expect(first).toHaveClass(/discovery-card--active/);
+  await expect(page.locator('.student-city-map')).toHaveAttribute('data-target', '25.148,75.852');
+  await expect(page.getByRole('button', { name: 'Select Comfort Stay Hostel on map' })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Centre on campus', exact: true }).click();
+  await expect(page.locator('.student-city-map')).toHaveAttribute('data-target', '25.146,75.852');
+  await page.getByRole('button', { name: 'Next results page' }).click();
+  await expect(page.locator(`article[data-hostel-id="${id}"]`)).toHaveCount(0);
+  await page.getByRole('button', { name: 'Select Comfort Stay Hostel on map' }).click();
+  await expect(page.locator(`article[data-hostel-id="${id}"]`)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Results page 1', exact: true })).toHaveAttribute('aria-current', 'page');
+  await page.getByRole('button', { name: /Select ALLEN Talwandi campus/ }).click();
+  await expect(page.locator('.student-city-map')).toHaveAttribute('data-target', '25.146,75.852');
+});
+
+test('mobile map selection returns to the matching card and filters open as a sheet', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await stubOpenMapStyle(page);
+  await page.goto('/explore?campus=allen-talwandi');
+  await page.locator('.discovery-grid article').first().getByRole('button', { name: 'Show on map' }).click();
+  await expect(page.locator('.discovery-results-map')).toBeVisible();
+  await page.getByRole('button', { name: 'Select Comfort Stay Hostel on map' }).click();
+  await expect(page.locator('article[data-hostel-id="h1"]')).toBeVisible();
+  await expect(page.locator('.discovery-results-map')).not.toBeVisible();
+  await page.getByRole('button', { name: /All filters/ }).click();
+  const bounds = await page.getByRole('dialog').boundingBox();
+  expect(Math.abs(bounds!.y + bounds!.height - 844)).toBeLessThan(2);
+  await page.keyboard.press('Escape');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+});
+
+test('owner coordinates reject swaps and can be saved and cleared without restoring demo pins', async ({ page }) => {
+  await page.goto('/login?role=owner');
+  await page.getByRole('button', { name: 'Use sample owner account' }).click();
+  await expect(page).toHaveURL(/\/owner$/);
+  await page.goto('/owner/listing/h1/edit');
+  await page.getByLabel('Hostel latitude').fill('75.852');
+  await page.getByLabel('Hostel longitude').fill('25.148');
+  await page.getByRole('button', { name: /Continue/ }).click();
+  await expect(page.getByRole('alert')).toContainText('within Kota');
+  await page.getByLabel('Hostel latitude').fill('25.15123');
+  await page.getByLabel('Hostel longitude').fill('75.85123');
+  await page.getByRole('button', { name: /Save draft/i }).click();
+  await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem('staykota_hostels') || '[]').find((h: {id:string}) => h.id === 'h1')?.latitude)).toBe(25.15123);
+  await page.reload();
+  await expect(page.getByLabel('Hostel latitude')).toHaveValue('25.15123');
+  await page.getByLabel('Hostel latitude').fill('');
+  await page.getByLabel('Hostel longitude').fill('');
+  await page.getByRole('button', { name: /Save draft/i }).click();
+  await expect.poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem('staykota_hostels') || '[]').find((h: {id:string}) => h.id === 'h1')?.latitude)).toBeUndefined();
+  await page.reload();
+  await expect(page.getByLabel('Hostel latitude')).toHaveValue('');
+  await expect(page.getByLabel('Hostel longitude')).toHaveValue('');
+});

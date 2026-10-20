@@ -1,3 +1,6 @@
+import { withinKota } from '../src/lib/coordinates';
+import { locationLabel } from '../src/lib/location-status';
+import { distanceKm } from '../src/lib/discovery';
 import { satelliteSource, SATELLITE_TILE_URL } from '../src/lib/satellite-map';
 import { OPEN_MAP_STYLE_URL, studentMapStyle, radiusPolygon } from '../src/lib/open-map-style';
 import type { StyleSpecification } from 'maplibre-gl';
@@ -112,5 +115,23 @@ describe('satellite source', () => {
     const source = satelliteSource('<script>alert("credits")</script>');
     expect(source.attribution).not.toContain('<script>');
     expect(source.attribution).toContain('&lt;script&gt;');
+  });
+});
+
+describe('location accuracy and evidence', () => {
+  it('rejects swapped Kota coordinates and incomplete pairs', () => {
+    expect(withinKota(25.148, 75.852)).toBe(true);
+    expect(withinKota(75.852, 25.148)).toBe(false);
+    expect(withinKota(25.148, undefined)).toBe(false);
+    expect(distanceKm({ latitude: 91, longitude: 75.8 }, CAMPUSES[0])).toBeNull();
+    expect(distanceKm({ latitude: 25.1, longitude: 75.8 }, { latitude: NaN, longitude: 75.8 })).toBeNull();
+  });
+  it('does not equate a claimed verified status with location evidence', () => {
+    const point = { latitude: 25.148, longitude: 75.852 };
+    expect(locationLabel(point)).toBe('Location unverified');
+    expect(locationLabel({ ...point, location: { status: 'verified' } })).toBe('Location unverified');
+    expect(locationLabel({ ...point, location: { status: 'verified', source: 'https://example.org/official-address', checkedAt: '2026-10-21' } })).toBe('Location checked');
+    expect(locationLabel({ location: { status: 'verified', source: 'https://example.org', checkedAt: '2026-10-21' } })).toBe('Location not provided');
+    expect(CAMPUSES.every(c => locationLabel(c) === 'Demo location')).toBe(true);
   });
 });

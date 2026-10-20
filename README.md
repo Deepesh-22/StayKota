@@ -30,15 +30,19 @@ Browser tests use `/usr/bin/chromium` when available. Otherwise install the Play
 ## Experience
 
 - **Landing:** custom isometric Kota illustration, accessible campus hotspots, synchronised search, a manually controlled hostel carousel and reduced-motion support.
-- **Discovery:** campus and URL filters, available-room matching, inclusive monthly-cost budgets, AC-included filtering, sorting, pagination, OpenFreeMap basemap, custom hostel/coaching pins and mobile list/map views.
+- **Discovery:** linked map/card selection across result pages, explicit Show on map controls, campus centring, floating mobile List/Map controls, mobile filter sheet, readable cost/distance labels, campus and URL filters, available-room matching, inclusive monthly-cost budgets, AC-included filtering, sorting, pagination, OpenFreeMap basemap, custom hostel/coaching pins and mobile list/map views.
 - **Hostel cards:** room cutaways with occupancy from the matched room, layered photo panels, subtle pointer depth and a Room/Photos switcher with manual photo controls. Touch, keyboard and reduced-motion preferences are supported. Save, compare and room pricing remain available.
 - **Details:** photo gallery, illustrative room cutaway, room selection, fixed monthly costs, separate deposits, metered-charge explanation, actual room features and consent-based visit enquiries.
 - **Comparison:** up to three published hostels, independent room selectors and shareable public listing/room IDs.
 - **Student:** favourites, requested visits, preferred-date changes, cancellation and profile persistence.
+- **Location accuracy:** demo and unverified labels, shared coordinate validation, optional owner entrance coordinates with a Kota range check, and no guessed locality pins. See [the location audit](docs/location-audit.md) for evidence requirements and outstanding verification.
+- **Loading:** route-level lazy loading, accessible loading placeholders and a recoverable page error state; the map loads when it enters view.
 - **Owner:** own listings and enquiries, five-step create/edit wizard, saved drafts and moderation submission.
 - **Admin:** review queue, approval/rejection, reports and local moderation activity.
 
 The basemap uses MapLibre with OpenFreeMap/OpenStreetMap vector tiles. Default shop, temple, institutional and transit POI labels are hidden; road/city labels remain for orientation. Custom StayKota hostel/coaching pins use illustrative coordinates. Distances are straight-line Haversine estimates, never walking routes or travel times.
+
+UI previews: [homepage](docs/screenshots/home-ui-polish.png) · [readable hostel card](docs/screenshots/explore-card-polish.png) · [mobile filter sheet](docs/screenshots/mobile-filter-sheet.png).
 
 Card previews: [single card](docs/screenshots/room-card-concept.png) · [homepage carousel](docs/screenshots/room-card-carousel.png). The room drawing is an illustration, not a measured floor plan or a property tour.
 

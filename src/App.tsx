@@ -1,22 +1,22 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
+import { lazy, useEffect } from 'react';
 import { AppProvider } from './context/AppContext';
 import { CompareProvider } from './context/CompareContext';
 import { Layout } from './components/layout/Layout';
 import { HomePage } from './pages/HomePage';
-import { ExplorePage } from './pages/ExplorePage';
-import { HostelDetailPage } from './pages/HostelDetailPage';
-import { LoginPage } from './pages/LoginPage';
-import { FavouritesPage } from './pages/FavouritesPage';
-import { StudentDashboard } from './pages/StudentDashboard';
-import { VisitsPage } from './pages/VisitsPage';
-import { OwnerDashboard } from './pages/OwnerDashboard';
-import { ListingWizardPage } from './pages/ListingWizardPage';
-import { AdminPage } from './pages/AdminPage';
-import { HowItWorksPage } from './pages/HowItWorksPage';
-import { NotFoundPage } from './pages/NotFoundPage';
-import { ComparePage } from './pages/ComparePage';
-import { KotaMapPage } from './pages/KotaMapPage';
+const ExplorePage = lazy(() => import('./pages/ExplorePage').then(module => ({ default: module.ExplorePage })));
+const HostelDetailPage = lazy(() => import('./pages/HostelDetailPage').then(module => ({ default: module.HostelDetailPage })));
+const LoginPage = lazy(() => import('./pages/LoginPage').then(module => ({ default: module.LoginPage })));
+const FavouritesPage = lazy(() => import('./pages/FavouritesPage').then(module => ({ default: module.FavouritesPage })));
+const StudentDashboard = lazy(() => import('./pages/StudentDashboard').then(module => ({ default: module.StudentDashboard })));
+const VisitsPage = lazy(() => import('./pages/VisitsPage').then(module => ({ default: module.VisitsPage })));
+const OwnerDashboard = lazy(() => import('./pages/OwnerDashboard').then(module => ({ default: module.OwnerDashboard })));
+const ListingWizardPage = lazy(() => import('./pages/ListingWizardPage').then(module => ({ default: module.ListingWizardPage })));
+const AdminPage = lazy(() => import('./pages/AdminPage').then(module => ({ default: module.AdminPage })));
+const HowItWorksPage = lazy(() => import('./pages/HowItWorksPage').then(module => ({ default: module.HowItWorksPage })));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then(module => ({ default: module.NotFoundPage })));
+const ComparePage = lazy(() => import('./pages/ComparePage').then(module => ({ default: module.ComparePage })));
+const KotaMapPage = lazy(() => import('./pages/KotaMapPage').then(module => ({ default: module.KotaMapPage })));
 
 function RouteEffects() {
   const { pathname } = useLocation();

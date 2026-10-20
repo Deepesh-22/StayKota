@@ -1,3 +1,4 @@
+import { locationLabel } from '../lib/location-status';
 import { useEffect, useId, useRef, useState, type ReactNode, type SyntheticEvent, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
@@ -276,7 +277,7 @@ export function HostelDetailPage() {
         <div className="detail-campus-strip">
           <span className="detail-campus-strip__icon"><MapPin size={21} /></span>
           <div><span className="detail-eyebrow">YOUR DAILY COMMUTE</span><p><strong>{formatDistance(distance)}</strong> from {campus.name}<span>Approximate straight-line distance · demo locations</span></p></div>
-          <label className="detail-campus-select"><span className="sr-only">Choose coaching campus</span><select value={campus.id} onChange={event => { const params = new URLSearchParams(searchParams); params.set('campus', event.target.value); setSearchParams(params, { replace: true }); }}>{CAMPUSES.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          <label className="detail-campus-select"><span className="sr-only">Choose coaching campus</span><select value={campus.id} onChange={event => { const params = new URLSearchParams(searchParams); params.set('campus', event.target.value); setSearchParams(params, { replace: true }); }}>{CAMPUSES.map(item => <option key={item.id} value={item.id}>{item.institute} · {item.name}</option>)}</select></label>
         </div>
 
         <div className="detail-columns">
@@ -322,7 +323,7 @@ export function HostelDetailPage() {
               <div className="detail-section__heading"><div><p className="detail-eyebrow">YOUR NEW NEIGHBOURHOOD</p><h2 id="location-heading">A little closer to class.</h2></div></div>
               <div className="detail-location-card">
                 <div className="detail-map-art" aria-hidden="true"><span className="detail-map-art__road road-one" /><span className="detail-map-art__road road-two" /><span className="detail-map-art__road road-three" /><span className="detail-map-art__park" /><span className="detail-map-art__pin"><MapPin size={24} fill="currentColor" /></span><span className="detail-map-art__campus"><BookOpen size={17} /></span><small>Illustrative neighbourhood</small></div>
-                <div className="detail-location-card__copy"><span className="detail-category">{hostel.locality}</span><h3>{hostel.name}</h3><p>{hostel.address}</p><p className="detail-location-card__distance"><MapPin size={15} /> {formatDistance(distance)} straight-line to {campus.name}</p><a className="detail-text-link" href={directionsUrl} target="_blank" rel="noopener noreferrer">Open address in OpenStreetMap <ArrowUpRight size={16} /></a><small>Sample location. Confirm the actual address with the owner.</small></div>
+                <div className="detail-location-card__copy"><span className="detail-category">{hostel.locality}</span><h3>{hostel.name}</h3><p>{hostel.address}</p><p className="detail-location-card__distance"><MapPin size={15} /> {formatDistance(distance)} straight-line to {campus.name}</p><a className="detail-text-link" href={directionsUrl} target="_blank" rel="noopener noreferrer">Open address in OpenStreetMap <ArrowUpRight size={16} /></a><small>{locationLabel(hostel)} · Confirm the entrance with the owner before travelling.</small></div>
               </div>
             </section>
             <button type="button" className="detail-report" onClick={() => { setReportOpen(true); setReportSaved(false); setReportError(''); }}><Flag size={15} /> Something doesn’t look right? Report this listing <ArrowUpRight size={15} /></button>

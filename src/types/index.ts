@@ -41,6 +41,7 @@ export interface Hostel {
   coverImage: string;
   images: string[];
   videoUrl?: string;
+  location?: { status: 'demo' | 'owner-provided' | 'verified'; source?: string; checkedAt?: string };
   latitude?: number;
   longitude?: number;
   houseRules?: string[];

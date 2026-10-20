@@ -163,3 +163,28 @@
   .discovery-dialog-footer .discovery-search-button{font-size:10px;padding:0 12px}
 }
 @media(prefers-reduced-motion:reduce){.discovery-card,.discovery-card-photo img,.discovery-search-button{transition:none!important}.discovery-card:hover .discovery-card-photo img,.discovery-search-button:hover{transform:none}}
+
+/* Readable decisions and persistent list/map context. */
+.discovery-card--active{border-color:#087b68;box-shadow:0 0 0 2px #087b682b}
+.discovery-card-campus{display:flex;align-items:center;gap:6px;font-size:12px;line-height:1.5;margin:12px 0 3px;color:#416455}
+.discovery-show-map{display:flex;align-items:center;gap:5px;align-self:flex-start;color:#087b68;background:none;border:0;padding:8px 0;font-size:12px;min-height:40px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.discovery-card-distance strong{font-size:16px;font-weight:650;color:#176450}
+.discovery-card-distance span,.discovery-sample-tag,.discovery-card-price-note,.discovery-card-deposit,.discovery-card-price>span{font-size:11px;color:#586b59}
+.discovery-card-deposit strong,.discovery-card-features,.discovery-room-tag{font-size:12px}
+.discovery-card-cta,.discovery-compare-control{min-height:42px;font-size:12px}
+.discovery-confidence{display:flex;align-items:center;gap:12px;background:#edf1e6;border:1px solid #dce4d2;padding:16px 18px;border-radius:12px;margin:0 0 24px;color:#45624f}
+.discovery-confidence>svg{flex-shrink:0}.discovery-confidence strong{display:block;font-size:13px}.discovery-confidence span{display:block;font-size:12px;line-height:1.65;margin-top:4px}.discovery-confidence a{display:flex;align-items:center;gap:4px;white-space:nowrap;margin-left:auto;font-size:12px}
+.discovery-search-field>span{font-size:10px}.discovery-search-field select,.discovery-sort select,.discovery-results-heading p{font-size:12px}
+.discovery-quick-filters>button,.discovery-filter-all{min-height:42px;font-size:12px}.discovery-search-button{font-size:13px;min-height:46px}
+.discovery-campus-centre{display:flex;align-items:center;gap:5px;font-size:11px;padding:8px;border:1px solid #d6e3d0;border-radius:6px;background:#fffdf7;color:#38634b;cursor:pointer}
+.student-compact-layer{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+@media(max-width:960px){
+ .discovery-page{padding-bottom:110px}.discovery-page--comparing{padding-bottom:200px}
+ .discovery-view-toggle{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);width:240px;z-index:35;border-radius:40px;box-shadow:0 5px 25px #173c3c25;margin:0;padding:4px;background:#fffefa}
+ .discovery-view-toggle button{border-radius:30px;min-height:44px;font-size:12px}.discovery-view-toggle--raised{bottom:110px}
+ .discovery-results-layout--map .student-map-panel__viewport{height:55svh;min-height:320px}
+ .discovery-filter-dialog{position:fixed;inset:auto 0 0;width:100%;max-width:none;max-height:88svh;margin:0;border-radius:22px 22px 0 0;padding-bottom:env(safe-area-inset-bottom)}
+ .discovery-confidence{align-items:flex-start}.discovery-confidence a{display:none}
+}
+@media(prefers-reduced-motion:reduce){.discovery-card{scroll-behavior:auto}}
+.discovery-filter-options>button,.discovery-dialog-footer>button,.discovery-dialog-header>button{min-height:44px}.discovery-dialog-header>button{min-width:44px}.discovery-dialog-hint{font-size:12px;color:#586b59}.discovery-compare-item button{min-width:32px;min-height:32px}.discovery-amenity-options label{min-height:36px;font-size:12px}.discovery-amenity-options input{width:18px;height:18px}

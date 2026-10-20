@@ -15,6 +15,7 @@ import { LOCALITIES, AMENITIES } from "../data/mockData";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import type { Hostel, RoomType, SharingType, ListingStatus } from "../types";
+import { withinKota } from "../lib/coordinates";
 import { monthlyTotal } from "../lib/discovery";
 import "../styles/owner-workspace.css";
 
@@ -70,6 +71,8 @@ export function ListingWizardPage() {
   const [description, setDescription] = useState("");
   const [locality, setLocality] = useState(LOCALITIES[0]);
   const [address, setAddress] = useState("");
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
   const [landmark, setLandmark] = useState("");
   const [rooms, setRooms] = useState<RoomType[]>([emptyRoom()]);
   const [defaultDeposit, setDefaultDeposit] = useState(10000);
@@ -87,6 +90,8 @@ export function ListingWizardPage() {
       setDescription(existing.description);
       setLocality(existing.locality);
       setAddress(existing.address);
+      setLatitude(existing.latitude?.toString() ?? "");
+      setLongitude(existing.longitude?.toString() ?? "");
       setRooms(
         existing.roomTypes.map((r) => ({
           ...r,
@@ -168,6 +173,7 @@ export function ListingWizardPage() {
     if (s === 1) {
       if (!name.trim()) e.name = "Hostel name is required";
       if (!address.trim()) e.address = "Address is required";
+      if ((latitude.trim() || longitude.trim()) && (!latitude.trim() || !longitude.trim() || !withinKota(Number(latitude), Number(longitude)))) e.coordinates = "Enter both latitude and longitude for a location within Kota. Latitude comes first (about 25), longitude second (about 75).";
       if (!locality) e.locality = "Locality is required";
     }
     if (s === 2) {
@@ -211,6 +217,9 @@ export function ListingWizardPage() {
       description: description.trim() || "Owner-managed hostel listing.",
       locality,
       address: [address.trim(), landmark.trim()].filter(Boolean).join(" · "),
+      latitude: latitude.trim() && longitude.trim() && withinKota(Number(latitude), Number(longitude)) ? Number(latitude) : undefined,
+      longitude: latitude.trim() && longitude.trim() && withinKota(Number(latitude), Number(longitude)) ? Number(longitude) : undefined,
+      location: existing && latitude === existing.latitude?.toString() && longitude === existing.longitude?.toString() && address.trim() === existing.address ? existing.location : { status: 'owner-provided' },
       category,
       status,
       amenities,
@@ -441,6 +450,15 @@ export function ListingWizardPage() {
                     </p>
                   )}
                 </div>
+                <fieldset className="listing-coordinates">
+                  <legend>Exact hostel entrance location</legend>
+                  <p>Copy the entrance coordinates from a dropped map pin. Leave both blank if you are unsure; we will not guess a location from the locality.</p>
+                  <div><label>Latitude<input aria-label="Hostel latitude" type="number" step="any" value={latitude} placeholder="25.…" onChange={e => { setLatitude(e.target.value); markDirty(); }}/></label>
+                  <label>Longitude<input aria-label="Hostel longitude" type="number" step="any" value={longitude} placeholder="75.…" onChange={e => { setLongitude(e.target.value); markDirty(); }}/></label></div>
+                  {withinKota(Number(latitude), Number(longitude)) && latitude && longitude && <a href={`https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=18/${latitude}/${longitude}`} target="_blank" rel="noopener noreferrer">Check entrance pin in OpenStreetMap ↗</a>}
+                  <small>Owner-provided coordinates remain unverified. Listing approval does not verify a location.</small>
+                  {errors.coordinates && <p role="alert" className="text-red-600">{errors.coordinates}</p>}
+                </fieldset>
                 <div>
                   <label
                     htmlFor="hostel-landmark"

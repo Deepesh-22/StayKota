@@ -11,14 +11,8 @@ export interface MapTarget {
 }
 export const CITY_TARGET: MapTarget = { ...KOTA_VIEW, id: 'kota' };
 
-export function validCoordinates(latitude?: number, longitude?: number): boolean {
-  return (
-    Number.isFinite(latitude) &&
-    Number.isFinite(longitude) &&
-    Math.abs(latitude!) <= 90 &&
-    Math.abs(longitude!) <= 180
-  );
-}
+export { validCoordinates } from './coordinates';
+import { validCoordinates } from './coordinates';
 /** Only known coordinates participate in proximity filters; distances are straight-line. */
 export function campusDistance(location: { latitude?: number; longitude?: number }, campus: Pick<Campus, 'latitude' | 'longitude'>): number | null {
   return validCoordinates(location.latitude, location.longitude) ? distanceKm(location, campus) : null;

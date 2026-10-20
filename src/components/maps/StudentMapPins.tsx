@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useCityMap } from './MapContext';
 import { GraduationCap, House } from 'lucide-react';
 import { CAMPUSES } from '../../data/campuses';
+import { locationLabel } from '../../lib/location-status';
 import { monthlyTotal } from '../../lib/discovery';
 import { groupMapPins, type PinGroup, type StudentMapPin } from '../../lib/map-clusters';
 import { validCoordinates } from '../../lib/maps';
@@ -49,14 +50,14 @@ export function StudentMapPins({ items, campus, activeCampusId, selectedHostelId
     if (pin.kind === 'campus') {
       const c = CAMPUSES.find(c => c.id === pin.id)!;
       return <MapPinOverlay key={`campus:${c.id}`} lat={c.latitude} lng={c.longitude} zIndex={c.id === selectedCampusId ? 25 : 10}>
-        <button type="button" title={`${c.institute} ${c.name} — demo campus`} aria-label={`Select ${c.institute} ${c.name} — demo campus`} aria-pressed={c.id === selectedCampusId} onClick={() => onCampusSelect?.(c.id)} className={`student-campus-pin${c.id === selectedCampusId ? ' is-selected' : ''}`}>
+        <button type="button" title={`${c.institute} ${c.name} — ${locationLabel(c)}`} aria-label={`Select ${c.institute} ${c.name} — ${locationLabel(c)}`} aria-pressed={c.id === selectedCampusId} onClick={() => onCampusSelect?.(c.id)} className={`student-campus-pin${c.id === selectedCampusId ? ' is-selected' : ''}`}>
           <GraduationCap size={20}/><span>{c.institute}<small>{c.name}</small></span>
         </button>
       </MapPinOverlay>;
     }
     const { hostel, room } = items.find(({ hostel }) => hostel.id === pin.id)!;
     return <MapPinOverlay key={`hostel:${hostel.id}`} lat={hostel.latitude!} lng={hostel.longitude!} zIndex={selectedHostelId === hostel.id ? 30 : 20}>
-      <button type="button" title={`${hostel.name} — demo hostel`} aria-label={`Select ${hostel.name} on map`} aria-pressed={selectedHostelId === hostel.id} onClick={() => onSelect(hostel.id)} className={`student-hostel-pin${selectedHostelId === hostel.id ? ' is-selected' : ''}`}>
+      <button type="button" title={`${hostel.name} — ${locationLabel(hostel)}`} aria-label={`Select ${hostel.name} on map`} aria-pressed={selectedHostelId === hostel.id} onClick={() => onSelect(hostel.id)} className={`student-hostel-pin${selectedHostelId === hostel.id ? ' is-selected' : ''}`}>
         <House size={15}/> ₹{monthlyTotal(room).toLocaleString('en-IN')}
       </button>
     </MapPinOverlay>;

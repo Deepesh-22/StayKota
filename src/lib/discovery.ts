@@ -1,3 +1,4 @@
+import { validCoordinates } from './coordinates';
 import type { Hostel, RoomType } from '../types';
 import { CAMPUSES, DEFAULT_CAMPUS_ID, type Campus } from '../data/campuses';
 
@@ -22,7 +23,7 @@ export function getMatchingRooms(hostel: Hostel, filters: RoomFilters = {}): Roo
 
 /** Haversine distance between sample coordinates; never a walking route or travel time. */
 export function distanceKm(hostel: Pick<Hostel, 'latitude' | 'longitude'>, campus: Pick<Campus, 'latitude' | 'longitude'>): number | null {
-  if (!Number.isFinite(hostel.latitude) || !Number.isFinite(hostel.longitude)) return null;
+  if (!validCoordinates(hostel.latitude, hostel.longitude) || !validCoordinates(campus.latitude, campus.longitude)) return null;
   const rad = Math.PI / 180;
   const lat1 = hostel.latitude! * rad;
   const lat2 = campus.latitude * rad;

@@ -1,11 +1,12 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ArrowUpRight, BookOpen, Check, Heart, MapPin, Plus, Utensils, Wifi, Wind } from 'lucide-react';
+import { ArrowUpRight, GraduationCap, BookOpen, Check, Heart, MapPin, Plus, Utensils, Wifi, Wind } from 'lucide-react';
 import type { Hostel, RoomType } from '../../types';
 import type { Campus } from '../../data/campuses';
 import { useApp } from '../../context/AppContext';
 import { useCompare } from '../../context/CompareContext';
 import { distanceKm, formatDistance, getMatchingRooms, monthlyTotal } from '../../lib/discovery';
 import '../../styles/discovery.css';
+import { locationLabel } from '../../lib/location-status';
 import { RoomCardStage } from './RoomCardStage';
 
 export interface HostelCardProps {
@@ -14,12 +15,14 @@ export interface HostelCardProps {
   campus?: Campus;
   onHover?: (id: string | null) => void;
   compact?: boolean;
+  active?: boolean;
+  onShowMap?: (id: string) => void;
 }
 
 const money = (amount: number) => `₹${amount.toLocaleString('en-IN')}`;
 const sharingLabel = (sharing: string) => ({ single: 'Single room', double: 'Double sharing', triple: 'Triple sharing', four: 'Four sharing' } as Record<string, string>)[sharing] || sharing;
 
-export function HostelCard({ hostel, room, campus, onHover, compact = false }: HostelCardProps) {
+export function HostelCard({ hostel, room, campus, onHover, compact = false, active = false, onShowMap }: HostelCardProps) {
   const { user, toggleFavourite, isFavourite } = useApp();
   const { comparisonIds, toggleCompare, isCompared } = useCompare();
   const navigate = useNavigate();
@@ -53,7 +56,8 @@ export function HostelCard({ hostel, room, campus, onHover, compact = false }: H
 
   return (
     <article
-      className={`discovery-card${compact ? ' discovery-card--compact' : ''}${compared ? ' discovery-card--compared' : ''}`}
+      data-hostel-id={hostel.id}
+      className={`discovery-card${active ? ' discovery-card--active' : ''}${compact ? ' discovery-card--compact' : ''}${compared ? ' discovery-card--compared' : ''}`}
       onMouseEnter={() => onHover?.(hostel.id)}
       onMouseLeave={() => onHover?.(null)}
       onFocus={() => onHover?.(hostel.id)}
@@ -73,9 +77,11 @@ export function HostelCard({ hostel, room, campus, onHover, compact = false }: H
           <div><h3><Link to={href}>{hostel.name}</Link></h3><p className="discovery-card-locality"><MapPin size={12} aria-hidden="true" />{hostel.locality}, Kota</p></div>
           {campus && <div className="discovery-card-distance"><strong>{formatDistance(distance)}</strong><span>{distance == null ? 'distance unavailable' : 'straight-line'}</span></div>}
         </div>
-        <div className="discovery-card-roomline"><span className={`discovery-room-tag${selectedRoom ? '' : ' discovery-room-tag--full'}`}>{selectedRoom ? sharingLabel(selectedRoom.sharingType) : 'Currently full'}</span><span className="discovery-sample-tag">Sample listing</span></div>
+        {campus && <p className="discovery-card-campus"><GraduationCap size={14} aria-hidden="true" />{campus.institute} · {campus.name}</p>}
+        {onShowMap && <button type="button" className="discovery-show-map" onClick={() => onShowMap(hostel.id)}><MapPin size={14} />Show on map</button>}
+        <div className="discovery-card-roomline"><span className={`discovery-room-tag${selectedRoom ? '' : ' discovery-room-tag--full'}`}>{selectedRoom ? sharingLabel(selectedRoom.sharingType) : 'Currently full'}</span><span className="discovery-sample-tag">{locationLabel(hostel)}</span></div>
         <div className="discovery-card-pricing">
-          <div>{total != null ? <p className="discovery-card-price">{money(total)}<span>fixed / month</span></p> : <p className="discovery-card-price discovery-card-price--unavailable">Check availability</p>}
+          <div>{total != null ? <p className="discovery-card-price">{money(total)}<span>total / month</span></p> : <p className="discovery-card-price discovery-card-price--unavailable">Check availability</p>}
             {selectedRoom && <p className="discovery-card-price-note">{money(selectedRoom.rent)} rent{extras > 0 ? ` + ${money(extras)} fixed extras` : ' · included services'}</p>}</div>
           {selectedRoom && <div className="discovery-card-deposit"><span>Deposit</span><strong>{money(selectedRoom.deposit)}</strong></div>}
         </div>

@@ -187,3 +187,4 @@
 .student-satellite-notice { position:absolute; left:14px; top:14px; right:70px; z-index:6; padding:10px 12px; border-radius:8px; background:#fffdf3; color:#586b50; font-size:11px; border:1px solid #d9e3d1; }
 .student-satellite-notice.is-error { color:#845338; background:#fff8e9; }
 .student-satellite-notice button { color:#087b68; text-decoration:underline; margin-left:5px; }
+.student-map-panel__note,.student-map-panel__summary small{font-size:11px;color:#536b55}.student-map-panel__summary>span{min-width:0}.student-map-panel__summary b{font-size:14px}.student-layer-toggle button,.discovery-campus-centre{min-height:40px}.student-campus-pin small{font-size:10px}

@@ -139,6 +139,7 @@ export const MOCK_HOSTELS: Hostel[] = SEED_HOSTELS.map((hostel, index) => ({
   ...hostel,
   coverImage: SAMPLE_PHOTOS[index % SAMPLE_PHOTOS.length],
   images: [SAMPLE_PHOTOS[index % SAMPLE_PHOTOS.length], ...SAMPLE_PHOTOS.filter(p => p !== SAMPLE_PHOTOS[index % SAMPLE_PHOTOS.length])],
+  location: { status: 'demo' },
   latitude: SAMPLE_COORDINATES[index][0],
   longitude: SAMPLE_COORDINATES[index][1],
   electricityPolicy: 'Metered separately; confirm the per-unit rate with the owner.',

@@ -56,6 +56,7 @@ export function ExplorePage() {
   const [draft, setDraft] = useState<Filters>(applied);
   const [view, setView] = useState<'list' | 'map'>('list');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [mapFocusRevision, setMapFocusRevision] = useState(0);
   const [activeHostel, setActiveHostel] = useState<string | null>(null);
   const filterDialog = useRef<HTMLDialogElement>(null);
   const filterTrigger = useRef<HTMLButtonElement>(null);
@@ -75,6 +76,7 @@ export function ExplorePage() {
   };
   const applySearch = (event?: FormEvent) => {
     event?.preventDefault();
+    setActiveHostel(null);
     setSearchParams(writeFilters({ ...draft, page: 1 }));
     setFilterOpen(false);
   };
@@ -101,6 +103,26 @@ export function ExplorePage() {
       return (aDistance === bDistance ? priceDifference : aDistance - bDistance) || a.hostel.name.localeCompare(b.hostel.name);
     });
   }, [hostels, applied, campus]);
+
+  const selectFromMap = (id: string) => {
+    setActiveHostel(id);
+    const index = results.findIndex(item => item.hostel.id === id);
+    if (index < 0) return;
+    const nextPage = Math.floor(index / PAGE_SIZE) + 1;
+    if (nextPage !== applied.page) updateFilters({ page: nextPage });
+    if (window.matchMedia('(max-width: 960px)').matches) setView('list');
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const card = document.querySelector<HTMLElement>(`[data-hostel-id="${id}"]`);
+      card?.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
+      card?.querySelector<HTMLButtonElement>('.discovery-show-map')?.focus({ preventScroll: true });
+    }));
+  };
+  const showOnMap = (id: string) => {
+    setActiveHostel(id);
+    setMapFocusRevision(n => n + 1);
+    setView('map');
+    requestAnimationFrame(() => document.querySelector('.discovery-results-map')?.scrollIntoView({ block: 'center', behavior: 'instant' }));
+  };
 
   const totalPages = Math.max(1, Math.ceil(results.length / PAGE_SIZE)), page = Math.min(applied.page, totalPages);
   const pageItems = results.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -133,21 +155,22 @@ export function ExplorePage() {
           <div className="discovery-quick-filters">{QUICK_AMENITIES.map(amenity => <button type="button" key={amenity.id} className={applied.amenities.includes(amenity.id) ? 'is-active' : ''} onClick={() => toggleQuickAmenity(amenity.id)} aria-pressed={applied.amenities.includes(amenity.id)}>{applied.amenities.includes(amenity.id) && <Check size={12} aria-hidden="true" />}{amenity.label}</button>)}</div>
           {filterCount > 0 && <button type="button" className="discovery-clear" onClick={resetFilters}><X size={13} aria-hidden="true" />Clear filters</button>}
         </div>
+        <div className="discovery-confidence" role="note"><MapPin size={18} /><div><strong>Explore the neighbourhood. Check the exact address.</strong><span>Demo pins are illustrative. Distances are straight-line estimates; confirm the entrance and walking route before visiting.</span></div><Link to="/map">Whole Kota <ArrowUpRight size={15} /></Link></div>
         <div className="discovery-results-heading">
           <div><span className="discovery-eyebrow discovery-eyebrow--small"><MapPin size={13} aria-hidden="true" />YOUR CAMPUS NEIGHBOURHOOD</span><h2>Rooms near <em>{campus.institute} {campus.name}</em></h2><p aria-live="polite">{results.length} sample {results.length === 1 ? 'stay' : 'stays'} with rooms that match{applied.sharing ? ` · ${SHARING_OPTIONS.find(option => option.id === applied.sharing)?.label.toLowerCase()}` : ''}.</p></div>
           <label className="discovery-sort"><span>Sort by</span><select aria-label="Sort hostels" value={applied.sort} onChange={event => updateFilters({ sort: event.target.value as Sort })}><option value="distance">Nearest campus</option><option value="price-asc">Monthly cost: low to high</option><option value="price-desc">Monthly cost: high to low</option><option value="name">Name: A to Z</option></select><ChevronDown size={14} aria-hidden="true" /></label>
         </div>
-        <div className="discovery-view-toggle" aria-label="Results view"><button type="button" className={view === 'list' ? 'is-active' : ''} onClick={() => setView('list')} aria-pressed={view === 'list'}><LayoutGrid size={16} aria-hidden="true" />List view</button><button type="button" className={view === 'map' ? 'is-active' : ''} onClick={() => setView('map')} aria-pressed={view === 'map'}><Map size={16} aria-hidden="true" />Map view</button></div>
+        <div className={`discovery-view-toggle${selectedHostels.length ? ' discovery-view-toggle--raised' : ''}`} aria-label="Results view"><button type="button" className={view === 'list' ? 'is-active' : ''} onClick={() => setView('list')} aria-pressed={view === 'list'}><LayoutGrid size={16} aria-hidden="true" />List view</button><button type="button" className={view === 'map' ? 'is-active' : ''} onClick={() => setView('map')} aria-pressed={view === 'map'}><Map size={16} aria-hidden="true" />Map view</button></div>
         <div className={`discovery-results-layout discovery-results-layout--${view}`}>
           <div className="discovery-results-list">
-            {results.length > 0 ? <div className="discovery-grid">{pageItems.map(({ hostel, room }) => <HostelCard key={hostel.id} hostel={hostel} room={room} campus={campus} onHover={setActiveHostel} />)}</div> : <div className="discovery-no-results"><div><Search size={29} strokeWidth={1.3} aria-hidden="true" /></div><span className="discovery-eyebrow">A LITTLE MORE ROOM TO EXPLORE</span><h3>Your next room is still out there.</h3><p>No available sample rooms match all your filters.<br />Try a wider budget or another sharing type.</p><button type="button" onClick={resetFilters}><RotateCcw size={16} aria-hidden="true" />Reset my filters</button></div>}
+            {results.length > 0 ? <div className="discovery-grid">{pageItems.map(({ hostel, room }) => <HostelCard key={hostel.id} hostel={hostel} room={room} campus={campus} active={activeHostel === hostel.id} onHover={id => { if (id) setActiveHostel(id); }} onShowMap={showOnMap} />)}</div> : <div className="discovery-no-results"><div><Search size={29} strokeWidth={1.3} aria-hidden="true" /></div><span className="discovery-eyebrow">A LITTLE MORE ROOM TO EXPLORE</span><h3>Your next room is still out there.</h3><p>No available sample rooms match all your filters.<br />Try a wider budget or another sharing type.</p><button type="button" onClick={resetFilters}><RotateCcw size={16} aria-hidden="true" />Reset my filters</button></div>}
             {totalPages > 1 && <nav className="discovery-pagination" aria-label="Results pages"><button type="button" onClick={() => updateFilters({ page: page - 1 })} disabled={page <= 1} aria-label="Previous results page"><ArrowLeft size={15} /></button>{Array.from({ length: totalPages }, (_, index) => index + 1).map(value => <button type="button" key={value} className={page === value ? 'is-active' : ''} onClick={() => updateFilters({ page: value })} aria-current={page === value ? 'page' : undefined} aria-label={`Results page ${value}`}>{value}</button>)}<button type="button" onClick={() => updateFilters({ page: page + 1 })} disabled={page >= totalPages} aria-label="Next results page"><ArrowRight size={15} /></button></nav>}
           </div>
-          <aside className="discovery-results-map"><NeighbourhoodMap campus={campus} items={results} activeHostelId={activeHostel} onActivate={setActiveHostel} /></aside>
+          <aside className="discovery-results-map"><NeighbourhoodMap campus={campus} items={results} activeHostelId={activeHostel} focusRevision={mapFocusRevision} onActivate={selectFromMap} onCampusChange={id => { setActiveHostel(null); updateFilters({ campus: id }); }} /></aside>
         </div>
         <p className="discovery-results-disclaimer"><Sparkles size={13} aria-hidden="true" />A preview of better hostel hunting. Listings, photos, prices and locations are sample content.</p>
       </div>
-      {selectedHostels.length > 0 && <aside className="discovery-compare-tray" aria-label="Selected hostel comparison"><div className="discovery-compare-thumbs">{selectedHostels.map(hostel => <div className="discovery-compare-item" key={hostel.id}><img src={hostel.coverImage || '/images/room-shared.webp'} alt="" /><span><strong>{hostel.name}</strong><small>{hostel.locality}</small></span><button type="button" onClick={() => toggleCompare(hostel.id)} aria-label={`Remove ${hostel.name} from comparison`}><X size={14} /></button></div>)}</div><div className="discovery-compare-actions"><span aria-live="polite">{comparisonIds.length} of 3 selected</span><button type="button" className="discovery-compare-clear" onClick={clearComparison} aria-label="Clear selected hostels">Clear</button><Link to={`/compare?${compareParams.toString()}`} className="discovery-compare-link"><Scale size={17} aria-hidden="true" /><span>Compare<span className="discovery-compare-link-extra"> selected</span></span><ArrowUpRight size={16} aria-hidden="true" /></Link></div></aside>}
+      {selectedHostels.length > 0 && <aside className="discovery-compare-tray" aria-label="Selected hostel comparison"><div className="discovery-compare-thumbs">{selectedHostels.map(hostel => <div className="discovery-compare-item" key={hostel.id}><img src={hostel.coverImage || '/images/room-shared.webp'} alt="" /><span><strong>{hostel.name}</strong><small>{hostel.locality} · {getMatchingRooms(hostel, applied)[0] ? `₹${monthlyTotal(getMatchingRooms(hostel, applied)[0]).toLocaleString('en-IN')} / month` : 'No matching room'}</small></span><button type="button" onClick={() => toggleCompare(hostel.id)} aria-label={`Remove ${hostel.name} from comparison`}><X size={14} /></button></div>)}</div><div className="discovery-compare-actions"><span aria-live="polite">{comparisonIds.length} of 3 selected</span><button type="button" className="discovery-compare-clear" onClick={clearComparison} aria-label="Clear selected hostels">Clear</button><Link to={`/compare?${compareParams.toString()}`} className="discovery-compare-link"><Scale size={17} aria-hidden="true" /><span>Compare<span className="discovery-compare-link-extra"> selected</span></span><ArrowUpRight size={16} aria-hidden="true" /></Link></div></aside>}
       <dialog className="discovery-filter-dialog" ref={filterDialog} onCancel={closeFilters} onClose={() => setFilterOpen(false)} onClick={event => { if (event.target === event.currentTarget) closeFilters(); }} aria-labelledby="discovery-filter-title">
         <form onSubmit={applySearch}><div className="discovery-dialog-header"><div><span className="discovery-eyebrow">MAKE YOURSELF AT HOME</span><h2 id="discovery-filter-title">A room that fits you.</h2></div><button type="button" onClick={closeFilters} aria-label="Close filters"><X size={21} /></button></div>
           <fieldset><legend>Monthly fixed cost <small>Per student, excluding deposit</small></legend><div className="discovery-budget-fields"><label>Minimum ₹<input type="number" min="0" step="100" value={draft.minBudget} onChange={event => { const minBudget = Math.max(0, Number(event.target.value) || 0); setDraft(value => ({ ...value, minBudget, maxBudget: value.maxBudget != null && value.maxBudget < minBudget ? minBudget : value.maxBudget })); }} /></label><span>—</span><label>Maximum ₹<input type="number" min={draft.minBudget} step="100" value={draft.maxBudget ?? ''} placeholder="Any budget" onChange={event => setDraft(value => ({ ...value, maxBudget: event.target.value === '' ? undefined : Math.max(value.minBudget, Number(event.target.value) || 0) }))} /></label></div><p className="discovery-dialog-hint">Includes rent and mandatory fixed extras. Variable charges and optional services are shown in room details.</p></fieldset>

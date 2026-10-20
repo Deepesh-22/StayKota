@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, MapPin } from 'lucide-react';
+import { ArrowUpRight, MapPin, LocateFixed } from 'lucide-react';
 import type { Hostel, RoomType } from '../../types';
 import type { Campus } from '../../data/campuses';
 import { distanceKm, formatDistance, monthlyTotal } from '../../lib/discovery';
-import { CITY_TARGET, validCoordinates, type MapTarget } from '../../lib/maps';
+import { validCoordinates, type MapTarget } from '../../lib/maps';
 import { MapLayerToggle } from '../maps/MapLayerToggle';
 import type { MapBasemap } from '../../lib/satellite-map';
+import { locationLabel } from '../../lib/location-status';
 import { KotaMap } from '../maps/KotaMap';
 export interface MappedHostel {
   hostel: Hostel;
@@ -17,17 +18,20 @@ interface Props {
   items: MappedHostel[];
   activeHostelId?: string | null;
   onActivate: (id: string) => void;
+  onCampusChange?: (id: string) => void;
+  focusRevision?: number;
 }
-export function NeighbourhoodMap({ campus, items, activeHostelId, onActivate }: Props) {
+export function NeighbourhoodMap({ campus, items, activeHostelId, onActivate, onCampusChange, focusRevision = 0 }: Props) {
   const [basemap, setBasemap] = useState<MapBasemap>('street');
-  const [target, setTarget] = useState<MapTarget>(CITY_TARGET);
   const selected = items.find(({ hostel }) => hostel.id === activeHostelId);
-  const select = (id: string) => {
-    onActivate(id);
-    const found = items.find((item) => item.hostel.id === id)?.hostel;
-    if (found && validCoordinates(found.latitude, found.longitude))
-      setTarget({ lat: found.latitude!, lng: found.longitude!, zoom: 15, id: found.id });
-  };
+  const [campusView, setCampusView] = useState(false);
+  const selectedId = selected?.hostel.id;
+  const [centreRevision, setCentreRevision] = useState(0);
+  useEffect(() => { setCampusView(false); }, [selectedId, focusRevision]);
+  const found = !campusView ? selected?.hostel : undefined;
+  const target: MapTarget = found && validCoordinates(found.latitude, found.longitude)
+    ? { lat: found.latitude!, lng: found.longitude!, zoom: 15, id: found.id }
+    : { lat: campus.latitude, lng: campus.longitude, zoom: 14, id: `${campus.id}-${centreRevision}` };
   return (
     <section className="student-map-panel" aria-label="Kota hostel and coaching map">
       <div className="student-map-panel__heading">
@@ -39,13 +43,15 @@ export function NeighbourhoodMap({ campus, items, activeHostelId, onActivate }: 
           Explore the whole city <ArrowUpRight size={13} />
         </Link>
       </div>
-      <div className="student-compact-layer"><MapLayerToggle basemap={basemap} onChange={setBasemap}/></div>
+      <div className="student-compact-layer"><MapLayerToggle basemap={basemap} onChange={setBasemap}/><button type="button" className="discovery-campus-centre" onClick={() => { setCampusView(true); setCentreRevision(n => n + 1); }}><LocateFixed size={15}/>Centre on campus</button></div>
       <div className="student-map-panel__viewport">
         <KotaMap
           campus={campus}
           items={items}
           selectedHostelId={activeHostelId}
-          onSelect={select}
+          onSelect={id => { setCampusView(false); onActivate(id); }}
+          activeCampusId={campus.id}
+          onCampusSelect={onCampusChange}
           target={target}
           basemap={basemap}
         />
@@ -59,7 +65,7 @@ export function NeighbourhoodMap({ campus, items, activeHostelId, onActivate }: 
           <span>
             <strong>{selected.hostel.name}</strong>
             <small>
-              {formatDistance(distanceKm(selected.hostel, campus))} · sample straight-line
+              {formatDistance(distanceKm(selected.hostel, campus))} · straight-line · {locationLabel(selected.hostel)}
             </small>
           </span>
           <b>₹{monthlyTotal(selected.room).toLocaleString('en-IN')}</b>
