@@ -20,6 +20,19 @@ function Camera({ target }: { target: MapTarget }) {
   }, [map, target.id, target.lat, target.lng, target.zoom]);
   return null;
 }
+function CampusRadius({ campus, radiusKm }: { campus: GoogleCityMapProps['campus']; radiusKm?: number }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!map || !radiusKm) return;
+    const circle = new google.maps.Circle({
+      map, center: { lat: campus.latitude, lng: campus.longitude }, radius: radiusKm * 1000,
+      fillColor: '#087b68', fillOpacity: 0.09, strokeColor: '#087b68', strokeOpacity: 0.8,
+      strokeWeight: 2, clickable: false,
+    });
+    return () => circle.setMap(null);
+  }, [map, campus.latitude, campus.longitude, radiusKm]);
+  return null;
+}
 function LoadState({ onUnavailable }: { onUnavailable: () => void }) {
   const status = useApiLoadingStatus();
   useEffect(() => {
@@ -53,7 +66,10 @@ export default function GoogleMapSDK({
   onSelect,
   onCampusSelect,
   onUnavailable,
+  radiusKm,
+  activeCampusId,
 }: Props) {
+  const selectedCampusId = activeCampusId ?? (onCampusSelect ? undefined : campus.id);
   return (
     <APIProvider apiKey={apiKey} language="en" region="IN" onError={onUnavailable}>
       <LoadState onUnavailable={onUnavailable} />
@@ -72,15 +88,16 @@ export default function GoogleMapSDK({
         style={{ width: '100%', height: '100%' }}
       >
         <Camera target={target} />
+        <CampusRadius campus={campus} radiusKm={radiusKm} />
         {CAMPUSES.map((c) => (
           <AdvancedMarker
             key={c.id}
             position={{ lat: c.latitude, lng: c.longitude }}
             title={`${c.institute} ${c.name} — sample campus pin`}
             onClick={() => onCampusSelect?.(c.id)}
-            zIndex={c.id === campus.id ? 10 : 5}
+            zIndex={c.id === selectedCampusId ? 10 : 5}
           >
-            <span className={`google-campus-pin${c.id === campus.id ? ' is-selected' : ''}`}>
+            <span className={`google-campus-pin${c.id === selectedCampusId ? ' is-selected' : ''}`}>
               <GraduationCap size={17} />
               <span>
                 {c.institute}
@@ -107,6 +124,10 @@ export default function GoogleMapSDK({
             </AdvancedMarker>
           ))}
       </Map>
+      <div className="google-map-legend" aria-label="Map pin legend">
+        <span>₹ Hostel · monthly cost</span><span><GraduationCap size={14} /> Coaching campus</span>
+        {radiusKm && <span>{radiusKm} km coaching radius</span>}
+      </div>
     </APIProvider>
   );
 }

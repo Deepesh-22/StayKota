@@ -627,3 +627,8 @@
     padding: 10px;
   }
 }
+
+.city-radius { display: grid; gap: 7px; margin: 15px 0; color: #486450; font-size: 12px; }
+.city-radius select { width: 100%; padding: 10px; border: 1px solid #dce4d5; border-radius: 8px; background: #fffdf8; color: #245241; }
+.city-radius small { font-size: 10px; line-height: 1.6; }
+.city-coaching-distance { line-height: 1.7; }

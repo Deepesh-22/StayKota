@@ -83,7 +83,7 @@ SPA rewrites for Vercel remain in `vercel.json`. Publishing or deployment is a s
 
 ## Whole-city Google map
 
-Open `/map` or select **Explore Kota** in the navigation. The city view starts at Kota (25.183, 75.839), zoom 12, and can be panned or zoomed freely. Search an area, road or landmark, switch Map/Satellite, choose a campus, centre a sample hostel, or reset to **Whole Kota**. On mobile, **Stays** opens the filter/list panel.
+Open `/map` or select **Explore Kota** in the navigation. The city view starts at Kota (25.183, 75.839), zoom 12, and can be panned or zoomed freely. Search an area, road or landmark, switch Map/Satellite, choose a campus, centre a sample hostel, or reset to **Whole Kota**. On mobile, **Stays** opens the filter/list panel. Select a coaching campus to sort stays nearest first and optionally filter within 1, 3 or 5 km. With the JavaScript API enabled, the selected distance appears as a circle; campus markers and matching hostel price pins remain on both road and satellite layers. Without a selected campus, cards identify the nearest sample coaching campus. Whole Kota clears the distance filter while preserving room preferences and the map layer.
 
 The old schematic Explore map has been replaced. Its Google view receives all matching available hostels rather than only the current list page.
 
@@ -96,8 +96,10 @@ Copy `.env.example` to `.env.local` for local configuration, or add those variab
 
 If the SDK fails to load or rejects authentication, the component falls back to the embedded map with a visible notice. Google branding and map attribution are not removed or covered. **Open in Google Maps** is available if embedding is blocked. Hidden map panels defer loading until visible.
 
-The Codex network draft includes Google's map destinations and optional blank browser-key/map-ID variables. Draft saving does not apply those settings. Review/save and publish the environment to apply it. Live requests to `www.google.com` returned proxy `403 Forbidden` during this task, so live basemap/satellite content could not be verified here. No browser Maps key was available to verify authenticated markers. The 15 unit tests and 10 browser checks validate local flows and Google URL/selection/layer integration; the four map-specific browser tests stub the external Google frame and do not claim Google content was rendered.
+The Codex network draft includes Google's map destinations and optional blank browser-key/map-ID variables. Draft saving does not apply those settings. Review/save and publish the environment to apply it. Live requests to `www.google.com` returned proxy `403 Forbidden` during this task, so live basemap/satellite content could not be verified here. No browser Maps key was available to verify authenticated markers. The unit tests and browser checks validate local flows and Google URL/selection/layer integration; the map-specific browser tests stub the external Google frame and do not claim Google content was rendered.
 
 ## Before real use
 
 Replace simulated authentication and browser data with a backend that enforces roles, resource ownership, validation, rate limits and consent handling. Use actual reviewed inventory, photographs and campus coordinates. Configure real contact delivery, privacy/retention rules, backups, monitoring and public-page metadata/rendering before a live launch. A prototype admin role flag is not production authorization.
+
+Proximity filters require valid coordinates and use straight-line distances, never claimed walking times. Only approved listings with matching available rooms are shown. The map covers Kota, but complete real hostel coverage requires a reviewed inventory and accurate campus/property coordinates from your backend. The embedded fallback explicitly indicates that custom markers are unavailable.

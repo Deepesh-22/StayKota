@@ -176,3 +176,31 @@ test('mobile city map has an accessible hostel panel and a viewport-sized layout
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByLabel('Centre map on a coaching campus')).toBeVisible();
 });
+
+test('coaching radius filters stay consistent across map layers and city reset', async ({ page }) => {
+  await stubGoogleFrame(page);
+  await page.goto('/map');
+  const radius = page.getByLabel('Distance from coaching', { exact: true });
+  await expect(radius).toBeDisabled();
+  await page.getByLabel('Centre map on a coaching campus').selectOption('allen-talwandi');
+  await radius.selectOption('3');
+  await expect(page.getByTitle('Google map of the whole city of Kota')).toHaveAttribute('src', /z=13/);
+  await radius.selectOption('1');
+  await expect(page.getByRole('button', { name: 'Show Comfort Stay Hostel on map' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Show Scholar’s PG on map' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Show Comfort Stay Hostel on map' }).click();
+  const ids = await page.locator('.city-stay-select').evaluateAll(nodes => nodes.map(n => n.getAttribute('aria-label')));
+  await page.getByRole('button', { name: 'Satellite', exact: true }).click();
+  await expect(page).toHaveURL(/radius=1/);
+  await expect(page).toHaveURL(/hostel=h1/);
+  await expect(page.getByTitle('Google map of the whole city of Kota')).toHaveAttribute('src', /t=k/);
+  expect(await page.locator('.city-stay-select').evaluateAll(nodes => nodes.map(n => n.getAttribute('aria-label')))).toEqual(ids);
+  await page.getByLabel('Centre map on a coaching campus').selectOption('allen-landmark');
+  await expect(page.locator('.city-stay')).toHaveCount(1);
+  await expect(page.locator('.city-selected')).toHaveCount(0);
+  await expect(page.locator('.city-stays')).toContainText('Scholar');
+  await page.getByRole('button', { name: 'Whole Kota', exact: true }).click();
+  await expect(radius).toBeDisabled();
+  await expect(page.locator('.city-stay')).toHaveCount(7);
+  await expect(page.getByRole('button', { name: 'Satellite', exact: true })).toHaveAttribute('aria-pressed', 'true');
+});

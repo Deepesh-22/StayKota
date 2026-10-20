@@ -1,5 +1,6 @@
+import { CAMPUSES } from '../src/data/campuses';
 import { describe, expect, it } from 'vitest';
-import { CITY_TARGET, googleEmbedUrl, googleExternalUrl, validCoordinates } from '../src/lib/maps';
+import { CITY_TARGET, googleEmbedUrl, googleExternalUrl, validCoordinates, nearestCampus, campusDistance, withinCampusRadius } from '../src/lib/maps';
 
 describe('whole-city Google map configuration', () => {
   it('opens Kota at city scale, not the extent of the sample inventory', () => {
@@ -37,5 +38,25 @@ describe('whole-city Google map configuration', () => {
     expect(validCoordinates(NaN, 75.83)).toBe(false);
     expect(validCoordinates(100, 75.83)).toBe(false);
     expect(validCoordinates(25.18, -181)).toBe(false);
+  });
+});
+
+describe('coaching proximity', () => {
+  it('finds the nearest coaching campus from coordinates', () => {
+    expect(nearestCampus({ latitude: 25.148, longitude: 75.852 })?.campus.id).toBe('allen-talwandi');
+    expect(nearestCampus({ latitude: 25.216, longitude: 75.855 })?.campus.id).toBe('allen-landmark');
+  });
+  it('includes a hostel at the boundary and excludes one beyond the chosen radius', () => {
+    const campus = CAMPUSES[0];
+    const location = { latitude: 25.216, longitude: 75.855 };
+    const distance = campusDistance(location, campus)!;
+    expect(withinCampusRadius(location, campus, distance)).toBe(true);
+    expect(withinCampusRadius(location, campus, distance - 0.01)).toBe(false);
+    expect(withinCampusRadius(location, CAMPUSES[1], 1)).toBe(false);
+  });
+  it('never assigns missing or invalid coordinates to a nearby campus', () => {
+    expect(nearestCampus({})).toBeNull();
+    expect(nearestCampus({ latitude: 91, longitude: 75.85 })).toBeNull();
+    expect(withinCampusRadius({}, CAMPUSES[0], 5)).toBe(false);
   });
 });

@@ -25,6 +25,8 @@ export interface GoogleCityMapProps {
   target?: MapTarget;
   mapType?: CityMapType;
   search?: string;
+  radiusKm?: number;
+  activeCampusId?: string;
 }
 export function GoogleCityMap(props: GoogleCityMapProps) {
   const { target = CITY_TARGET, mapType = 'roadmap', search = '' } = props;
@@ -118,6 +120,11 @@ export function GoogleCityMap(props: GoogleCityMapProps) {
             </div>
           )}
         </>
+      )}
+      {!isSDK && !failed && (
+        <p className="google-city-map__fallback" role="status">
+          {search.trim() ? 'Google place search view. Clear the search to return to StayKota pins.' : 'City map preview. Custom hostel and coaching pins are unavailable until Google Maps is configured.'}
+        </p>
       )}
       {failed && (
         <div className="google-city-map__fallback" role="status">

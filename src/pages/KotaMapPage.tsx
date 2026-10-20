@@ -15,9 +15,12 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { CAMPUSES } from '../data/campuses';
-import { getCampus, getMatchingRooms, monthlyTotal } from '../lib/discovery';
+import { formatDistance, getCampus, getMatchingRooms, monthlyTotal } from '../lib/discovery';
 import {
   CITY_TARGET,
+  campusDistance,
+  nearestCampus,
+  withinCampusRadius,
   googleExternalUrl,
   validCoordinates,
   type CityMapType,
@@ -87,16 +90,25 @@ export function KotaMapPage() {
     ? params.get('category')!
     : '';
   const mapType: CityMapType = params.get('type') === 'satellite' ? 'satellite' : 'roadmap';
+  const activeCampus = CAMPUSES.find(c => c.id === params.get('campus'));
+  const radius = activeCampus && [1, 3, 5].includes(Number(params.get('radius')))
+    ? Number(params.get('radius')) : undefined;
   const items = hostels
     .filter((h) => h.status === 'approved' && (!category || h.category === category))
+    .filter(h => !radius || withinCampusRadius(h, campus, radius))
     .flatMap((hostel) => {
       const room = getMatchingRooms(hostel, { sharing, maxBudget: budget })[0];
       return room ? [{ hostel, room }] : [];
-    });
+    }).sort((a, b) => activeCampus
+      ? (campusDistance(a.hostel, campus) ?? Infinity) - (campusDistance(b.hostel, campus) ?? Infinity) : 0);
   const selected = items.find((item) => item.hostel.id === params.get('hostel'));
   let target: MapTarget = { ...CITY_TARGET, id: `kota-${revision}` };
-  if (params.has('campus') && CAMPUSES.some((c) => c.id === params.get('campus')))
-    target = { lat: campus.latitude, lng: campus.longitude, zoom: 14, id: campus.id };
+  if (activeCampus)
+    target = {
+      lat: campus.latitude, lng: campus.longitude,
+      zoom: radius === 5 ? 12 : radius === 3 ? 13 : 14,
+      id: `${campus.id}-${radius || 'all'}`,
+    };
   if (selected && validCoordinates(selected.hostel.latitude, selected.hostel.longitude))
     target = {
       lat: selected.hostel.latitude!,
@@ -177,7 +189,7 @@ export function KotaMapPage() {
             type="button"
             onClick={() => {
               setRevision((n) => n + 1);
-              update({ campus: null, hostel: null, q: null });
+              update({ campus: null, hostel: null, q: null, radius: null });
             }}
             className="city-reset"
           >
@@ -244,6 +256,17 @@ export function KotaMapPage() {
             </select>
             <ChevronDown size={14} />
           </div>
+          <label className="city-radius">
+            Distance from coaching
+            <select aria-label="Distance from coaching" disabled={!activeCampus}
+              value={radius || ''} onChange={e => update({ radius: e.target.value, hostel: null })}>
+              <option value="">All distances</option>
+              <option value="1">Within 1 km</option>
+              <option value="3">Within 3 km</option>
+              <option value="5">Within 5 km</option>
+            </select>
+            <small>{activeCampus ? 'Nearest first · straight-line distance, not walking distance' : 'Choose a coaching campus to filter nearby stays.'}</small>
+          </label>
           <div className="city-room-filters">
             <label>
               Room type
@@ -300,35 +323,42 @@ export function KotaMapPage() {
           </p>
           <div className="city-stays">
             {items.length ? (
-              items.map(({ hostel, room }) => (
-                <article
-                  className={`city-stay${selected?.hostel.id === hostel.id ? ' is-selected' : ''}`}
-                  key={hostel.id}
-                >
-                  <button
-                    type="button"
-                    className="city-stay-select"
-                    onClick={() => selectHostel(hostel.id)}
-                    aria-label={`Show ${hostel.name} on map`}
-                    aria-pressed={selected?.hostel.id === hostel.id}
+              items.map(({ hostel, room }) => {
+                const nearest = nearestCampus(hostel);
+                const nearby = activeCampus ? { campus, distance: campusDistance(hostel, campus) } : nearest;
+                return (
+                  <article
+                    className={`city-stay${selected?.hostel.id === hostel.id ? ' is-selected' : ''}`}
+                    key={hostel.id}
                   >
-                    <img src={hostel.coverImage} alt="" loading="lazy" />
-                    <span>
-                      <strong>{hostel.name}</strong>
-                      <small>
-                        {hostel.locality} · {room.name}
-                      </small>
-                      <b>
-                        ₹{monthlyTotal(room).toLocaleString('en-IN')}
-                        <em> fixed / month</em>
-                      </b>
-                    </span>
-                  </button>
-                  <Link to={`/hostel/${hostel.id}?campus=${campus.id}&room=${room.id}`}>
-                    Room details <ArrowUpRight size={13} />
-                  </Link>
-                </article>
-              ))
+                    <button
+                      type="button"
+                      className="city-stay-select"
+                      onClick={() => selectHostel(hostel.id)}
+                      aria-label={`Show ${hostel.name} on map`}
+                      aria-pressed={selected?.hostel.id === hostel.id}
+                    >
+                      <img src={hostel.coverImage} alt="" loading="lazy" />
+                      <span>
+                        <strong>{hostel.name}</strong>
+                        <small>
+                          {hostel.locality} · {room.name}
+                        </small>
+                        {nearby && <small className="city-coaching-distance">
+                          {formatDistance(nearby.distance)} from {nearby.campus.institute} · {nearby.campus.name}
+                        </small>}
+                        <b>
+                          ₹{monthlyTotal(room).toLocaleString('en-IN')}
+                          <em> fixed / month</em>
+                        </b>
+                      </span>
+                    </button>
+                    <Link to={`/hostel/${hostel.id}?campus=${campus.id}&room=${room.id}`}>
+                      Room details <ArrowUpRight size={13} />
+                    </Link>
+                  </article>
+                );
+              })
             ) : (
               <div className="city-empty">
                 <SlidersHorizontal size={26} />
@@ -336,7 +366,7 @@ export function KotaMapPage() {
                 <p>No available sample rooms match these filters.</p>
                 <button
                   type="button"
-                  onClick={() => update({ sharing: null, category: null, budget: null })}
+                  onClick={() => update({ sharing: null, category: null, budget: null, radius: null })}
                 >
                   Reset room filters
                 </button>
@@ -416,6 +446,8 @@ export function KotaMapPage() {
               target={target}
               mapType={mapType}
               search={query}
+              radiusKm={radius}
+              activeCampusId={activeCampus?.id}
             />
           </div>
           {selected && (
