@@ -8,6 +8,7 @@ import '../../styles/student-map.css';
 const OpenMapRenderer = lazy(() => import('./OpenMapRenderer'));
 export interface MapHostel { hostel: Hostel; room: RoomType }
 export interface KotaMapProps {
+  campusPins?: Campus[];
   campus: Campus; items: MapHostel[]; selectedHostelId?: string | null;
   onSelect: (id: string) => void; onCampusSelect?: (id: string) => void;
   target?: MapTarget; radiusKm?: number; activeCampusId?: string;

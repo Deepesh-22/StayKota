@@ -2,11 +2,13 @@ import { locationLabel } from '../lib/location-status';
 import { useEffect, useId, useRef, useState, type ReactNode, type SyntheticEvent, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
-  ArrowLeft, ArrowUpRight, BedDouble, BookOpen, Calendar, Camera, Check,
+  ArrowLeft, ArrowUpRight, BedDouble, BookOpen, Calendar, Check, Phone, Mail, Star,
   CheckCircle2, ChevronLeft, ChevronRight, Clock3, Droplets, Flag, Heart,
   Info, MapPin, Share2, ShieldCheck, Users, Utensils, Wifi, Wind, X, Zap,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { CurvedPhotoGallery, GalleryImage } from '../components/hostel/CurvedPhotoGallery';
+import { HostelProximityMap } from '../components/hostel/HostelProximityMap';
 import { RoomShowcase } from '../components/hostel/RoomShowcase';
 import { CAMPUSES } from '../data/campuses';
 import { distanceKm, formatDistance, getCampus, getMatchingRooms, monthlyTotal } from '../lib/discovery';
@@ -71,7 +73,7 @@ function RoomPrice({ room, electricity, notes }: { room: RoomType; electricity?:
         {mandatory.map((charge, index) => <div key={charge.name + index}><dt>{charge.name}</dt><dd>{money(charge.amount)}</dd></div>)}
         <div className="detail-price__total"><dt>Fixed monthly total</dt><dd>{money(monthlyTotal(room))}</dd></div>
         <div><dt>Electricity</dt><dd>{electricity || 'Confirm charging policy with owner'}</dd></div>
-        <div className="detail-price__deposit"><dt>Refundable deposit <small>One-time · refund terms apply</small></dt><dd>{money(room.deposit)}</dd></div>
+        <div className="detail-price__deposit"><dt>Security deposit <small>One-time · confirm refund terms</small></dt><dd>{money(room.deposit)}</dd></div>
       </dl>
       {room.included.length > 0 && <p className="detail-price__included"><Check size={14} /> Included in rent: {room.included.map(amenityLabel).join(', ')}</p>}
       {optional.length > 0 && <p className="detail-price__optional">Optional: {optional.map(charge => charge.name + ' ' + money(charge.amount) + '/month').join(' · ')}. Not included in the fixed total.</p>}
@@ -92,10 +94,11 @@ export function HostelDetailPage() {
   const selectedRoom = availableRooms.find(room => room.id === roomId)
     || availableRooms.find(room => room.sharingType === 'double') || availableRooms[0];
   const galleryImages = hostel ? [...new Set([hostel.coverImage, ...hostel.images].filter(Boolean))] : [];
-  if (!galleryImages.length) galleryImages.push('/images/room-shared.webp');
+
 
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const [contactOpen, setContactOpen] = useState(false);
   const [visitOpen, setVisitOpen] = useState(false);
   const [visitDate, setVisitDate] = useState('');
   const [phone, setPhone] = useState('');
@@ -116,6 +119,7 @@ export function HostelDetailPage() {
     setGalleryOpen(false);
     setGalleryIndex(0);
     setVisitOpen(false);
+    setContactOpen(false);
     setReceipt(null);
     setShareState('idle');
   }, [id]);
@@ -157,11 +161,14 @@ export function HostelDetailPage() {
     </section>
   );
 
-  const displayedImage = galleryImages[galleryIndex % galleryImages.length] || '/images/room-shared.webp';
   const saved = isFavourite(hostel.id);
   const distance = distanceKm(hostel, campus);
   const category = hostel.category === 'co-ed' ? 'Co-ed stay' : hostel.category === 'girls' ? 'Girls hostel' : 'Boys hostel';
-  const directionsUrl = 'https://www.openstreetmap.org/search?query=' + encodeURIComponent(hostel.address);
+  const illustrative = hostel.photography !== 'property';
+  const galleryPhotos = galleryImages.map((src, index) => ({ src, label: hostel.photoCaptions?.[src] || `Property photo ${index + 1}`, alt: `${illustrative ? 'Illustrative' : 'Property'} photo: ${hostel.photoCaptions?.[src] || `view ${index + 1}`} at ${hostel.name}` }));
+  const review = hostel.reviews && Number.isFinite(hostel.reviews.rating) && hostel.reviews.rating >= 0 && hostel.reviews.rating <= 5 && hostel.reviews.count > 0 ? hostel.reviews : null;
+  const contactPhone = hostel.contact?.phone && /^[+\d ()-]{7,20}$/.test(hostel.contact.phone) ? hostel.contact.phone : null;
+  const contactEmail = hostel.contact?.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(hostel.contact.email) ? hostel.contact.email : null;
   const viewRoom = (room: RoomType) => {
     if (!room.available) return;
     const params = new URLSearchParams(searchParams);
@@ -246,6 +253,9 @@ export function HostelDetailPage() {
           <span aria-hidden="true">/</span><span>{hostel.name}</span>
         </nav>
 
+        <div className="detail-context-bar"><label><BookOpen size={16}/><span className="sr-only">Choose coaching campus</span><select aria-label="Choose coaching campus" value={campus.id} onChange={event => { const params = new URLSearchParams(searchParams); params.set('campus', event.target.value); setSearchParams(params, { replace: true }); }}>{CAMPUSES.map(item => <option key={item.id} value={item.id}>{item.institute} · {item.name}</option>)}</select></label><Link to={`/explore?campus=${campus.id}`}>Browse nearby stays <ArrowUpRight size={14}/></Link></div>
+        <CurvedPhotoGallery key={hostel.id} photos={galleryPhotos} name={hostel.name} illustrative={illustrative} onOpen={index => { setGalleryIndex(index); setGalleryOpen(true); }}/>
+
         <header className="detail-heading">
           <div>
             <div className="detail-heading__top"><span className="detail-eyebrow">A LITTLE CLOSER TO YOUR NEXT CHAPTER</span><span className="detail-category">{category}</span></div>
@@ -260,24 +270,13 @@ export function HostelDetailPage() {
         {shareState === 'copied' && <p className="detail-notice" role="status">Link copied. Share this room with a parent or friend.</p>}
         {shareState === 'manual' && <div className="detail-share-fallback" role="status"><label htmlFor="detail-share-link">Copy this link to share your selected room</label><input id="detail-share-link" value={window.location.href} readOnly onFocus={event => event.target.select()} /></div>}
 
-        <section className={'detail-gallery' + (galleryImages.length === 1 ? ' detail-gallery--single' : '')} aria-label="Hostel photos">
-          <button type="button" className="detail-gallery__main" onClick={() => { setGalleryIndex(0); setGalleryOpen(true); }} aria-label="Open hostel photo gallery">
-            <img src={galleryImages[0] || '/images/room-shared.webp'} alt={'Illustrative room photo for ' + hostel.name} onError={imageFallback} fetchPriority="high" />
-            <span className="detail-gallery__caption"><BedDouble size={15} /> A space to settle in</span>
-          </button>
-          {galleryImages.length > 1 && <div className={'detail-gallery__side' + (galleryImages.length === 2 ? ' detail-gallery__side--single' : '')}>
-            {galleryImages.slice(1, 3).map((image, index) => <button type="button" key={image} onClick={() => { setGalleryIndex(index + 1); setGalleryOpen(true); }} aria-label={'View hostel photo ' + (index + 2)}>
-              <img src={image} alt={'Illustrative property photo ' + (index + 2)} onError={imageFallback} />
-              {index === Math.min(galleryImages.length - 2, 1) && <span className="detail-gallery__all"><Camera size={15} /> View all photos</span>}
-            </button>)}
-          </div>}
-          <span className="detail-gallery__sample">Illustrative photos · sample listing</span>
-        </section>
+        <div className="detail-summary-row"><div className="detail-summary-price">{selectedRoom ? <><strong>{money(monthlyTotal(selectedRoom))}</strong><span>/ student / month<small>{selectedRoom.name} · fixed total · deposit separate</small></span></> : <strong>Ask about availability</strong>}</div><div className="detail-summary-trust">{review ? <span><Star size={15}/>{review.rating.toFixed(1)} · {review.count} reviews</span> : <span>No reviews supplied</span>}<span>{locationLabel(hostel)} · availability needs confirmation</span></div></div>
+        <div className="detail-summary-actions"><button type="button" className="detail-primary" disabled={!selectedRoom} onClick={startVisit}><Calendar size={17}/>Book a visit <ArrowUpRight size={16}/></button><button type="button" className="detail-outline" onClick={() => setContactOpen(true)}><Phone size={16}/>Contact hostel</button><a className="detail-outline" href="#detail-rooms">View details</a><small>A visit enquiry does not reserve a room.</small></div>
 
         <div className="detail-campus-strip">
           <span className="detail-campus-strip__icon"><MapPin size={21} /></span>
-          <div><span className="detail-eyebrow">YOUR DAILY COMMUTE</span><p><strong>{formatDistance(distance)}</strong> from {campus.name}<span>Approximate straight-line distance · demo locations</span></p></div>
-          <label className="detail-campus-select"><span className="sr-only">Choose coaching campus</span><select value={campus.id} onChange={event => { const params = new URLSearchParams(searchParams); params.set('campus', event.target.value); setSearchParams(params, { replace: true }); }}>{CAMPUSES.map(item => <option key={item.id} value={item.id}>{item.institute} · {item.name}</option>)}</select></label>
+          <div><span className="detail-eyebrow">YOUR DAILY COMMUTE</span><p><strong>{formatDistance(distance)}</strong> from {campus.institute} · {campus.name}<span>{hostel.location?.status === 'demo' || campus.location.status === 'demo' ? 'Illustrative straight-line distance · demo locations' : 'Straight-line estimate · confirm the walking route'}</span></p></div>
+
         </div>
 
         <div className="detail-columns">
@@ -290,7 +289,7 @@ export function HostelDetailPage() {
                   <span className="detail-room-option__icon"><BedDouble size={25} strokeWidth={1.3} />{selectedRoom?.id === room.id && <span><Check size={12} /></span>}</span>
                   <span className="detail-room-option__name">{room.name}</span>
                   <strong>{money(monthlyTotal(room))}<small>/month</small></strong>
-                  <span className={'detail-room-option__availability' + (!room.available ? ' is-full' : '')}>{room.available ? 'Available in demo' : 'Currently full'}</span>
+                  <span className={'detail-room-option__availability' + (!room.available ? ' is-full' : '')}>{room.available ? hostel.location?.status === 'demo' ? 'Available in demo' : 'Confirm availability' : 'Currently full'}</span>
                 </button>)}
               </div>
               {selectedRoom && <div className="detail-room-scene" key={'scene-' + selectedRoom.id}><div><span className="detail-eyebrow">A LITTLE ROOM TO IMAGINE</span><h3>{selectedRoom.name}</h3><p>Room layout illustration.<br />Not a measured floor plan.</p></div><RoomShowcase capacity={selectedRoom.capacity} /></div>}
@@ -304,6 +303,7 @@ export function HostelDetailPage() {
               <div className="detail-section__heading"><div><p className="detail-eyebrow">NO GUESSWORK</p><h2 id="cost-heading">Know what you’ll pay.</h2></div></div>
               <p className="detail-section__intro">Monthly charges and your one-time deposit, kept separate.</p>
               {selectedRoom ? <RoomPrice room={selectedRoom} electricity={hostel.electricityPolicy} notes={hostel.extraChargesNote} /> : <p>Select an available room to see its costs.</p>}
+              <p className="detail-policy-note"><Info size={16}/>{hostel.refundPolicy || 'Refund and cancellation terms have not been supplied. Confirm them with the owner before paying.'}</p>
             </section>
 
             <section className="detail-section" aria-labelledby="life-heading">
@@ -315,17 +315,15 @@ export function HostelDetailPage() {
 
             <section className="detail-section" aria-labelledby="rules-heading">
               <div className="detail-section__heading"><div><p className="detail-eyebrow">GOOD TO KNOW</p><h2 id="rules-heading">Before you move in.</h2></div></div>
-              {hostel.houseRules?.length ? <ul className="detail-rules">{hostel.houseRules.map((rule, index) => <li key={rule + index}><Check size={17} /><span>{rule}</span></li>)}</ul> : <p className="detail-about">House rules haven’t been provided. Ask the owner about gate timings, visitors, notice periods and deposit refunds before deciding.</p>}
+              {hostel.houseRules?.length ? (hostel.houseRules.length > 6 ? <details className="detail-rules-expand"><summary>Read all {hostel.houseRules.length} hostel rules</summary><ul className="detail-rules">{hostel.houseRules.map((rule, index) => <li key={rule + index}><Check size={17}/><span>{rule}</span></li>)}</ul></details> : <ul className="detail-rules">{hostel.houseRules.map((rule, index) => <li key={rule + index}><Check size={17}/><span>{rule}</span></li>)}</ul>) : <p className="detail-about">House rules haven’t been provided. Ask the owner about gate timings, visitors, notice periods and deposit refunds before deciding.</p>}
               <div className="detail-info"><Info size={18} /><p><strong>Owner-provided information.</strong> This is a sample listing, not an independently verified property. Confirm the room, costs and policies in person.</p></div>
             </section>
 
             <section className="detail-section" id="detail-location" aria-labelledby="location-heading">
               <div className="detail-section__heading"><div><p className="detail-eyebrow">YOUR NEW NEIGHBOURHOOD</p><h2 id="location-heading">A little closer to class.</h2></div></div>
-              <div className="detail-location-card">
-                <div className="detail-map-art" aria-hidden="true"><span className="detail-map-art__road road-one" /><span className="detail-map-art__road road-two" /><span className="detail-map-art__road road-three" /><span className="detail-map-art__park" /><span className="detail-map-art__pin"><MapPin size={24} fill="currentColor" /></span><span className="detail-map-art__campus"><BookOpen size={17} /></span><small>Illustrative neighbourhood</small></div>
-                <div className="detail-location-card__copy"><span className="detail-category">{hostel.locality}</span><h3>{hostel.name}</h3><p>{hostel.address}</p><p className="detail-location-card__distance"><MapPin size={15} /> {formatDistance(distance)} straight-line to {campus.name}</p><a className="detail-text-link" href={directionsUrl} target="_blank" rel="noopener noreferrer">Open address in OpenStreetMap <ArrowUpRight size={16} /></a><small>{locationLabel(hostel)} · Confirm the entrance with the owner before travelling.</small></div>
-              </div>
+              <HostelProximityMap key={`${hostel.id}-${campus.id}`} hostel={hostel} campus={campus} room={selectedRoom}/>
             </section>
+            <section className="detail-contact-banner" aria-label="Arrange your hostel visit"><div><h2>See it before you settle.</h2><p>Confirm the room, entrance and costs with the hostel.</p></div><div><button type="button" className="detail-outline" onClick={() => setContactOpen(true)}><Phone size={16}/>Contact hostel</button><button type="button" className="detail-primary" disabled={!selectedRoom} onClick={startVisit}>Book a visit <ArrowUpRight size={16}/></button></div></section>
             <button type="button" className="detail-report" onClick={() => { setReportOpen(true); setReportSaved(false); setReportError(''); }}><Flag size={15} /> Something doesn’t look right? Report this listing <ArrowUpRight size={15} /></button>
           </div>
 
@@ -344,8 +342,17 @@ export function HostelDetailPage() {
 
       <DetailDialog open={galleryOpen} onClose={() => setGalleryOpen(false)} title={hostel.name + ' · photos'} gallery>
         <div className="detail-lightbox">
-          <img src={displayedImage} alt={'Illustrative hostel photo ' + (galleryIndex + 1)} onError={imageFallback} />
-          <div className="detail-lightbox__controls"><button type="button" className="detail-icon-button" aria-label="Previous photo" disabled={galleryImages.length < 2} onClick={() => setGalleryIndex(index => (index - 1 + galleryImages.length) % galleryImages.length)}><ChevronLeft /></button><span>{galleryIndex + 1} / {galleryImages.length || 1} <small>Illustrative sample photos</small></span><button type="button" className="detail-icon-button" aria-label="Next photo" disabled={galleryImages.length < 2} onClick={() => setGalleryIndex(index => (index + 1) % galleryImages.length)}><ChevronRight /></button></div>
+          <div className="detail-lightbox__image">{galleryOpen && galleryPhotos.length > 0 && <GalleryImage key={galleryIndex} photo={galleryPhotos[galleryIndex % galleryPhotos.length]} eager errorHint="Close and reopen the photo to retry."/>}</div>
+          <div className="detail-lightbox__controls"><button type="button" className="detail-icon-button" aria-label="Previous photo" disabled={galleryImages.length < 2} onClick={() => setGalleryIndex(index => (index - 1 + galleryImages.length) % galleryImages.length)}><ChevronLeft /></button><span>{galleryIndex + 1} / {galleryImages.length || 1} <small>{illustrative ? 'Illustrative sample photos' : 'Property photos'}</small></span><button type="button" className="detail-icon-button" aria-label="Next photo" disabled={galleryImages.length < 2} onClick={() => setGalleryIndex(index => (index + 1) % galleryImages.length)}><ChevronRight /></button></div>
+        </div>
+      </DetailDialog>
+
+      <DetailDialog open={contactOpen} onClose={() => setContactOpen(false)} title={`Contact ${hostel.name}`}>
+        <div className="detail-contact"><p>{contactPhone || contactEmail ? 'Contact details supplied by the hostel. Confirm the room, entrance and full costs before visiting.' : 'Owner contact details have not been supplied for this listing. You can save a visit enquiry using the current demo flow.'}</p>
+          {contactPhone && <a className="detail-primary" href={`tel:${contactPhone.replace(/[^+\d]/g, '')}`}><Phone size={17}/>Call {contactPhone}</a>}
+          {contactEmail && <a className="detail-outline" href={`mailto:${contactEmail}`}><Mail size={17}/>{contactEmail}</a>}
+          {!contactPhone && !contactEmail && <p className="detail-info">This frontend demo does not send a message or notify an owner.</p>}
+          <button type="button" className="detail-primary" disabled={!selectedRoom} onClick={() => { setContactOpen(false); startVisit(); }}><Calendar size={17}/>Request a visit</button>
         </div>
       </DetailDialog>
 

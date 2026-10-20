@@ -1,3 +1,4 @@
+import { directionsLink } from '../src/lib/proximity';
 import { withinKota } from '../src/lib/coordinates';
 import { locationLabel } from '../src/lib/location-status';
 import { distanceKm } from '../src/lib/discovery';
@@ -133,5 +134,22 @@ describe('location accuracy and evidence', () => {
     expect(locationLabel({ ...point, location: { status: 'verified', source: 'https://example.org/official-address', checkedAt: '2026-10-21' } })).toBe('Location checked');
     expect(locationLabel({ location: { status: 'verified', source: 'https://example.org', checkedAt: '2026-10-21' } })).toBe('Location not provided');
     expect(CAMPUSES.every(c => locationLabel(c) === 'Demo location')).toBe(true);
+  });
+});
+
+describe('hostel-to-campus directions', () => {
+  it('never routes through demo, invalid or missing endpoints', () => {
+    expect(directionsLink({ latitude: 25.1, longitude: 75.8 }, CAMPUSES[0], 'walking')).toBeNull();
+    expect(directionsLink({}, { latitude: 25.1, longitude: 75.8 }, 'driving')).toBeNull();
+    expect(directionsLink({ latitude: 200, longitude: 75.8 }, { latitude: 25.1, longitude: 75.8 }, 'walking')).toBeNull();
+  });
+  it('passes supplied endpoints and transport mode to the route provider without inventing travel time', () => {
+    const hostel = { latitude: 25.148, longitude: 75.852 };
+    const campus = { latitude: 25.146, longitude: 75.851 };
+    const url = new URL(directionsLink(hostel, campus, 'walking')!);
+    expect(url.searchParams.get('origin')).toBe('25.146,75.851');
+    expect(url.searchParams.get('destination')).toBe('25.148,75.852');
+    expect(url.searchParams.get('travelmode')).toBe('walking');
+    expect(new URL(directionsLink(hostel, campus, 'driving')!).searchParams.get('travelmode')).toBe('driving');
   });
 });

@@ -4,6 +4,7 @@ import { distanceKm } from './discovery';
 export const KOTA_VIEW = { lat: 25.183, lng: 75.839, zoom: 12 };
 export type MapPerspective = '2d' | '3d';
 export interface MapTarget {
+  bounds?: [[number, number], [number, number]];
   lat: number;
   lng: number;
   zoom: number;

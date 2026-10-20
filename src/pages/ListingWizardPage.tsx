@@ -229,6 +229,7 @@ export function ListingWizardPage() {
         .filter(Boolean),
       electricityPolicy: electricity.trim(),
       extraChargesNote: extraChargesNote.trim(),
+      photography: 'illustrative',
       coverImage: cover,
       images: images.length ? images : [cover],
       roomTypes: rooms.map((r, i) => ({

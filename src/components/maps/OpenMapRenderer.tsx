@@ -66,8 +66,9 @@ export default function OpenMapRenderer({ target = CITY_TARGET, perspective = '2
     };
   }, [revision]);
   useEffect(() => {
-    map?.jumpTo({ center: [target.lng, target.lat], zoom: target.zoom, pitch: currentPerspective.current === '3d' ? 50 : 0 });
-  }, [map, target.id, target.lat, target.lng, target.zoom]);
+    if (target.bounds) map?.fitBounds(target.bounds, { padding: 65, maxZoom: 16, duration: 0 });
+    else map?.jumpTo({ center: [target.lng, target.lat], zoom: target.zoom, pitch: currentPerspective.current === '3d' ? 50 : 0 });
+  }, [map, target.id, target.lat, target.lng, target.zoom, target.bounds?.[0][0], target.bounds?.[0][1], target.bounds?.[1][0], target.bounds?.[1][1]]);
   useEffect(() => {
     if (!map || !ready) return;
     const tilted = perspective === '3d';

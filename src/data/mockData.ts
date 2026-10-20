@@ -139,6 +139,8 @@ export const MOCK_HOSTELS: Hostel[] = SEED_HOSTELS.map((hostel, index) => ({
   ...hostel,
   coverImage: SAMPLE_PHOTOS[index % SAMPLE_PHOTOS.length],
   images: [SAMPLE_PHOTOS[index % SAMPLE_PHOTOS.length], ...SAMPLE_PHOTOS.filter(p => p !== SAMPLE_PHOTOS[index % SAMPLE_PHOTOS.length])],
+  photography: 'illustrative',
+  photoCaptions: { '/images/room-shared.webp': 'Shared bedroom', '/images/room-single.webp': 'Single bedroom', '/images/hostel-exterior.webp': 'Hostel exterior' },
   location: { status: 'demo' },
   latitude: SAMPLE_COORDINATES[index][0],
   longitude: SAMPLE_COORDINATES[index][1],

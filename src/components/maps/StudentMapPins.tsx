@@ -9,7 +9,7 @@ import { validCoordinates } from '../../lib/maps';
 import type { KotaMapProps } from './KotaMap';
 import { MapPinOverlay } from './MapPinOverlay';
 
-export function StudentMapPins({ items, campus, activeCampusId, selectedHostelId, onSelect, onCampusSelect, perspective }: KotaMapProps) {
+export function StudentMapPins({ items, campus, campusPins = CAMPUSES, activeCampusId, selectedHostelId, onSelect, onCampusSelect, perspective }: KotaMapProps) {
   const map = useCityMap();
   const [zoom, setZoom] = useState(12);
   useEffect(() => {
@@ -21,7 +21,7 @@ export function StudentMapPins({ items, campus, activeCampusId, selectedHostelId
   }, [map]);
   const selectedCampusId = activeCampusId ?? (onCampusSelect ? undefined : campus.id);
   const pins: StudentMapPin[] = [
-    ...CAMPUSES.map(c => ({ id: c.id, kind: 'campus' as const, latitude: c.latitude, longitude: c.longitude })),
+    ...campusPins.filter(c => validCoordinates(c.latitude, c.longitude)).map(c => ({ id: c.id, kind: 'campus' as const, latitude: c.latitude, longitude: c.longitude })),
     ...items.filter(({ hostel }) => validCoordinates(hostel.latitude, hostel.longitude))
       .map(({ hostel }) => ({ id: hostel.id, kind: 'hostel' as const, latitude: hostel.latitude!, longitude: hostel.longitude! })),
   ];
@@ -48,7 +48,7 @@ export function StudentMapPins({ items, campus, activeCampusId, selectedHostelId
     }
     const pin = group.pins[0];
     if (pin.kind === 'campus') {
-      const c = CAMPUSES.find(c => c.id === pin.id)!;
+      const c = campusPins.find(c => c.id === pin.id)!;
       return <MapPinOverlay key={`campus:${c.id}`} lat={c.latitude} lng={c.longitude} zIndex={c.id === selectedCampusId ? 25 : 10}>
         <button type="button" title={`${c.institute} ${c.name} — ${locationLabel(c)}`} aria-label={`Select ${c.institute} ${c.name} — ${locationLabel(c)}`} aria-pressed={c.id === selectedCampusId} onClick={() => onCampusSelect?.(c.id)} className={`student-campus-pin${c.id === selectedCampusId ? ' is-selected' : ''}`}>
           <GraduationCap size={20}/><span>{c.institute}<small>{c.name}</small></span>
