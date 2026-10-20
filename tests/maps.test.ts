@@ -1,44 +1,43 @@
+import { OPEN_MAP_STYLE_URL, studentMapStyle, radiusPolygon } from '../src/lib/open-map-style';
+import type { StyleSpecification } from 'maplibre-gl';
 import { groupMapPins, type StudentMapPin } from '../src/lib/map-clusters';
 import { CAMPUSES } from '../src/data/campuses';
 import { describe, expect, it } from 'vitest';
-import { CITY_TARGET, googleEmbedUrl, googleExternalUrl, validCoordinates, nearestCampus, campusDistance, withinCampusRadius } from '../src/lib/maps';
+import { CITY_TARGET, validCoordinates, nearestCampus, campusDistance, withinCampusRadius } from '../src/lib/maps';
 
-describe('whole-city Google map configuration', () => {
-  it('opens Kota at city scale, not the extent of the sample inventory', () => {
-    const url = new URL(googleEmbedUrl(CITY_TARGET));
-    expect(url.origin).toBe('https://www.google.com');
-    expect(url.pathname).toBe('/maps');
-    expect(url.searchParams.get('q')).toBe('25.183,75.839');
-    expect(url.searchParams.get('z')).toBe('12');
-    expect(url.searchParams.get('output')).toBe('embed');
+describe('keyless OpenFreeMap configuration', () => {
+  it('starts over Kota and uses a public style with no API key', () => {
+    expect(CITY_TARGET).toMatchObject({ lat: 25.183, lng: 75.839, zoom: 12 });
+    expect(new URL(OPEN_MAP_STYLE_URL).origin).toBe('https://tiles.openfreemap.org');
+    expect(new URL(OPEN_MAP_STYLE_URL).search).toBe('');
   });
-  it('requests real Google satellite imagery without changing the target', () => {
-    const url = new URL(googleEmbedUrl(CITY_TARGET, 'satellite'));
-    expect(url.searchParams.get('t')).toBe('k');
-    expect(url.searchParams.get('q')).toBe('25.183,75.839');
+  it('hides businesses and transit symbols while retaining roads, city labels and attribution', () => {
+    const style: StyleSpecification = { version: 8, sources: { base: { type: 'vector', tiles: ['https://example.com/{z}/{x}/{y}.pbf'], attribution: 'Test source attribution' } }, layers: [
+      { id: 'shops', type: 'symbol', source: 'base', 'source-layer': 'poi' },
+      { id: 'stations', type: 'symbol', source: 'base', 'source-layer': 'transportation' },
+      { id: 'roads', type: 'symbol', source: 'base', 'source-layer': 'transportation_name' },
+      { id: 'city', type: 'symbol', source: 'base', 'source-layer': 'place' },
+      { id: 'buildings', type: 'fill', source: 'base', 'source-layer': 'building' },
+    ] };
+    const filtered = studentMapStyle(style);
+    expect(filtered.layers.find(l => l.id === 'shops')?.layout?.visibility).toBe('none');
+    expect(filtered.layers.find(l => l.id === 'stations')?.layout?.visibility).toBe('none');
+    expect(filtered.layers.find(l => l.id === 'roads')?.layout?.visibility).not.toBe('none');
+    expect(filtered.layers.find(l => l.id === 'city')?.layout?.visibility).not.toBe('none');
+    expect(filtered.layers.find(l => l.id === 'staykota-buildings-3d')).toMatchObject({ type: 'fill-extrusion', source: 'base', minzoom: 14 });
+    expect(filtered.sources).toEqual(style.sources);
+    expect(style.layers).toHaveLength(5);
   });
-  it('uses an explicit coordinate target when a hostel is selected', () => {
-    const url = new URL(googleEmbedUrl({ lat: 25.148, lng: 75.852, zoom: 16, id: 'h1' }));
-    expect(url.searchParams.get('q')).toBe('25.148,75.852');
-    expect(url.searchParams.get('z')).toBe('16');
+  it('draws closed radius polygons at the requested distance', () => {
+    const polygon = radiusPolygon(25.146, 75.852, 3);
+    const coordinates = polygon.geometry.coordinates[0];
+    expect(coordinates[0]).toEqual(coordinates.at(-1));
+    for (const [longitude, latitude] of coordinates) expect(campusDistance({ latitude, longitude }, { latitude: 25.146, longitude: 75.852 })).toBeCloseTo(3, 5);
   });
-  it('encodes area searches safely and keeps Kota context', () => {
-    const url = new URL(googleEmbedUrl(CITY_TARGET, 'roadmap', ' Railway station & bazaar '));
-    expect(url.searchParams.get('q')).toBe('Railway station & bazaar, Kota, Rajasthan, India');
-    expect([...url.searchParams.keys()]).toEqual(['q', 'z', 't', 'hl', 'output']);
-  });
-  it('offers a normal Google Maps URL for blocked embeds', () => {
-    const url = new URL(googleExternalUrl(CITY_TARGET, 'Chambal Garden'));
-    expect(url.origin).toBe('https://www.google.com');
-    expect(url.searchParams.get('query')).toBe('Chambal Garden, Kota, Rajasthan, India');
-    expect(url.searchParams.has('key')).toBe(false);
-  });
-  it('rejects missing, non-finite and out-of-range map pins', () => {
-    expect(validCoordinates(25.18, 75.83)).toBe(true);
-    expect(validCoordinates(undefined, 75.83)).toBe(false);
-    expect(validCoordinates(NaN, 75.83)).toBe(false);
-    expect(validCoordinates(100, 75.83)).toBe(false);
-    expect(validCoordinates(25.18, -181)).toBe(false);
+  it('rejects missing and invalid pin coordinates', () => {
+    expect(validCoordinates(undefined, 75)).toBe(false);
+    expect(validCoordinates(91, 75)).toBe(false);
+    expect(validCoordinates(NaN, 75)).toBe(false);
   });
 });
 

@@ -378,8 +378,7 @@
   min-height: 0;
   position: relative;
 }
-.city-map-surface .google-city-map,
-.city-map-surface .google-city-map__frame {
+.city-map-surface .student-city-map {
   height: 100%;
   min-height: 0;
 }

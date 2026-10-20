@@ -25,19 +25,19 @@ Vite normally listens on port 5173. For an externally reachable development serv
 | `npm test` | Room matching, cost calculation and distance unit tests |
 | `npm run test:e2e` | Chromium browser tests; starts its own development server |
 
-Browser tests use `/usr/bin/chromium` when available. Otherwise install the Playwright browser with `npx playwright install chromium`. No database is required. The Google city map needs Internet access; custom StayKota pins additionally use the optional browser key described below.
+Browser tests use `/usr/bin/chromium` when available. Otherwise install the Playwright browser with `npx playwright install chromium`. No database is required. MapLibre and OpenFreeMap need Internet access for the basemap, but no API key.
 
 ## Experience
 
 - **Landing:** custom isometric Kota illustration, accessible campus hotspots, synchronised search, a manually controlled hostel carousel and reduced-motion support.
-- **Discovery:** campus and URL filters, available-room matching, inclusive monthly-cost budgets, AC-included filtering, sorting, pagination, Google city map and mobile list/map views.
+- **Discovery:** campus and URL filters, available-room matching, inclusive monthly-cost budgets, AC-included filtering, sorting, pagination, OpenFreeMap basemap, custom hostel/coaching pins and mobile list/map views.
 - **Details:** photo gallery, illustrative room cutaway, room selection, fixed monthly costs, separate deposits, metered-charge explanation, actual room features and consent-based visit enquiries.
 - **Comparison:** up to three published hostels, independent room selectors and shareable public listing/room IDs.
 - **Student:** favourites, requested visits, preferred-date changes, cancellation and profile persistence.
 - **Owner:** own listings and enquiries, five-step create/edit wizard, saved drafts and moderation submission.
 - **Admin:** review queue, approval/rejection, reports and local moderation activity.
 
-The city basemap is supplied by Google Maps and opens at a city-wide Kota view. Hostel and campus pins still use illustrative coordinates. Distance labels use Haversine calculations on those sample coordinates; they do not represent walking routes, travel times or surveyed locations.
+The basemap uses MapLibre with OpenFreeMap/OpenStreetMap vector tiles. Default shop, temple, institutional and transit POI labels are hidden; road/city labels remain for orientation. Custom StayKota hostel/coaching pins use illustrative coordinates. Distances are straight-line Haversine estimates, never walking routes or travel times.
 
 A matching available room must satisfy sharing, budget and room-specific AC requirements together. Card prices include mandatory monthly extras; deposits and optional or metered charges remain separate. Visit requests start as `requested` / coordination pending, never automatically confirmed.
 
@@ -55,7 +55,7 @@ Browser storage keeps this device's demo session, listings, favourites, comparis
 | --- | --- |
 | `/` | Landing and campus search |
 | `/explore` | Search results and map |
-| `/map` | Full-city Google map, place search, road/satellite view and hostel panel |
+| `/map` | Keyless city map, demo hostel/coaching search, 2D/3D tilt and live nearby search |
 | `/hostel/:id` | Room details and visit flow |
 | `/compare` | Shared shortlist comparison |
 | `/login` | Demo sign-in |
@@ -69,7 +69,7 @@ Browser storage keeps this device's demo session, listings, favourites, comparis
 
 ## Stack and structure
 
-React 19, TypeScript, Vite 6, Tailwind CSS 4, React Router 7 and Lucide. Fonts and compressed WebP sample photos are hosted locally. SVG illustrations and CSS provide landing-page motion without a 3D engine. Google Maps supplies the real city basemap; its optional JavaScript integration is loaded separately only when a browser API key is configured.
+React 19, TypeScript, Vite 6, Tailwind CSS 4, React Router 7 and Lucide. Fonts and compressed WebP sample photos are hosted locally. SVG illustrations and CSS provide landing-page motion without a 3D engine. MapLibre is loaded in a separate map bundle and renders OpenFreeMap vector tiles. No Google Maps SDK, iframe or browser key is used.
 
 - `src/components/home/`: campus scene and landing illustration.
 - `src/components/hostel/`: cards, sample map and room cutaway.
@@ -81,47 +81,28 @@ React 19, TypeScript, Vite 6, Tailwind CSS 4, React Router 7 and Lucide. Fonts a
 
 SPA rewrites for Vercel remain in `vercel.json`. Publishing or deployment is a separate step.
 
-## Whole-city Google map
+## Keyless Kota map
 
-Open `/map` or select **Explore Kota** in the navigation. The city view starts at Kota (25.183, 75.839), zoom 12, and can be panned or zoomed freely. Search a demo hostel, coaching campus or locality, switch Map/Satellite imagery independently of 2D/3D tilt, choose a campus, centre a sample hostel, or reset to **Whole Kota**. On mobile, **Stays** opens the filter/list panel. Select a coaching campus to sort stays nearest first and optionally filter within 1, 3 or 5 km. With the JavaScript API enabled, the selected distance appears as a circle; campus markers and matching hostel price pins remain on both road and satellite layers. Without a selected campus, cards identify the nearest sample coaching campus. Whole Kota clears the distance filter while preserving room preferences and the map layer.
+Open `/map` or select **Explore Kota**. The map opens over all of Kota and supports pan, zoom, rotation and a 2D/3D tilt switch. Search selects a known hostel/coaching or filters hostel names/localities. Room, category, budget and 1/3/5 km proximity filters share the same matching inventory as the hostel list. Numbered markers group nearby hostel/coaching pins at wider zoom; clicking a group expands its locations. Selected properties and campuses remain separate pins. The compact `/explore` map uses the same renderer.
 
-The old schematic Explore map has been replaced. Its Google view receives all matching available hostels rather than only the current list page.
+The renderer loads `https://tiles.openfreemap.org/styles/liberty`, hides base-map POI symbols, and adds building extrusions when the style contains OpenMapTiles building data. Buildings become visible in 3D from zoom 14; actual geometry/heights depend on OpenStreetMap coverage. This is tilted vector rendering, not photorealistic imagery. **Satellite is not included.** OpenStreetMap/source attribution and OpenFreeMap links remain visible. No API key, Google billing account or environment secret is needed.
 
-Two rendering modes are supported:
+MapLibre's worker is explicitly emitted as a local build asset, including in Vite development. Lazy loading keeps the map engine out of the initial application bundle. WebGL is required. Tile/style errors show an honest retry state and preserve manual hostel search; there is no automatic Google iframe fallback.
 
-- **Embedded Google map:** the default when no browser API key is configured. This displays Google's map and supports Google place searches, pan/zoom, satellite view and centring on a selected coordinate. It does not overlay custom StayKota price pins. Hostels can still be selected from the adjacent list.
-- **Google Maps JavaScript API:** set `VITE_GOOGLE_MAPS_API_KEY` to enable custom sample campus/price markers that select matching hostel cards. Enable Maps JavaScript API and billing in your own Google Cloud project. Pins use HTML `OverlayView` elements rather than Advanced Markers. The map intentionally has no map ID, so inline styles can hide all base-map POIs (shops, temples, etc.) and transit labels. Roads, neighbourhood names, Google branding and attribution remain. Default POI clicks are disabled. A vector renderer is requested for tilt; map-ID configuration is no longer needed. Submitting a matching demo coaching or hostel name selects its pin. Other queries filter hostel names/localities; the configured SDK stays active during search, so POIs are not reintroduced by switching to an embed. The no-key embedded preview can still show Google's place search and its own POIs. No Places or Routes API is called.
+### Live location
 
-Copy `.env.example` to `.env.local` for local configuration, or add those variable names in your deployment/environment settings. Restart Vite after changes and rebuild deployments: `VITE_*` values are included at build time. Never commit actual keys. A browser key is public by design: restrict it to your exact website/development referrers and the Maps JavaScript API in Google Cloud. Server/service-account credentials must not be used as browser keys. Verify current Google usage/billing terms before enabling a live project.
+The on-map crosshair or **Use my location** starts the browser's high-accuracy watch only after a click and permission. The button turns blue when active. A blue marker and accuracy circle show the current position; results sort by straight-line distance within 3 km by default (1/3/5 km selectable). Centre on me recentres without starting another watch. Stop location, selecting a coaching campus, Whole Kota, submitting a search, or leaving the page stops tracking. Coordinates stay in component memory, not app storage or the shareable URL. Visible tile requests reveal the viewed area to the basemap provider. HTTPS is required outside localhost. Denied, unavailable and timed-out positions show recovery messages. Outside the sample Kota inventory, an empty state explains the limited demo coverage.
 
-If the SDK fails to load or rejects authentication, the component falls back to the embedded map with a visible notice. Google branding and map attribution are not removed or covered. **Open in Google Maps** is available if embedding is blocked. Hidden map panels defer loading until visible.
+The demo catalogue includes multiple ALLEN campuses, Resonance, Motion, Vibrant, PW, Unacademy, Aakash, Bansal and Nucleon. Campus names/addresses/coordinates are illustrative and not a verified complete directory. Replace these with reviewed records before launch.
 
-The Codex network draft includes Google's map destinations and an optional blank browser-key variable. Draft saving does not apply those settings. Review/save and publish the environment to apply it. Live requests to `www.google.com` returned proxy `403 Forbidden` during this task, so live basemap/satellite content could not be verified here. No browser Maps key was available to verify authenticated markers. The unit tests and browser checks validate local flows and Google URL/selection/layer integration; the map-specific browser tests stub the external Google frame and do not claim Google content was rendered.
+### Network and validation
+
+Allow HTTPS to `tiles.openfreemap.org` (style, vector tiles, fonts and sprites) and `openfreemap.org`. Public deployed browsers use their own network; the restricted Codex environment has a saved network draft for those domains. To apply that draft, review/save environment settings and publish the environment. Draft saving does not change the running proxy. Live style requests returned proxy `403` here, so live basemap/coverage verification is still pending; this is separate from API-key configuration, which is no longer required.
+
+Unit tests cover POI-layer filtering, building-layer setup, radius geometry, valid coordinates and zoom grouping. Browser tests run the real MapLibre WebGL engine and local worker against an explicitly labelled minimal style fixture (no live tiles), and verify marker expansion/selection, 2D/3D controls, attribution, nearby filters, live-location lifecycle, mobile layout and retry states. They do not claim the fixture is a live Kota basemap.
 
 ## Before real use
 
 Replace simulated authentication and browser data with a backend that enforces roles, resource ownership, validation, rate limits and consent handling. Use actual reviewed inventory, photographs and campus coordinates. Configure real contact delivery, privacy/retention rules, backups, monitoring and public-page metadata/rendering before a live launch. A prototype admin role flag is not production authorization.
 
-Proximity filters require valid coordinates and use straight-line distances, never claimed walking times. Only approved listings with matching available rooms are shown. The map covers Kota, but complete real hostel coverage requires a reviewed inventory and accurate campus/property coordinates from your backend. The embedded fallback explicitly indicates that custom markers are unavailable.
-
-### 2D / 3D tilt
-
-The full-city map has separate perspective and imagery controls. **2D** resets tilt and heading to zero; **3D tilt** requests a 45-degree viewing angle on Google's vector renderer and allows rotation/tilt interaction. Perspective changes preserve the centre, zoom, hostel selection, coaching radius and markers. Google may clamp tilt according to zoom. This is a tilted vector map, not a photorealistic 3D reconstruction; detailed building geometry depends on Google's local coverage and zoom, and has not been verified in Kota.
-
-The 3D button is enabled only after an authenticated map reports vector rendering. It remains disabled on the embedded fallback and browsers that cannot provide vector rendering; the accompanying caption explains this limitation. Configure the browser key, rebuild, and verify both map layers and tilt on the deployed site. Automated browser tests cover the embed limitation and independent layer/perspective controls; authenticated vector rendering still requires live verification.
-
-### Demo pins and live location
-
-The coaching selector and custom map pins include multiple illustrative ALLEN campuses (Landmark, Talwandi, Samyak, Sangyan, Satyarth, Sankalp, Sakar, Safalya, Supath, Sabal and Samanway), plus Resonance, Motion, Vibrant, PW, Unacademy, Aakash, Bansal and Nucleon. This is a demo seed list, not a verified complete campus directory. Addresses, names and coordinates must be checked before real use. All matching approved demo hostels already supply their own price pins.
-
-**Use my location** starts the browser's high-accuracy location watch only after a click and browser permission. It shows an updating blue location marker, an accuracy circle, and matching hostel results sorted by straight-line distance within 3 km by default (adjustable to 1/3/5 km). Centre on me resets the camera; Stop location, choosing a coaching campus, Whole Kota, submitting a place search, or leaving the page stops the watch. Coordinates are held in component memory, never written to app storage or the shareable page URL. The active location is sent to Google as part of displaying/centring the map, including the embedded fallback. The browser requires HTTPS (localhost is allowed). Denial, timeout, unsupported browsers and unavailable positions have recovery messages. Outside the sample inventory's range, empty results explain that these are demo Kota listings, rather than inventing nearby hostels.
-
-The embedded fallback cannot hide Google's POIs or show custom pins/accuracy circles; the visible notice explains this. Location filtering and centring still work without a Maps key. Authenticated map styling, HTML overlays and blue-marker rendering require a real browser key and live Google verification. Browser tests simulate positions and failures; they do not access real location or verify live Google rendering.
-
-### Readable pins and on-map location controls
-
-At wider zoom levels, nearby hostel/coaching pins are grouped by projected screen distance into numbered markers. Their icons identify hostels/coaching, and clicking a group fits its member locations in the viewport. Zooming in separates the markers. Selected hostels and campuses stay individually visible. The fixed-size HTML markers have high-contrast borders, a pointed anchor and keyboard controls; clustering does not remove inventory or change result filters.
-
-A Google-style crosshair control sits inside the full-city map, next to the map controls. It starts the same opt-in location watch as the toolbar, turns blue when active, and recentres without starting another watch. An adjacent stop button clears location tracking. Both controls work with the embedded preview for location filtering/centring; the blue location marker itself requires the SDK.
-
-**If the map still shows shops/temples and the “Preview only” notice:** the deployment has no working browser Maps key or SDK loading failed. Set `VITE_GOOGLE_MAPS_API_KEY` in your hosting environment, enable Maps JavaScript API and billing in the corresponding Google Cloud project, restrict the key by your website referrer/API, then rebuild/redeploy. Vite reads this variable at build time. A Google iframe cannot be restyled by the app or display the custom/grouped pins. Live authenticated marker/clustering appearance remains unverified until a real key is configured; unit tests verify zoom grouping, selected-pin preservation and membership, and browser tests verify location controls and local search.
+Real hostel coverage requires reviewed inventory and accurate coaching/property coordinates. Unlocated properties are excluded from pin rendering rather than assigned invented coordinates.

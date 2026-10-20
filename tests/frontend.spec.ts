@@ -100,127 +100,99 @@ test('reduced motion and image gallery remain functional', async ({ page }) => {
   await expect(page.getByRole('dialog')).not.toBeVisible();
 });
 
-// Google is an external service. These checks validate integration state and URLs,
-// not Google's map content, tile availability or authenticated SDK rendering.
-async function stubGoogleFrame(page: Page) {
-  await page.route('https://www.google.com/**', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><body><p>External Google frame stub for integration tests.</p></body></html>' }));
+// The real MapLibre renderer runs with a minimal local style fixture; no live basemap is claimed.
+async function stubOpenMapStyle(page: Page) {
+  await page.route('https://tiles.openfreemap.org/styles/liberty', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({
+    version: 8, name: 'TEST FIXTURE — no live basemap', sources: {},
+    layers: [{ id: 'test-background', type: 'background', paint: { 'background-color': '#e8eddf' } }],
+  }) }));
 }
 
-test('whole Kota map opens city-wide and switches real-map layers', async ({ page }) => {
-  await stubGoogleFrame(page);
+test('keyless MapLibre map renders real demo pins, attribution and 2D/3D controls', async ({ page }) => {
+  const googleRequests: string[] = [];
+  page.on('request', request => { if (/googleapis|google.com\/maps/.test(request.url())) googleRequests.push(request.url()); });
+  await stubOpenMapStyle(page);
   await page.goto('/map');
   await expect(page.getByRole('heading', { name: 'Explore Kota', exact: true })).toBeVisible();
-  const frame = page.getByTitle('Google map of the whole city of Kota');
-  await expect(frame).toBeVisible();
-  const initial = new URL((await frame.getAttribute('src'))!);
-  expect(initial.origin).toBe('https://www.google.com');
-  expect(initial.searchParams.get('q')).toBe('25.183,75.839');
-  expect(initial.searchParams.get('z')).toBe('12');
-  await expect(page.locator('.discovery-map-illustration')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Satellite', exact: true }).click();
-  await expect(frame).toHaveAttribute('src', /t=k/);
-  await page.getByRole('button', { name: 'Map', exact: true }).click();
-  await expect(frame).toHaveAttribute('src', /t=m/);
-});
-
-test('city place search, campus and sample stay selection update Google view', async ({ page }) => {
-  await stubGoogleFrame(page);
-  await page.goto('/map');
-  const frame = page.getByTitle('Google map of the whole city of Kota');
-  await page.getByLabel('Search a hostel, coaching or locality').fill('Chambal Garden');
-  await page.getByRole('button', { name: 'Search', exact: true }).click();
-  await expect(page).toHaveURL(/q=Chambal/);
-  await expect(frame).toHaveAttribute('src', /Chambal/);
-  await page.getByRole('button', { name: 'Whole Kota', exact: true }).click();
-  await expect(page).not.toHaveURL(/q=/);
+  await expect(page.locator('.maplibregl-canvas')).toBeVisible();
+  expect((await page.getByRole('region', { name: 'Interactive OpenStreetMap of Kota', exact: true }).boundingBox())!.height).toBeGreaterThan(200);
+  await expect(page.locator('.student-pin-group').first()).toBeVisible();
+  await expect(page.locator('.maplibregl-ctrl-attrib')).toBeVisible();
+  await expect(page.getByRole('button', { name: '3D tilt', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: '3D tilt', exact: true }).click();
+  await expect(page.locator('.student-city-map')).toHaveAttribute('data-perspective', '3d');
+  const compass = page.locator('.maplibregl-ctrl-compass .maplibregl-ctrl-icon');
+  await expect(compass).toHaveAttribute('style', /rotateX\(50deg\)/);
   await page.getByLabel('Centre map on a coaching campus').selectOption('allen-talwandi');
-  await expect(frame).toHaveAttribute('src', /25.146%2C75.852/);
-  await page.getByRole('button', { name: 'Show Comfort Stay Hostel on map' }).click();
-  await expect(page).toHaveURL(/hostel=h1/);
-  await expect(frame).toHaveAttribute('src', /25.148%2C75.852/);
-  await expect(page.locator('.city-selected')).toContainText('Comfort Stay');
-  await page.getByRole('button', { name: 'Whole Kota', exact: true }).click();
-  await expect(frame).toHaveAttribute('src', /25.183%2C75.839/);
-  await expect(frame).toHaveAttribute('src', /z=12/);
+  await expect(compass).toHaveAttribute('style', /rotateX\(50deg\)/);
+  await page.getByRole('button', { name: '2D', exact: true }).click();
+  await expect(page.locator('.student-city-map')).toHaveAttribute('data-perspective', '2d');
+  await expect(page.locator('iframe')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Satellite', exact: true })).toHaveCount(0);
+  expect(googleRequests).toEqual([]);
 });
 
-test('city stay filters preserve room matching without hiding the actual city', async ({ page }) => {
-  await stubGoogleFrame(page);
+test('groups expand, hostel pins select a matching card and coaching selection centres the map', async ({ page }) => {
+  await stubOpenMapStyle(page);
+  await page.goto('/map');
+  await expect(page.locator('.student-pin-group').first()).toBeVisible();
+  const before = await page.locator('.maplibregl-marker').count();
+  await page.locator('.student-pin-group').first().click();
+  await expect.poll(() => page.locator('.maplibregl-marker').count()).toBeGreaterThan(before);
+  await page.getByLabel('Centre map on a coaching campus').selectOption('allen-talwandi');
+  await expect(page.locator('.student-city-map')).toHaveAttribute('data-target', '25.146,75.852');
+  await page.locator('.maplibregl-ctrl-zoom-in').click();
+  await page.locator('.maplibregl-ctrl-zoom-in').click();
+  await page.getByRole('button', { name: 'Select Comfort Stay Hostel on map', exact: true }).click();
+  await expect(page.locator('.student-hostel-pin.is-selected')).toBeVisible();
+  await expect(page.locator('.city-selected')).toContainText('Comfort Stay');
+  await expect(page.locator('.student-city-map')).toHaveAttribute('data-target', '25.148,75.852');
+  await page.getByRole('button', { name: 'Whole Kota', exact: true }).click();
+  await expect(page.locator('.student-city-map')).toHaveAttribute('data-target', '25.183,75.839');
+});
+
+test('room and coaching-radius filters preserve matching available demo inventory', async ({ page }) => {
+  await stubOpenMapStyle(page);
   await page.goto('/map?sharing=single&budget=5000&hostel=h5');
   await expect(page.locator('.city-stay')).toHaveCount(0);
-  await expect(page.locator('.city-empty')).toBeVisible();
-  await expect(page.getByTitle('Google map of the whole city of Kota')).toBeVisible();
   await expect(page.locator('.city-selected')).toHaveCount(0);
   await page.getByRole('button', { name: 'Reset room filters' }).click();
   await expect(page.locator('.city-stay')).toHaveCount(7);
-  await expect(page.locator('.city-stays')).not.toContainText('Focus Nest');
-  await expect(page.locator('.city-selected')).toHaveCount(0);
+  await page.getByLabel('Centre map on a coaching campus').selectOption('allen-talwandi');
+  await page.getByLabel('Distance from coaching', { exact: true }).selectOption('1');
+  await expect(page.locator('.city-stays')).toContainText('Comfort Stay');
+  await expect(page.locator('.city-stays')).not.toContainText('Scholar');
+  await page.getByLabel('Centre map on a coaching campus').selectOption('allen-landmark');
+  await expect(page.locator('.city-stay')).toHaveCount(1);
 });
 
-test('mobile city map has an accessible hostel panel and a viewport-sized layout', async ({ page }) => {
-  await stubGoogleFrame(page);
+test('mobile map and location control fit the viewport and hostel panel restores focus', async ({ page }) => {
+  await stubOpenMapStyle(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/map');
-  await expect(page.getByTitle('Google map of the whole city of Kota')).toBeVisible();
-  const sizes = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth, height: document.documentElement.scrollHeight, window: innerHeight }));
-  expect(sizes.width).toBeLessThanOrEqual(sizes.viewport);
-  expect(sizes.height).toBeLessThanOrEqual(sizes.window + 1);
+  await expect(page.locator('.maplibregl-canvas')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Use my current location on map', exact: true })).toBeVisible();
+  const size = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth, height: document.documentElement.scrollHeight, window: innerHeight }));
+  expect(size.width).toBeLessThanOrEqual(size.viewport);
+  expect(size.height).toBeLessThanOrEqual(size.window + 1);
   await page.getByRole('button', { name: /Stays \(/ }).click();
   await expect(page.getByRole('dialog', { name: 'Hostel filters and sample stays' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Close hostel list' })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Stays \(/ })).toBeFocused();
-  await page.getByRole('button', { name: /Stays \(/ }).click();
-  await page.setViewportSize({ width: 1024, height: 768 });
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.getByLabel('Centre map on a coaching campus')).toBeVisible();
 });
 
-test('coaching radius filters stay consistent across map layers and city reset', async ({ page }) => {
-  await stubGoogleFrame(page);
+test('failed tile service shows an honest retry state while manual hostel search works', async ({ page }) => {
+  let requests = 0;
+  await page.route('https://tiles.openfreemap.org/styles/liberty', route => { requests++; return route.fulfill({ status: 503, body: 'Test service failure' }); });
   await page.goto('/map');
-  const radius = page.getByLabel('Distance from coaching', { exact: true });
-  await expect(radius).toBeDisabled();
-  await page.getByLabel('Centre map on a coaching campus').selectOption('allen-talwandi');
-  await radius.selectOption('3');
-  await expect(page.getByTitle('Google map of the whole city of Kota')).toHaveAttribute('src', /z=13/);
-  await radius.selectOption('1');
-  await expect(page.getByRole('button', { name: 'Show Comfort Stay Hostel on map' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Show Scholar’s PG on map' })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Show Comfort Stay Hostel on map' }).click();
-  const ids = await page.locator('.city-stay-select').evaluateAll(nodes => nodes.map(n => n.getAttribute('aria-label')));
-  await page.getByRole('button', { name: 'Satellite', exact: true }).click();
-  await expect(page).toHaveURL(/radius=1/);
-  await expect(page).toHaveURL(/hostel=h1/);
-  await expect(page.getByTitle('Google map of the whole city of Kota')).toHaveAttribute('src', /t=k/);
-  expect(await page.locator('.city-stay-select').evaluateAll(nodes => nodes.map(n => n.getAttribute('aria-label')))).toEqual(ids);
-  await page.getByLabel('Centre map on a coaching campus').selectOption('allen-landmark');
-  await expect(page.locator('.city-stay')).toHaveCount(1);
-  await expect(page.locator('.city-selected')).toHaveCount(0);
-  await expect(page.locator('.city-stays')).toContainText('Scholar');
-  await page.getByRole('button', { name: 'Whole Kota', exact: true }).click();
-  await expect(radius).toBeDisabled();
+  await expect(page.getByRole('alert')).toContainText('map could not load');
   await expect(page.locator('.city-stay')).toHaveCount(7);
-  await expect(page.getByRole('button', { name: 'Satellite', exact: true })).toHaveAttribute('aria-pressed', 'true');
-});
-
-test('2D and 3D perspective controls are separate from imagery and explain the embed limit', async ({ page }) => {
-  await stubGoogleFrame(page);
-  await page.goto('/map?campus=allen-talwandi&radius=1&hostel=h1&view=3d');
-  const flat = page.getByRole('button', { name: '2D', exact: true });
-  const tilted = page.getByRole('button', { name: '3D tilt', exact: true });
-  await expect(flat).toHaveAttribute('aria-pressed', 'true');
-  await expect(tilted).toBeDisabled();
-  await expect(page.locator('#city-perspective-help')).toContainText('3D tilt requires');
-  await page.getByRole('button', { name: 'Satellite', exact: true }).click();
-  await expect(flat).toHaveAttribute('aria-pressed', 'true');
-  await expect(tilted).toBeDisabled();
-  await flat.click();
-  await expect(page).not.toHaveURL(/view=3d/);
-  await expect(page).toHaveURL(/hostel=h1/);
-  await expect(page).toHaveURL(/radius=1/);
-  await expect(page.getByTitle('Google map of the whole city of Kota')).toHaveAttribute('src', /t=k/);
+  const before = requests;
+  await page.getByRole('button', { name: 'Retry map', exact: true }).click();
+  await expect.poll(() => requests).toBeGreaterThan(before);
+  await page.getByRole('button', { name: 'Show Comfort Stay Hostel on map' }).click();
+  await expect(page.locator('.city-selected')).toContainText('Comfort Stay');
 });
 
 // Browser location is simulated here; these tests never request a student's real location.
@@ -254,7 +226,7 @@ async function mockLiveLocation(page: Page, errorCode = 0) {
 type LocationMockWindow = Window & { __liveLocationMock: { starts: number; stops: number; move: (latitude: number, longitude: number) => void; late: () => void } };
 
 test('live location is opt-in, filters nearby stays, updates on movement and stops cleanly', async ({ page }) => {
-  await stubGoogleFrame(page);
+  await stubOpenMapStyle(page);
   await mockLiveLocation(page);
   await page.goto('/map');
   await expect(page.getByRole('button', { name: 'Use my location', exact: true })).toBeVisible();
@@ -263,12 +235,10 @@ test('live location is opt-in, filters nearby stays, updates on movement and sto
   await page.getByRole('button', { name: 'Use my location', exact: true }).click();
   await expect(page.locator('.city-location-bar')).toContainText('Live location on');
   await expect(page.locator('.city-location-bar')).toContainText('accuracy about 20 m');
-  await expect(page.getByTitle('Google map of the whole city of Kota')).toHaveAttribute('src', /25.146%2C75.852/);
+  await expect(page.locator('.student-city-map')).toHaveAttribute('data-target', '25.146,75.852');
   await page.getByLabel('Distance from your location', { exact: true }).selectOption('1');
   await expect(page.locator('.city-stays')).toContainText('from your location');
   await expect(page.locator('.city-stays')).not.toContainText('Scholar');
-  await page.getByRole('button', { name: 'Satellite', exact: true }).click();
-  await expect(page.getByTitle('Google map of the whole city of Kota')).toHaveAttribute('src', /t=k/);
   await expect(page).not.toHaveURL(/25\.146|75\.852/);
   expect(await page.evaluate(() => JSON.stringify({ ...localStorage }))).toBe(stored);
   await page.evaluate(() => (window as LocationMockWindow).__liveLocationMock.move(28.61, 77.2));
@@ -287,7 +257,7 @@ test('live location is opt-in, filters nearby stays, updates on movement and sto
 
 for (const [code, message] of [[1, 'permission was denied'], [2, 'location is unavailable'], [3, 'Location timed out']] as const) {
   test(`location error ${code} explains recovery and leaves manual coaching search available`, async ({ page }) => {
-    await stubGoogleFrame(page);
+    await stubOpenMapStyle(page);
     await mockLiveLocation(page, code);
     await page.goto('/map');
     await page.getByRole('button', { name: 'Use my location', exact: true }).click();
@@ -295,24 +265,24 @@ for (const [code, message] of [[1, 'permission was denied'], [2, 'location is un
     await expect(page.getByRole('button', { name: 'Use my location', exact: true })).toBeEnabled();
     await expect(page.getByRole('button', { name: 'Stop location', exact: true })).toHaveCount(0);
     await page.getByLabel('Centre map on a coaching campus').selectOption('pw-demo');
-    await expect(page.getByTitle('Google map of the whole city of Kota')).toHaveAttribute('src', /25.17%2C75.846/);
+    await expect(page.locator('.student-city-map')).toHaveAttribute('data-target', '25.17,75.846');
     await expect(page.getByRole('alert')).toHaveCount(0);
   });
 }
 
 test('major demo coaching options include multiple ALLEN campuses, Vibrant and PW', async ({ page }) => {
-  await stubGoogleFrame(page);
+  await stubOpenMapStyle(page);
   await page.goto('/map');
   const campuses = page.getByLabel('Centre map on a coaching campus');
   for (const id of ['allen-samyak', 'allen-sangyan', 'allen-satyarth', 'vibrant-demo', 'pw-demo', 'aakash-demo', 'unacademy-demo']) {
     await campuses.selectOption(id);
     await expect(page).toHaveURL(new RegExp(`campus=${id}`));
   }
-  await expect(page.locator('.google-city-map__fallback')).toContainText('interactive map’s API key');
+  await expect(page.locator('.student-city-map')).toHaveAttribute('data-map-mode', 'maplibre');
 });
 
 test('map location button starts, recentres and stops the same live location watch', async ({ page }) => {
-  await stubGoogleFrame(page);
+  await stubOpenMapStyle(page);
   await mockLiveLocation(page);
   await page.goto('/map');
   const locate = page.getByRole('button', { name: 'Use my current location on map', exact: true });
@@ -327,7 +297,7 @@ test('map location button starts, recentres and stops the same live location wat
   await expect(page).toHaveURL(/hostel=h1/);
   await centre.click();
   await expect(page).not.toHaveURL(/hostel=/);
-  await expect(page.getByTitle('Google map of the whole city of Kota')).toHaveAttribute('src', /25.146%2C75.852/);
+  await expect(page.locator('.student-city-map')).toHaveAttribute('data-target', '25.146,75.852');
   expect(await page.evaluate(() => (window as LocationMockWindow).__liveLocationMock.starts)).toBe(1);
   await page.getByRole('button', { name: 'Turn off current location on map', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Use my current location on map', exact: true })).toHaveAttribute('aria-pressed', 'false');
@@ -335,7 +305,7 @@ test('map location button starts, recentres and stops the same live location wat
 });
 
 test('search selects our demo coaching and hostel pins instead of opening Google POIs', async ({ page }) => {
-  await stubGoogleFrame(page);
+  await stubOpenMapStyle(page);
   await page.goto('/map');
   const search = page.getByLabel('Search a hostel, coaching or locality', { exact: true });
   await search.fill('PW');

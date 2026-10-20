@@ -5,7 +5,7 @@ import type { Hostel, RoomType } from '../../types';
 import type { Campus } from '../../data/campuses';
 import { distanceKm, formatDistance, monthlyTotal } from '../../lib/discovery';
 import { CITY_TARGET, validCoordinates, type MapTarget } from '../../lib/maps';
-import { GoogleCityMap } from '../maps/GoogleCityMap';
+import { KotaMap } from '../maps/KotaMap';
 export interface MappedHostel {
   hostel: Hostel;
   room: RoomType;
@@ -26,18 +26,18 @@ export function NeighbourhoodMap({ campus, items, activeHostelId, onActivate }: 
       setTarget({ lat: found.latitude!, lng: found.longitude!, zoom: 15, id: found.id });
   };
   return (
-    <section className="google-map-panel" aria-label="Google map of Kota">
-      <div className="google-map-panel__heading">
+    <section className="student-map-panel" aria-label="Kota hostel and coaching map">
+      <div className="student-map-panel__heading">
         <span>
           <MapPin size={13} />
-          Kota on Google Maps
+          Your Kota neighbourhood
         </span>
         <Link to="/map">
           Explore the whole city <ArrowUpRight size={13} />
         </Link>
       </div>
-      <div className="google-map-panel__viewport">
-        <GoogleCityMap
+      <div className="student-map-panel__viewport">
+        <KotaMap
           campus={campus}
           items={items}
           selectedHostelId={activeHostelId}
@@ -47,7 +47,7 @@ export function NeighbourhoodMap({ campus, items, activeHostelId, onActivate }: 
       </div>
       {selected && (
         <Link
-          className="google-map-panel__summary"
+          className="student-map-panel__summary"
           to={`/hostel/${selected.hostel.id}?campus=${campus.id}&room=${selected.room.id}`}
         >
           <img src={selected.hostel.coverImage} alt="" />
@@ -61,8 +61,8 @@ export function NeighbourhoodMap({ campus, items, activeHostelId, onActivate }: 
           <ArrowUpRight size={15} />
         </Link>
       )}
-      <p className="google-map-panel__note">
-        <strong>Google’s real city map.</strong> StayKota hostel and campus locations are sample
+      <p className="student-map-panel__note">
+        <strong>OpenStreetMap · OpenFreeMap.</strong> StayKota hostel and campus locations are sample
         data. Distances are straight-line estimates, not walking routes.
       </p>
     </section>

@@ -3,9 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowUpRight,
   ChevronDown,
-  ExternalLink,
   GraduationCap,
-  Layers,
   List,
   Map as MapIcon,
   Maximize2,
@@ -23,12 +21,10 @@ import {
   campusDistance,
   nearestCampus,
   withinCampusRadius,
-  googleExternalUrl,
   validCoordinates,
-  type CityMapType,
   type MapTarget,
 } from '../lib/maps';
-import { GoogleCityMap } from '../components/maps/GoogleCityMap';
+import { KotaMap } from '../components/maps/KotaMap';
 import '../styles/city-map.css';
 
 export function KotaMapPage() {
@@ -95,7 +91,6 @@ export function KotaMapPage() {
     ? params.get('category')!
     : '';
   const perspective = supports3D && params.get('view') === '3d' ? '3d' : '2d';
-  const mapType: CityMapType = params.get('type') === 'satellite' ? 'satellite' : 'roadmap';
   const activeCampus = CAMPUSES.find(c => c.id === params.get('campus'));
   const origin = location || activeCampus;
   const radius = origin && [1, 3, 5].includes(Number(params.get('radius')))
@@ -161,7 +156,7 @@ export function KotaMapPage() {
       else await stage.current?.requestFullscreen();
     } catch {
       setNotice(
-        'Full screen is not available in this browser. You can open the map in Google Maps.'
+        'Full screen is not available in this browser. You can still pan and zoom here.'
       );
     }
   };
@@ -218,15 +213,6 @@ export function KotaMapPage() {
             <MapIcon size={15} />
             Whole Kota
           </button>
-          <a
-            href={googleExternalUrl(target, query)}
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Open this view in Google Maps"
-          >
-            <ExternalLink size={16} />
-            <span>Google Maps</span>
-          </a>
         </div>
       </div>
       <div className="city-location-bar">
@@ -407,34 +393,16 @@ export function KotaMapPage() {
             )}
           </div>
           <p className="city-sample-note">
-            Google supplies the city map. StayKota listings and campus locations are illustrative
+            OpenFreeMap supplies the OpenStreetMap basemap. StayKota listings and campus locations are illustrative
             sample data.
           </p>
         </aside>
         <section
           className="city-map-stage"
           ref={stage}
-          aria-label="Interactive whole-city Google map"
+          aria-label="Interactive whole-city Kota map"
         >
           <div className="city-map-tools">
-            <div className="city-layer-toggle" aria-label="Google map layer">
-              <button
-                type="button"
-                aria-pressed={mapType === 'roadmap'}
-                onClick={() => update({ type: null })}
-              >
-                <MapIcon size={14} />
-                Map
-              </button>
-              <button
-                type="button"
-                aria-pressed={mapType === 'satellite'}
-                onClick={() => update({ type: 'satellite' })}
-              >
-                <Layers size={14} />
-                Satellite
-              </button>
-            </div>
             <div className="city-layer-toggle city-perspective-toggle" role="group" aria-label="Map perspective">
               <button type="button" aria-pressed={perspective === '2d'}
                 onClick={() => update({ view: null })}>2D</button>
@@ -486,15 +454,13 @@ export function KotaMapPage() {
               </button>
               {live.tracking && <button type="button" className="city-map-stop-location" aria-label="Turn off current location on map" title="Turn off location" onClick={live.stop}><X size={17}/></button>}
             </div>
-            <GoogleCityMap
+            <KotaMap
               campus={campus}
               items={items}
               selectedHostelId={selected?.hostel.id}
               onSelect={selectHostel}
               onCampusSelect={selectCampus}
               target={target}
-              mapType={mapType}
-              search={query}
               radiusKm={radius}
               activeCampusId={activeCampus?.id}
               userLocation={location}
@@ -528,9 +494,8 @@ export function KotaMapPage() {
             </div>
           )}
           <p className="city-map-caption" id="city-perspective-help">
-            {supports3D ? '2D is flat; 3D tilt changes the viewing angle. Detailed 3D buildings depend on local coverage. ' : '3D tilt requires a configured Google vector map and a supported browser. '}
-            Pan and zoom freely to explore Kota’s roads, neighbourhoods and landmarks. Hostel pins
-            use sample coordinates. Other Google place icons are hidden in the configured interactive map.
+            2D shows streets; 3D tilts the map. Zoom in for buildings where OpenStreetMap data is available.
+            Only StayKota hostel/coaching pins are shown. Locations are demo data; distances are straight-line.
           </p>
         </section>
       </div>
