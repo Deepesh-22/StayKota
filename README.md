@@ -25,19 +25,19 @@ Vite normally listens on port 5173. For an externally reachable development serv
 | `npm test` | Room matching, cost calculation and distance unit tests |
 | `npm run test:e2e` | Chromium browser tests; starts its own development server |
 
-Browser tests use `/usr/bin/chromium` when available. Otherwise install the Playwright browser with `npx playwright install chromium`. No database is required. The Google city map needs Internet access; custom StayKota pins additionally use the optional browser key described below.
+Browser tests use `/usr/bin/chromium` when available. Otherwise install the Playwright browser with `npx playwright install chromium`. No database is required. The custom neighbourhood map runs locally and needs no map API, key, tiles or external requests.
 
 ## Experience
 
 - **Landing:** custom isometric Kota illustration, accessible campus hotspots, synchronised search, a manually controlled hostel carousel and reduced-motion support.
-- **Discovery:** campus and URL filters, available-room matching, inclusive monthly-cost budgets, AC-included filtering, sorting, pagination, Google city map and mobile list/map views.
+- **Discovery:** campus and URL filters, available-room matching, inclusive monthly-cost budgets, AC-included filtering, sorting, pagination, custom coaching neighbourhood map and mobile list/map views.
 - **Details:** photo gallery, illustrative room cutaway, room selection, fixed monthly costs, separate deposits, metered-charge explanation, actual room features and consent-based visit enquiries.
 - **Comparison:** up to three published hostels, independent room selectors and shareable public listing/room IDs.
 - **Student:** favourites, requested visits, preferred-date changes, cancellation and profile persistence.
 - **Owner:** own listings and enquiries, five-step create/edit wizard, saved drafts and moderation submission.
 - **Admin:** review queue, approval/rejection, reports and local moderation activity.
 
-The city basemap is supplied by Google Maps and opens at a city-wide Kota view. Hostel and campus pins still use illustrative coordinates. Distance labels use Haversine calculations on those sample coordinates; they do not represent walking routes, travel times or surveyed locations.
+The custom map centres on a coaching campus and shows only matching approved hostels within the selected distance (default 1 km). Distance labels use Haversine calculations on sample coordinates; the illustrated drawing and connecting lines are not a surveyed street map or walking routes.
 
 A matching available room must satisfy sharing, budget and room-specific AC requirements together. Card prices include mandatory monthly extras; deposits and optional or metered charges remain separate. Visit requests start as `requested` / coordination pending, never automatically confirmed.
 
@@ -55,7 +55,7 @@ Browser storage keeps this device's demo session, listings, favourites, comparis
 | --- | --- |
 | `/` | Landing and campus search |
 | `/explore` | Search results and map |
-| `/map` | Full-city Google map, place search, road/satellite view and hostel panel |
+| `/map` | Custom coaching map, nearby hostel pins, local search and 2D/isometric 3D views |
 | `/hostel/:id` | Room details and visit flow |
 | `/compare` | Shared shortlist comparison |
 | `/login` | Demo sign-in |
@@ -69,7 +69,7 @@ Browser storage keeps this device's demo session, listings, favourites, comparis
 
 ## Stack and structure
 
-React 19, TypeScript, Vite 6, Tailwind CSS 4, React Router 7 and Lucide. Fonts and compressed WebP sample photos are hosted locally. SVG illustrations and CSS provide landing-page motion without a 3D engine. Google Maps supplies the real city basemap; its optional JavaScript integration is loaded separately only when a browser API key is configured.
+React 19, TypeScript, Vite 6, Tailwind CSS 4, React Router 7 and Lucide. Fonts and compressed WebP sample photos are hosted locally. SVG illustrations and CSS provide landing-page motion without a 3D engine. The coaching map uses local SVG illustrations with accessible hostel buttons, pan/zoom and a 2D/isometric 3D switch. No map SDK is used.
 
 - `src/components/home/`: campus scene and landing illustration.
 - `src/components/hostel/`: cards, sample map and room cutaway.
@@ -81,31 +81,20 @@ React 19, TypeScript, Vite 6, Tailwind CSS 4, React Router 7 and Lucide. Fonts a
 
 SPA rewrites for Vercel remain in `vercel.json`. Publishing or deployment is a separate step.
 
-## Whole-city Google map
+## Custom coaching neighbourhood map
 
-Open `/map` or select **Explore Kota** in the navigation. The city view starts at Kota (25.183, 75.839), zoom 12, and can be panned or zoomed freely. Search an area, road or landmark, switch Map/Satellite imagery independently of 2D/3D tilt, choose a campus, centre a sample hostel, or reset to **Whole Kota**. On mobile, **Stays** opens the filter/list panel. Select a coaching campus to sort stays nearest first and optionally filter within 1, 3 or 5 km. With the JavaScript API enabled, the selected distance appears as a circle; campus markers and matching hostel price pins remain on both road and satellite layers. Without a selected campus, cards identify the nearest sample coaching campus. Whole Kota clears the distance filter while preserving room preferences and the map layer.
+Open `/map` and choose your coaching campus. Only approved hostels with matching available rooms within 1 km are shown; widen the radius to 3 or 5 km. The list and price pins use the same results, sorted by straight-line distance. Search filters nearby hostel names or localities without leaving the coaching neighbourhood. Select a pin to view the property summary and open its rooms.
 
-The old schematic Explore map has been replaced. Its Google view receives all matching available hostels rather than only the current list page.
+Switch between **2D** and **3D**, an illustrated isometric scene with raised buildings. Both views retain the same hostel pins, selected property and filters. This is an intentionally simplified neighbourhood illustration, not satellite imagery, navigation or a reconstruction of Kota's buildings. Label positions are spread for readability; distances and eligibility come from coordinates rather than drawn connector lengths.
 
-Two rendering modes are supported:
+Drag the scene to pan or use zoom/reset buttons. The focusable map also accepts arrow keys and +/-; hostel pins are keyboard buttons. On mobile, Stays opens the accessible filter panel. The compact Explore map uses the same component and shows matching hostels within 1 km of the chosen campus, with a link to change the radius on `/map`.
 
-- **Embedded Google map:** the default when no browser API key is configured. This displays Google's map and supports Google place searches, pan/zoom, satellite view and centring on a selected coordinate. It does not overlay custom StayKota price pins. Hostels can still be selected from the adjacent list.
-- **Google Maps JavaScript API:** set `VITE_GOOGLE_MAPS_API_KEY` to enable custom sample campus/price markers that select matching hostel cards. Enable Maps JavaScript API and billing in your own Google Cloud project. Set `VITE_GOOGLE_MAPS_MAP_ID` to a **vector JavaScript map ID** for production Advanced Markers and tilt; the frontend uses Google's `DEMO_MAP_ID` for development if it is blank. Place-text searches use the embedded Google view; clearing the search restores the marker view. No Places or Routes API is called.
+Preview PNGs: [2D neighbourhood](docs/screenshots/coaching-map-2d.png) · [3D neighbourhood](docs/screenshots/coaching-map-3d.png).
 
-Copy `.env.example` to `.env.local` for local configuration, or add those variable names in your deployment/environment settings. Restart Vite after changes and rebuild deployments: `VITE_*` values are included at build time. Never commit actual keys. A browser key is public by design: restrict it to your exact website/development referrers and the Maps JavaScript API in Google Cloud. Server/service-account credentials must not be used as browser keys. Verify current Google usage/billing terms before enabling a live project.
-
-If the SDK fails to load or rejects authentication, the component falls back to the embedded map with a visible notice. Google branding and map attribution are not removed or covered. **Open in Google Maps** is available if embedding is blocked. Hidden map panels defer loading until visible.
-
-The Codex network draft includes Google's map destinations and optional blank browser-key/map-ID variables. Draft saving does not apply those settings. Review/save and publish the environment to apply it. Live requests to `www.google.com` returned proxy `403 Forbidden` during this task, so live basemap/satellite content could not be verified here. No browser Maps key was available to verify authenticated markers. The unit tests and browser checks validate local flows and Google URL/selection/layer integration; the map-specific browser tests stub the external Google frame and do not claim Google content was rendered.
+The Google map, embedded fallback, satellite controls and Maps SDK have been removed. No API key, external tiles, billing account or Google network permission is needed. Tests cover proximity boundaries, missing coordinates, colocated labels, pin selection, campus changes, 2D/3D consistency, local search, empty results and mobile controls. Browser tests assert no external map-provider requests.
 
 ## Before real use
 
 Replace simulated authentication and browser data with a backend that enforces roles, resource ownership, validation, rate limits and consent handling. Use actual reviewed inventory, photographs and campus coordinates. Configure real contact delivery, privacy/retention rules, backups, monitoring and public-page metadata/rendering before a live launch. A prototype admin role flag is not production authorization.
 
-Proximity filters require valid coordinates and use straight-line distances, never claimed walking times. Only approved listings with matching available rooms are shown. The map covers Kota, but complete real hostel coverage requires a reviewed inventory and accurate campus/property coordinates from your backend. The embedded fallback explicitly indicates that custom markers are unavailable.
-
-### 2D / 3D tilt
-
-The full-city map has separate perspective and imagery controls. **2D** resets tilt and heading to zero; **3D tilt** requests a 45-degree viewing angle on Google's vector renderer and allows rotation/tilt interaction. Perspective changes preserve the centre, zoom, hostel selection, coaching radius and markers. Google may clamp tilt according to zoom. This is a tilted vector map, not a photorealistic 3D reconstruction; detailed building geometry depends on Google's local coverage and zoom, and has not been verified in Kota.
-
-The 3D button is enabled only after an authenticated map reports vector rendering. It remains disabled on the embedded fallback, text-search embed and browsers that cannot provide vector rendering; the accompanying caption explains this limitation. Configure the browser key and a vector map ID, rebuild, and verify both map layers and tilt on the deployed site. Automated browser tests cover the embed limitation and independent layer/perspective controls; authenticated vector rendering still requires live verification.
+Real hostel coverage requires reviewed inventory and accurate coaching/property coordinates. Unlocated properties are excluded from the map rather than assigned invented locations.
