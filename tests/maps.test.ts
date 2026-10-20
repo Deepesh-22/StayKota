@@ -60,3 +60,12 @@ describe('coaching proximity', () => {
     expect(withinCampusRadius({}, CAMPUSES[0], 5)).toBe(false);
   });
 });
+
+describe('student location proximity', () => {
+  it('uses any coordinate origin without assigning it a coaching identity', () => {
+    const origin = { latitude: 25.146, longitude: 75.852 };
+    expect(withinCampusRadius({ latitude: 25.148, longitude: 75.852 }, origin, 1)).toBe(true);
+    expect(withinCampusRadius({ latitude: 25.216, longitude: 75.855 }, origin, 1)).toBe(false);
+    expect(withinCampusRadius({ latitude: 25.148, longitude: 75.852 }, { latitude: 28.61, longitude: 77.2 }, 5)).toBe(false);
+  });
+});

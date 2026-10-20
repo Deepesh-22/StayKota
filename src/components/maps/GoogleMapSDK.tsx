@@ -1,17 +1,17 @@
 import { useEffect } from 'react';
 import {
   APIProvider,
-  AdvancedMarker,
   APILoadingStatus,
   Map,
   RenderingType,
   useApiLoadingStatus,
   useMap,
 } from '@vis.gl/react-google-maps';
+import { MapPinOverlay } from './MapPinOverlay';
 import { GraduationCap } from 'lucide-react';
 import { CAMPUSES } from '../../data/campuses';
 import { monthlyTotal } from '../../lib/discovery';
-import { CITY_TARGET, validCoordinates, type CityMapType, type MapTarget, type MapPerspective } from '../../lib/maps';
+import { CITY_TARGET, STUDENT_MAP_STYLES, validCoordinates, type CityMapType, type MapTarget, type MapPerspective } from '../../lib/maps';
 import type { GoogleCityMapProps } from './GoogleCityMap';
 
 function Camera({ target }: { target: MapTarget }) {
@@ -46,7 +46,7 @@ function Perspective({ perspective, onAvailable }: {
   }, [map, perspective]);
   return null;
 }
-function CampusRadius({ campus, radiusKm }: { campus: GoogleCityMapProps['campus']; radiusKm?: number }) {
+function CampusRadius({ campus, radiusKm }: { campus: { latitude: number; longitude: number }; radiusKm?: number }) {
   const map = useMap();
   useEffect(() => {
     if (!map || !radiusKm) return;
@@ -96,6 +96,7 @@ export default function GoogleMapSDK({
   activeCampusId,
   perspective = '2d',
   on3DAvailabilityChange,
+  userLocation,
 }: Props) {
   const selectedCampusId = activeCampusId ?? (onCampusSelect ? undefined : campus.id);
   return (
@@ -104,7 +105,7 @@ export default function GoogleMapSDK({
       <Map
         defaultCenter={{ lat: CITY_TARGET.lat, lng: CITY_TARGET.lng }}
         defaultZoom={CITY_TARGET.zoom}
-        mapId={import.meta.env.VITE_GOOGLE_MAPS_MAP_ID?.trim() || 'DEMO_MAP_ID'}
+        styles={STUDENT_MAP_STYLES}
         mapTypeId={mapType}
         renderingType={RenderingType.VECTOR}
         tiltInteractionEnabled={perspective === '3d'}
@@ -115,51 +116,54 @@ export default function GoogleMapSDK({
         streetViewControl
         zoomControl
         mapTypeControl={false}
-        clickableIcons
+        clickableIcons={false}
         reuseMaps
         style={{ width: '100%', height: '100%' }}
       >
         <Camera target={target} />
         <Perspective perspective={perspective} onAvailable={on3DAvailabilityChange} />
-        <CampusRadius campus={campus} radiusKm={radiusKm} />
+        <CampusRadius campus={userLocation || campus} radiusKm={radiusKm} />
+        {userLocation && <>
+          <MapPinOverlay lat={userLocation.latitude} lng={userLocation.longitude} zIndex={30}>
+            <span className="google-location-pin" role="img" aria-label="Your current location" title="Your current location" />
+          </MapPinOverlay>
+          <CampusRadius campus={userLocation} radiusKm={Math.max(0, userLocation.accuracy) / 1000} />
+        </>}
         {CAMPUSES.map((c) => (
-          <AdvancedMarker
+          <MapPinOverlay
             key={c.id}
-            position={{ lat: c.latitude, lng: c.longitude }}
-            title={`${c.institute} ${c.name} — sample campus pin`}
-            onClick={() => onCampusSelect?.(c.id)}
+            lat={c.latitude} lng={c.longitude}
             zIndex={c.id === selectedCampusId ? 10 : 5}
           >
-            <span className={`google-campus-pin${c.id === selectedCampusId ? ' is-selected' : ''}`}>
+            <button type="button" title={`${c.institute} ${c.name} — sample campus pin`} aria-label={`Select ${c.institute} ${c.name} — demo campus`} onClick={() => onCampusSelect?.(c.id)} className={`google-campus-pin${c.id === selectedCampusId ? ' is-selected' : ''}`}>
               <GraduationCap size={17} />
               <span>
                 {c.institute}
                 <small>{c.name}</small>
               </span>
-            </span>
-          </AdvancedMarker>
+            </button>
+          </MapPinOverlay>
         ))}
         {items
           .filter(({ hostel }) => validCoordinates(hostel.latitude, hostel.longitude))
           .map(({ hostel, room }) => (
-            <AdvancedMarker
+            <MapPinOverlay
               key={hostel.id}
-              position={{ lat: hostel.latitude!, lng: hostel.longitude! }}
-              title={`${hostel.name}, ₹${monthlyTotal(room).toLocaleString('en-IN')} fixed monthly — sample listing`}
-              onClick={() => onSelect(hostel.id)}
+              lat={hostel.latitude!} lng={hostel.longitude!}
               zIndex={selectedHostelId === hostel.id ? 20 : 1}
             >
-              <span
+              <button type="button" title={`${hostel.name} — demo hostel`} aria-label={`Select ${hostel.name} on map`} aria-pressed={selectedHostelId === hostel.id} onClick={() => onSelect(hostel.id)}
                 className={`google-hostel-pin${selectedHostelId === hostel.id ? ' is-selected' : ''}`}
               >
                 ₹{monthlyTotal(room).toLocaleString('en-IN')}
-              </span>
-            </AdvancedMarker>
+              </button>
+            </MapPinOverlay>
           ))}
       </Map>
       <div className="google-map-legend" aria-label="Map pin legend">
         <span>₹ Hostel · monthly cost</span><span><GraduationCap size={14} /> Coaching campus</span>
-        {radiusKm && <span>{radiusKm} km coaching radius</span>}
+        {userLocation && <span style={{ color: '#287ae4' }}>● Your location</span>}
+        {radiusKm && <span>{radiusKm} km {userLocation ? 'near you' : 'coaching radius'}</span>}
       </div>
     </APIProvider>
   );

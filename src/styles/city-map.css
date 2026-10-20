@@ -638,3 +638,9 @@
   .city-map-tools { gap: 5px; padding: 8px; flex-wrap: wrap; }
   .city-layer-toggle button { padding: 7px; }
 }
+
+.city-location-bar { display:flex; align-items:center; flex-wrap:wrap; gap:10px; padding:9px 18px; border-bottom:1px solid #dce5d4; background:#f7f8ef; flex-shrink:0; color:#526b4b; font-size:11px; }
+.city-location-bar button { display:flex; align-items:center; gap:7px; background:#fffdf7; border:1px solid #cddac1; border-radius:7px; padding:8px 11px; color:#206b54; white-space:nowrap; }
+.city-location-bar button:disabled { opacity:.6; }
+.city-location-bar p { width:100%; color:#924b36; line-height:1.6; }
+@media(max-width:600px) { .city-location-bar { padding:8px 12px; font-size:10px; gap:8px; } .city-location-bar>span { flex:1; min-width:140px; } }

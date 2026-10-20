@@ -193,3 +193,8 @@
 
 .google-map-legend { position: absolute; bottom: 45px; left: 12px; display: flex; flex-wrap: wrap; gap: 10px; max-width: calc(100% - 80px); padding: 8px 10px; border-radius: 8px; background: #fffdf8; color: #245241; box-shadow: 0 2px 10px #173b3529; font-size: 10px; pointer-events: none; }
 .google-map-legend span { display: flex; align-items: center; gap: 5px; }
+
+.google-location-pin { display:block; width:19px; height:19px; border-radius:50%; background:#287ae4; border:3px solid white; box-shadow:0 0 0 5px #287ae433,0 2px 8px #143d6355; }
+.google-campus-pin:not(.is-selected)>span { display:none; }
+.google-campus-pin:hover>span,.google-campus-pin:focus-visible>span { display:block; }
+.google-campus-pin:focus-visible,.google-hostel-pin:focus-visible { outline:3px solid #bf8052; outline-offset:3px; }

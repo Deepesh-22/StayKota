@@ -21,7 +21,7 @@ export function getMatchingRooms(hostel: Hostel, filters: RoomFilters = {}): Roo
 }
 
 /** Haversine distance between sample coordinates; never a walking route or travel time. */
-export function distanceKm(hostel: Pick<Hostel, 'latitude' | 'longitude'>, campus: Campus): number | null {
+export function distanceKm(hostel: Pick<Hostel, 'latitude' | 'longitude'>, campus: Pick<Campus, 'latitude' | 'longitude'>): number | null {
   if (!Number.isFinite(hostel.latitude) || !Number.isFinite(hostel.longitude)) return null;
   const rad = Math.PI / 180;
   const lat1 = hostel.latitude! * rad;

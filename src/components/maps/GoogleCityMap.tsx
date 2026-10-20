@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { ExternalLink, LoaderCircle, MapPin } from 'lucide-react';
+import type { LiveLocation } from '../../hooks/useLiveLocation';
 import type { Campus } from '../../data/campuses';
 import type { Hostel, RoomType } from '../../types';
 import {
@@ -29,6 +30,7 @@ export interface GoogleCityMapProps {
   radiusKm?: number;
   activeCampusId?: string;
   perspective?: MapPerspective;
+  userLocation?: LiveLocation | null;
   on3DAvailabilityChange?: (available: boolean) => void;
 }
 export function GoogleCityMap(props: GoogleCityMapProps) {
@@ -130,12 +132,12 @@ export function GoogleCityMap(props: GoogleCityMapProps) {
       )}
       {!isSDK && !failed && (
         <p className="google-city-map__fallback" role="status">
-          {search.trim() ? 'Google place search view. Clear the search to return to StayKota pins.' : 'City map preview. Custom hostel and coaching pins are unavailable until Google Maps is configured.'}
+          {search.trim() ? 'Google place search view. Clear the search to return to StayKota pins.' : 'City map preview. Custom pins and hidden shop/temple labels require the configured interactive map.'}
         </p>
       )}
       {failed && (
         <div className="google-city-map__fallback" role="status">
-          Interactive pins couldn’t load. Showing Google’s embedded map.{' '}
+          Custom pins and hidden place labels couldn’t load. Showing Google’s embedded map.{' '}
           <button type="button" onClick={() => window.location.reload()}>
             Retry
           </button>

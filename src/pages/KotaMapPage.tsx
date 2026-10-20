@@ -9,10 +9,12 @@ import {
   List,
   Map as MapIcon,
   Maximize2,
+  LocateFixed,
   Search,
   SlidersHorizontal,
   X,
 } from 'lucide-react';
+import { useLiveLocation } from '../hooks/useLiveLocation';
 import { useApp } from '../context/AppContext';
 import { CAMPUSES } from '../data/campuses';
 import { formatDistance, getCampus, getMatchingRooms, monthlyTotal } from '../lib/discovery';
@@ -33,6 +35,8 @@ export function KotaMapPage() {
   const { hostels } = useApp();
   const [params, setParams] = useSearchParams();
   const campus = getCampus(params.get('campus'));
+  const live = useLiveLocation();
+  const location = live.tracking ? live.location : null;
   const query = params.get('q') || '';
   const [search, setSearch] = useState(query);
   const [notice, setNotice] = useState('');
@@ -93,16 +97,17 @@ export function KotaMapPage() {
   const perspective = supports3D && params.get('view') === '3d' ? '3d' : '2d';
   const mapType: CityMapType = params.get('type') === 'satellite' ? 'satellite' : 'roadmap';
   const activeCampus = CAMPUSES.find(c => c.id === params.get('campus'));
-  const radius = activeCampus && [1, 3, 5].includes(Number(params.get('radius')))
-    ? Number(params.get('radius')) : undefined;
+  const origin = location || activeCampus;
+  const radius = origin && [1, 3, 5].includes(Number(params.get('radius')))
+    ? Number(params.get('radius')) : location ? 3 : undefined;
   const items = hostels
     .filter((h) => h.status === 'approved' && (!category || h.category === category))
-    .filter(h => !radius || withinCampusRadius(h, campus, radius))
+    .filter(h => !radius || (origin && withinCampusRadius(h, origin, radius)))
     .flatMap((hostel) => {
       const room = getMatchingRooms(hostel, { sharing, maxBudget: budget })[0];
       return room ? [{ hostel, room }] : [];
-    }).sort((a, b) => activeCampus
-      ? (campusDistance(a.hostel, campus) ?? Infinity) - (campusDistance(b.hostel, campus) ?? Infinity) : 0);
+    }).sort((a, b) => origin
+      ? (campusDistance(a.hostel, origin) ?? Infinity) - (campusDistance(b.hostel, origin) ?? Infinity) : 0);
   const selected = items.find((item) => item.hostel.id === params.get('hostel'));
   let target: MapTarget = { ...CITY_TARGET, id: `kota-${revision}` };
   if (activeCampus)
@@ -111,6 +116,7 @@ export function KotaMapPage() {
       zoom: radius === 5 ? 12 : radius === 3 ? 13 : 14,
       id: `${campus.id}-${radius || 'all'}`,
     };
+  if (location) target = { lat: location.latitude, lng: location.longitude, zoom: radius === 1 ? 15 : radius === 5 ? 12 : 13, id: `your-location-${revision}` };
   if (selected && validCoordinates(selected.hostel.latitude, selected.hostel.longitude))
     target = {
       lat: selected.hostel.latitude!,
@@ -130,9 +136,10 @@ export function KotaMapPage() {
     update({ hostel: id, q: null });
     setShowStays(false);
   };
-  const selectCampus = (id: string) => update({ campus: id, hostel: null, q: null });
+  const selectCampus = (id: string) => { live.stop(); update({ campus: id, hostel: null, q: null }); };
   const submitSearch = (event: FormEvent) => {
     event.preventDefault();
+    live.stop();
     update({ q: search.trim().slice(0, 180) || null, hostel: null, campus: null });
     setShowStays(false);
   };
@@ -190,6 +197,7 @@ export function KotaMapPage() {
           <button
             type="button"
             onClick={() => {
+              live.stop();
               setRevision((n) => n + 1);
               update({ campus: null, hostel: null, q: null, radius: null });
             }}
@@ -208,6 +216,19 @@ export function KotaMapPage() {
             <span>Google Maps</span>
           </a>
         </div>
+      </div>
+      <div className="city-location-bar">
+        <button type="button" onClick={() => {
+          if (location) { update({ hostel: null, q: null }); setRevision(n => n + 1); }
+          else { live.start(); update({ campus: null, hostel: null, q: null, radius: '3' }); }
+        }} disabled={live.pending}>
+          <LocateFixed size={16} /> {live.pending ? 'Locating…' : location ? 'Centre on me' : 'Use my location'}
+        </button>
+        {live.tracking && <button type="button" onClick={live.stop}>Stop location</button>}
+        <span role="status">{location
+          ? `Live location on · accuracy about ${Math.round(location.accuracy)} m · stays within ${radius} km`
+          : live.pending ? 'Waiting for your browser’s location permission…' : 'Find nearby hostels. Location is used only while this page is open.'}</span>
+        {live.error && <p role="alert">{live.error}</p>}
       </div>
       {notice && (
         <p className="city-notice" role="status">
@@ -259,15 +280,15 @@ export function KotaMapPage() {
             <ChevronDown size={14} />
           </div>
           <label className="city-radius">
-            Distance from coaching
-            <select aria-label="Distance from coaching" disabled={!activeCampus}
+            {location ? 'Distance from your location' : 'Distance from coaching'}
+            <select aria-label={location ? 'Distance from your location' : 'Distance from coaching'} disabled={!origin}
               value={radius || ''} onChange={e => update({ radius: e.target.value, hostel: null })}>
-              <option value="">All distances</option>
+              {!location && <option value="">All distances</option>}
               <option value="1">Within 1 km</option>
               <option value="3">Within 3 km</option>
               <option value="5">Within 5 km</option>
             </select>
-            <small>{activeCampus ? 'Nearest first · straight-line distance, not walking distance' : 'Choose a coaching campus to filter nearby stays.'}</small>
+            <small>{origin ? 'Nearest first · straight-line distance, not walking distance' : 'Choose a coaching campus to filter nearby stays.'}</small>
           </label>
           <div className="city-room-filters">
             <label>
@@ -346,6 +367,7 @@ export function KotaMapPage() {
                         <small>
                           {hostel.locality} · {room.name}
                         </small>
+                        {location && <small className="city-coaching-distance">{formatDistance(campusDistance(hostel, location))} from your location · straight-line</small>}
                         {nearby && <small className="city-coaching-distance">
                           {formatDistance(nearby.distance)} from {nearby.campus.institute} · {nearby.campus.name}
                         </small>}
@@ -365,7 +387,7 @@ export function KotaMapPage() {
               <div className="city-empty">
                 <SlidersHorizontal size={26} />
                 <h3>A little more room in your search?</h3>
-                <p>No available sample rooms match these filters.</p>
+                <p>{location ? `No sample hostels match within ${radius} km of your location. Try 5 km, change room filters or choose a coaching campus. Demo inventory only covers parts of Kota.` : 'No available sample rooms match these filters.'}</p>
                 <button
                   type="button"
                   onClick={() => update({ sharing: null, category: null, budget: null, radius: null })}
@@ -457,6 +479,7 @@ export function KotaMapPage() {
               search={query}
               radiusKm={radius}
               activeCampusId={activeCampus?.id}
+              userLocation={location}
               perspective={perspective}
               on3DAvailabilityChange={setSupports3D}
             />
@@ -489,7 +512,7 @@ export function KotaMapPage() {
           <p className="city-map-caption" id="city-perspective-help">
             {supports3D ? '2D is flat; 3D tilt changes the viewing angle. Detailed 3D buildings depend on local coverage. ' : '3D tilt requires a configured Google vector map and a supported browser. '}
             Pan and zoom freely to explore Kota’s roads, neighbourhoods and landmarks. Hostel pins
-            use sample coordinates.
+            use sample coordinates. Other Google place icons are hidden in the configured interactive map.
           </p>
         </section>
       </div>

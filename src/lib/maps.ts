@@ -39,7 +39,7 @@ export function googleExternalUrl(target: MapTarget, search = ''): string {
 }
 
 /** Only known coordinates participate in proximity filters; distances are straight-line. */
-export function campusDistance(location: { latitude?: number; longitude?: number }, campus: Campus): number | null {
+export function campusDistance(location: { latitude?: number; longitude?: number }, campus: Pick<Campus, 'latitude' | 'longitude'>): number | null {
   return validCoordinates(location.latitude, location.longitude) ? distanceKm(location, campus) : null;
 }
 export function nearestCampus(location: { latitude?: number; longitude?: number }) {
@@ -47,7 +47,13 @@ export function nearestCampus(location: { latitude?: number; longitude?: number 
     .filter((entry): entry is { campus: Campus; distance: number } => entry.distance !== null)
     .sort((a, b) => a.distance - b.distance)[0] ?? null;
 }
-export function withinCampusRadius(location: { latitude?: number; longitude?: number }, campus: Campus, radiusKm: number) {
+export function withinCampusRadius(location: { latitude?: number; longitude?: number }, campus: Pick<Campus, 'latitude' | 'longitude'>, radiusKm: number) {
   const distance = campusDistance(location, campus);
   return distance !== null && distance <= radiusKm;
 }
+
+/** No map ID: inline styles hide base-map POIs while our OverlayView pins remain visible. */
+export const STUDENT_MAP_STYLES: google.maps.MapTypeStyle[] = [
+  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+];

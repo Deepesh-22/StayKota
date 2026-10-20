@@ -222,3 +222,91 @@ test('2D and 3D perspective controls are separate from imagery and explain the e
   await expect(page).toHaveURL(/radius=1/);
   await expect(page.getByTitle('Google map of the whole city of Kota')).toHaveAttribute('src', /t=k/);
 });
+
+// Browser location is simulated here; these tests never request a student's real location.
+async function mockLiveLocation(page: Page, errorCode = 0) {
+  await page.addInitScript(({ errorCode }) => {
+    let success: PositionCallback;
+    let failure: PositionErrorCallback | null = null;
+    let active = false;
+    const mock = {
+      starts: 0, stops: 0,
+      move(latitude: number, longitude: number) {
+        if (active) success({ coords: { latitude, longitude, accuracy: 20 } } as GeolocationPosition);
+      },
+      late() { success?.({ coords: { latitude: 28.61, longitude: 77.2, accuracy: 20 } } as GeolocationPosition); },
+    };
+    Object.assign(window, { __liveLocationMock: mock });
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: {
+      watchPosition(onSuccess: PositionCallback, onError: PositionErrorCallback) {
+        mock.starts++; success = onSuccess; failure = onError; active = true;
+        queueMicrotask(() => {
+          if (!active) return;
+          if (errorCode) failure?.({ code: errorCode } as GeolocationPositionError);
+          else mock.move(25.146, 75.852);
+        });
+        return 7;
+      },
+      clearWatch() { active = false; mock.stops++; },
+    } });
+  }, { errorCode });
+}
+type LocationMockWindow = Window & { __liveLocationMock: { starts: number; stops: number; move: (latitude: number, longitude: number) => void; late: () => void } };
+
+test('live location is opt-in, filters nearby stays, updates on movement and stops cleanly', async ({ page }) => {
+  await stubGoogleFrame(page);
+  await mockLiveLocation(page);
+  await page.goto('/map');
+  await expect(page.getByRole('button', { name: 'Use my location', exact: true })).toBeVisible();
+  expect(await page.evaluate(() => (window as LocationMockWindow).__liveLocationMock.starts)).toBe(0);
+  const stored = await page.evaluate(() => JSON.stringify({ ...localStorage }));
+  await page.getByRole('button', { name: 'Use my location', exact: true }).click();
+  await expect(page.locator('.city-location-bar')).toContainText('Live location on');
+  await expect(page.locator('.city-location-bar')).toContainText('accuracy about 20 m');
+  await expect(page.getByTitle('Google map of the whole city of Kota')).toHaveAttribute('src', /25.146%2C75.852/);
+  await page.getByLabel('Distance from your location', { exact: true }).selectOption('1');
+  await expect(page.locator('.city-stays')).toContainText('from your location');
+  await expect(page.locator('.city-stays')).not.toContainText('Scholar');
+  await page.getByRole('button', { name: 'Satellite', exact: true }).click();
+  await expect(page.getByTitle('Google map of the whole city of Kota')).toHaveAttribute('src', /t=k/);
+  await expect(page).not.toHaveURL(/25\.146|75\.852/);
+  expect(await page.evaluate(() => JSON.stringify({ ...localStorage }))).toBe(stored);
+  await page.evaluate(() => (window as LocationMockWindow).__liveLocationMock.move(28.61, 77.2));
+  await expect(page.locator('.city-stay')).toHaveCount(0);
+  await expect(page.locator('.city-empty')).toContainText('Demo inventory only covers parts of Kota');
+  await page.getByRole('button', { name: 'Stop location', exact: true }).click();
+  await expect(page.locator('.city-stay')).toHaveCount(7);
+  expect(await page.evaluate(() => (window as LocationMockWindow).__liveLocationMock.stops)).toBe(1);
+  await page.evaluate(() => (window as LocationMockWindow).__liveLocationMock.late());
+  await expect(page.locator('.city-location-bar')).not.toContainText('Live location on');
+  await page.getByRole('button', { name: 'Use my location', exact: true }).click();
+  await expect(page.locator('.city-location-bar')).toContainText('Live location on');
+  await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Explore hostels', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as LocationMockWindow).__liveLocationMock.stops)).toBe(2);
+});
+
+for (const [code, message] of [[1, 'permission was denied'], [2, 'location is unavailable'], [3, 'Location timed out']] as const) {
+  test(`location error ${code} explains recovery and leaves manual coaching search available`, async ({ page }) => {
+    await stubGoogleFrame(page);
+    await mockLiveLocation(page, code);
+    await page.goto('/map');
+    await page.getByRole('button', { name: 'Use my location', exact: true }).click();
+    await expect(page.getByRole('alert')).toContainText(message);
+    await expect(page.getByRole('button', { name: 'Use my location', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Stop location', exact: true })).toHaveCount(0);
+    await page.getByLabel('Centre map on a coaching campus').selectOption('pw-demo');
+    await expect(page.getByTitle('Google map of the whole city of Kota')).toHaveAttribute('src', /25.17%2C75.846/);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+  });
+}
+
+test('major demo coaching options include multiple ALLEN campuses, Vibrant and PW', async ({ page }) => {
+  await stubGoogleFrame(page);
+  await page.goto('/map');
+  const campuses = page.getByLabel('Centre map on a coaching campus');
+  for (const id of ['allen-samyak', 'allen-sangyan', 'allen-satyarth', 'vibrant-demo', 'pw-demo', 'aakash-demo', 'unacademy-demo']) {
+    await campuses.selectOption(id);
+    await expect(page).toHaveURL(new RegExp(`campus=${id}`));
+  }
+  await expect(page.locator('.google-city-map__fallback')).toContainText('hidden shop/temple labels require');
+});

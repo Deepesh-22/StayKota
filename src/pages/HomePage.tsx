@@ -117,7 +117,7 @@ export function HomePage() {
 
       <section className="home-campus-section home-container" aria-label="Choose a coaching campus">
         <div className="home-campus-intro"><span>Closer to class.</span><span>More room for life.</span></div>
-        <div className="home-campus-chips">{CAMPUSES.map(item => <button key={item.id} type="button" className={`home-campus-chip ${item.id === campusId ? 'is-active' : ''}`} aria-pressed={item.id === campusId} onClick={() => changeCampus(item.id)}><span className="home-campus-chip-icon"><GraduationCap size={17} /></span><span><strong>{item.institute}</strong><small>{item.area}</small></span><ArrowUpRight size={15} className="home-campus-chip-arrow" aria-hidden="true" /></button>)}</div>
+        <div className="home-campus-chips">{CAMPUSES.slice(0, 4).map(item => <button key={item.id} type="button" className={`home-campus-chip ${item.id === campusId ? 'is-active' : ''}`} aria-pressed={item.id === campusId} onClick={() => changeCampus(item.id)}><span className="home-campus-chip-icon"><GraduationCap size={17} /></span><span><strong>{item.institute}</strong><small>{item.area}</small></span><ArrowUpRight size={15} className="home-campus-chip-arrow" aria-hidden="true" /></button>)}</div>
       </section>
 
       <section className="home-featured-section" aria-labelledby="home-featured-heading">
