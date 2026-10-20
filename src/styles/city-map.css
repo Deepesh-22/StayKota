@@ -650,3 +650,4 @@
 .city-map-location-controls .is-active { color:#1a73e8; border-color:#a2c5f5; background:#eff6ff; }
 .city-map-location-controls button:disabled { cursor:wait; opacity:.7; }
 .city-map-location-controls .city-map-stop-location { height:32px; }
+.city-map-location-controls{z-index:120}

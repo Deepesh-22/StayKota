@@ -1,3 +1,4 @@
+import { inKotaMapArea, constrainedMapCentre, KOTA_CITY_BOUNDS, KOTA_MAP_BOUNDS, KOTA_BUFFER_KM, minimumKotaZoom } from '../src/lib/map-area';
 import { directionsLink } from '../src/lib/proximity';
 import { withinKota } from '../src/lib/coordinates';
 import { locationLabel } from '../src/lib/location-status';
@@ -151,5 +152,26 @@ describe('hostel-to-campus directions', () => {
     expect(url.searchParams.get('destination')).toBe('25.148,75.852');
     expect(url.searchParams.get('travelmode')).toBe('walking');
     expect(new URL(directionsLink(hostel, campus, 'driving')!).searchParams.get('travelmode')).toBe('driving');
+  });
+});
+
+describe('Kota map navigation area', () => {
+  it('adds a 3 km buffer around the configured city envelope and includes all campus seeds', () => {
+    const [[west,south],[east,north]] = KOTA_CITY_BOUNDS;
+    expect(KOTA_BUFFER_KM).toBe(3);
+    expect(KOTA_MAP_BOUNDS[0][0]).toBeLessThan(west);
+    expect(KOTA_MAP_BOUNDS[1][0]).toBeGreaterThan(east);
+    expect(distanceKm({ latitude: south, longitude: west }, { latitude: KOTA_MAP_BOUNDS[0][1], longitude: west })).toBeCloseTo(3, 2);
+    expect(distanceKm({ latitude: north, longitude: east }, { latitude: KOTA_MAP_BOUNDS[1][1], longitude: east })).toBeCloseTo(3, 2);
+    expect(CAMPUSES.every(inKotaMapArea)).toBe(true);
+    expect(inKotaMapArea({ latitude: 28.61, longitude: 77.2 })).toBe(false);
+    expect(inKotaMapArea({})).toBe(false);
+    const corner = { latitude: KOTA_MAP_BOUNDS[1][1], longitude: KOTA_MAP_BOUNDS[1][0] };
+    expect(inKotaMapArea(corner)).toBe(false);
+    expect(inKotaMapArea(constrainedMapCentre(corner.latitude, corner.longitude))).toBe(true);
+  });
+  it('adapts the effective zoom floor to viewport dimensions instead of imposing a desktop floor on mobile', () => {
+    expect(minimumKotaZoom(1600, 800)).toBeGreaterThan(minimumKotaZoom(390, 500));
+    expect(Number.isFinite(minimumKotaZoom(0,0))).toBe(true);
   });
 });

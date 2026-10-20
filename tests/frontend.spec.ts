@@ -1,3 +1,4 @@
+import { minimumKotaZoom } from '../src/lib/map-area';
 import { expect, test, type Page } from '@playwright/test';
 
 async function sampleStudent(page: Page) {
@@ -597,4 +598,76 @@ test('showroom handles missing and failed photos without inventing property imag
   await page.getByRole('button', { name: 'Reload photos' }).click();
   await expect(page.locator('.curved-gallery__failed')).toHaveCount(0);
   await expect.poll(() => page.locator('.curved-gallery__slide img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+});
+
+test('Kota limits constrain real camera pan, zoom, slider and outside-area live location', async ({ page }) => {
+  await stubOpenMapStyle(page);
+  await mockLiveLocation(page);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/map?campus=allen-talwandi');
+  const map = page.locator('.student-city-map');
+  await expect(map).toHaveAttribute('data-map-area', 'kota-plus-3km');
+  const initialZoom = Number(await map.getAttribute('data-camera-zoom'));
+  await page.locator('.maplibregl-ctrl-zoom-in').click();
+  await expect.poll(async () => Number(await map.getAttribute('data-camera-zoom'))).toBeGreaterThan(initialZoom);
+  await page.getByRole('slider', { name: 'Map zoom level' }).focus();
+  await page.keyboard.press('End');
+  await expect.poll(async () => Number(await map.getAttribute('data-camera-zoom'))).toBeCloseTo(19, 1);
+  for (let index=0; index<15; index++) { if (!(await page.locator('.maplibregl-ctrl-zoom-out').isEnabled())) break; await page.locator('.maplibregl-ctrl-zoom-out').click(); }
+  expect(Number(await map.getAttribute('data-camera-zoom'))).toBeGreaterThan(10);
+  const canvas = (await page.locator('.maplibregl-canvas').boundingBox())!;
+  await page.mouse.move(canvas.x + canvas.width * .4, canvas.y + canvas.height * .6);
+  await page.mouse.down();
+  await page.mouse.move(canvas.x + canvas.width * .9, canvas.y + canvas.height * .9, { steps: 15 });
+  await page.mouse.up();
+  const centre = (await map.getAttribute('data-camera-centre'))!.split(',').map(Number);
+  expect(centre[0]).toBeGreaterThan(25.05); expect(centre[0]).toBeLessThan(25.29);
+  expect(centre[1]).toBeGreaterThan(75.72); expect(centre[1]).toBeLessThan(75.97);
+  await page.getByRole('button', { name: 'Use my location', exact: true }).click();
+  await expect(page.locator('.city-location-bar')).toContainText('Live location on');
+  await page.evaluate(() => (window as LocationMockWindow).__liveLocationMock.move(28.61,77.2));
+  await expect(page.locator('.student-outside-area')).toContainText('outside the Kota map area');
+  await expect(map).toHaveAttribute('data-camera-centre', '25.183000,75.839000');
+  await page.getByRole('button', { name: 'Stop location', exact: true }).click();
+  await page.getByRole('button', { name: 'Reset Kota view' }).click();
+  await expect(map).toHaveAttribute('data-camera-centre', '25.183000,75.839000');
+  await page.setViewportSize({ width:390, height:844 });
+  await expect.poll(async () => {
+    const snapshot = await map.evaluate(node => { const canvas = node.querySelector<HTMLElement>('.student-city-map__canvas')!; return { width: canvas.clientWidth, height: canvas.clientHeight, minimum: Number(node.querySelector<HTMLInputElement>('input[type=range]')!.min) }; });
+    return Math.abs(snapshot.minimum - Math.max(0, minimumKotaZoom(snapshot.width,snapshot.height)));
+  }).toBeLessThan(.005);
+});
+
+test('circular hostel and coaching previews open on hover/focus without selecting, and preserve click actions', async ({ page }) => {
+  await stubOpenMapStyle(page);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/map?campus=allen-talwandi');
+  const map = page.locator('.student-city-map');
+  const hostel = page.getByRole('button', { name: 'Select Comfort Stay Hostel on map', exact: true });
+  const coaching = page.getByRole('button', { name: /Select ALLEN Talwandi campus/ });
+  await page.locator('.maplibregl-ctrl-zoom-in').click();
+  await page.locator('.maplibregl-ctrl-zoom-in').click();
+  await expect(hostel).toBeVisible();
+  const url = page.url(), centre = await map.getAttribute('data-camera-centre');
+  await hostel.hover();
+  const preview = page.locator('.map-circle-preview[data-preview-id="h1"]');
+  await expect(preview).toBeVisible();
+  expect((await preview.boundingBox())!.width).toBeCloseTo(164,0);
+  await expect(preview).toHaveAccessibleName(/Comfort Stay Hostel/);
+  await expect(page.locator('.city-selected')).toHaveCount(0);
+  expect(page.url()).toBe(url); expect(await map.getAttribute('data-camera-centre')).toBe(centre);
+  const ring = (await preview.boundingBox())!;
+  await page.mouse.move(ring.x + ring.width / 2 + 65, ring.y + ring.height / 2);
+  await expect(preview).toBeVisible();
+  await page.keyboard.press('Escape'); await expect(preview).toHaveCount(0);
+  await coaching.focus();
+  await expect(page.locator('.map-circle-preview[data-preview-id="allen-talwandi"]')).toBeVisible();
+  expect(page.url()).toBe(url);
+  await page.keyboard.press('Escape');
+  await hostel.click();
+  await expect(page.locator('.city-selected')).toContainText('Comfort Stay Hostel');
+  await expect(page.locator('.city-selected a')).toHaveAttribute('href', /\/hostel\/h1/);
+  await coaching.click();
+  await expect(page).not.toHaveURL(/hostel=h1/);
+  await expect(map).toHaveAttribute('data-target','25.146,75.852');
 });

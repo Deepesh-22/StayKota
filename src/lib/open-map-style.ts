@@ -1,3 +1,4 @@
+import { KOTA_AREA_POLYGON } from './map-area';
 import type { LayerSpecification, StyleSpecification } from 'maplibre-gl';
 export const OPEN_MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 const orientationLabels = new Set(['place', 'transportation_name', 'water_name', 'waterway']);
@@ -9,7 +10,7 @@ export function studentMapStyle(style: StyleSpecification): StyleSpecification {
   if (buildings && 'source' in buildings && buildings.source) {
     const extrusion: LayerSpecification = {
       id: 'staykota-buildings-3d', type: 'fill-extrusion', source: buildings.source,
-      'source-layer': 'building', minzoom: 14, layout: { visibility: 'none' },
+      'source-layer': 'building', filter: ['within', KOTA_AREA_POLYGON], minzoom: 14, layout: { visibility: 'none' },
       paint: {
         'fill-extrusion-color': '#d1c9b0', 'fill-extrusion-opacity': .78,
         'fill-extrusion-height': ['to-number', ['get', 'render_height'], ['get', 'height'], 8],

@@ -1,6 +1,6 @@
 import { CAMPUSES, type Campus } from '../data/campuses';
 import { distanceKm } from './discovery';
-/** City-wide starting view; panning is deliberately not restricted to a rectangle. */
+/** Kota starting view; shared renderer constrains navigation to the configured city envelope plus a 3 km buffer. */
 export const KOTA_VIEW = { lat: 25.183, lng: 75.839, zoom: 12 };
 export type MapPerspective = '2d' | '3d';
 export interface MapTarget {

@@ -1,3 +1,4 @@
+import { inKotaMapArea } from '../lib/map-area';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
@@ -219,11 +220,11 @@ export function KotaMapPage() {
       </div>
       <div className="city-location-bar">
         <button type="button" onClick={locate} disabled={live.pending}>
-          <LocateFixed size={16} /> {live.pending ? 'Locating…' : location ? 'Centre on me' : 'Use my location'}
+          <LocateFixed size={16} /> {live.pending ? 'Locating…' : location ? inKotaMapArea(location) ? 'Centre on me' : 'Show Kota map' : 'Use my location'}
         </button>
         {live.tracking && <button type="button" onClick={live.stop}>Stop location</button>}
         <span role="status">{location
-          ? `Live location on · accuracy about ${Math.round(location.accuracy)} m · stays within ${radius} km`
+          ? `Live location on · accuracy about ${Math.round(location.accuracy)} m · ${inKotaMapArea(location) ? `stays within ${radius} km` : 'outside the Kota map area'}`
           : live.pending ? 'Waiting for your browser’s location permission…' : 'Find nearby hostels. Location is used only while this page is open.'}</span>
         {live.error && <p role="alert">{live.error}</p>}
       </div>
@@ -450,8 +451,8 @@ export function KotaMapPage() {
           <div className="city-map-surface">
             <div className="city-map-location-controls" role="group" aria-label="Current location map controls">
               <button type="button" className={`city-map-locate${live.tracking ? ' is-active' : ''}`}
-                aria-label={location ? 'Centre map on my current location' : 'Use my current location on map'}
-                title={live.pending ? 'Finding your location…' : location ? 'Centre on your current location' : 'Show your current location'}
+                aria-label={location ? inKotaMapArea(location) ? 'Centre map on my current location' : 'Show Kota map while outside the service area' : 'Use my current location on map'}
+                title={live.pending ? 'Finding your location…' : location ? inKotaMapArea(location) ? 'Centre on your current location' : 'Show Kota map while outside the service area' : 'Show your current location'}
                 aria-pressed={live.tracking} aria-busy={live.pending} disabled={live.pending} onClick={locate}>
                 <LocateFixed size={22} className={live.pending ? 'animate-pulse' : undefined}/>
               </button>
@@ -498,7 +499,7 @@ export function KotaMapPage() {
             </div>
           )}
           <p className="city-map-caption" id="city-perspective-help">
-            2D is flat; 3D tilts the map. Zoom in for buildings where OpenStreetMap data is available.
+            Explore Kota and its configured 3 km buffer. Hover or focus a hostel/coaching pin for a circular preview; click to select. 2D is flat; 3D tilts the map. Zoom in for buildings where OpenStreetMap data is available.
             Only StayKota hostel/coaching pins are shown. Locations are demo data; distances are straight-line.
           </p>
         </section>

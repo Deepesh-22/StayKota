@@ -5,8 +5,9 @@ import { CAMPUSES } from '../../data/campuses';
 import { locationLabel } from '../../lib/location-status';
 import { monthlyTotal } from '../../lib/discovery';
 import { groupMapPins, type PinGroup, type StudentMapPin } from '../../lib/map-clusters';
-import { validCoordinates } from '../../lib/maps';
 import type { KotaMapProps } from './KotaMap';
+import { inKotaMapArea } from '../../lib/map-area';
+import { HoverMapPin } from './HoverMapPin';
 import { MapPinOverlay } from './MapPinOverlay';
 
 export function StudentMapPins({ items, campus, campusPins = CAMPUSES, activeCampusId, selectedHostelId, onSelect, onCampusSelect, perspective }: KotaMapProps) {
@@ -21,8 +22,8 @@ export function StudentMapPins({ items, campus, campusPins = CAMPUSES, activeCam
   }, [map]);
   const selectedCampusId = activeCampusId ?? (onCampusSelect ? undefined : campus.id);
   const pins: StudentMapPin[] = [
-    ...campusPins.filter(c => validCoordinates(c.latitude, c.longitude)).map(c => ({ id: c.id, kind: 'campus' as const, latitude: c.latitude, longitude: c.longitude })),
-    ...items.filter(({ hostel }) => validCoordinates(hostel.latitude, hostel.longitude))
+    ...campusPins.filter(c => inKotaMapArea(c)).map(c => ({ id: c.id, kind: 'campus' as const, latitude: c.latitude, longitude: c.longitude })),
+    ...items.filter(({ hostel }) => inKotaMapArea(hostel))
       .map(({ hostel }) => ({ id: hostel.id, kind: 'hostel' as const, latitude: hostel.latitude!, longitude: hostel.longitude! })),
   ];
   const groups = groupMapPins(pins, zoom, [selectedHostelId, selectedCampusId].filter((id): id is string => !!id));
@@ -50,16 +51,20 @@ export function StudentMapPins({ items, campus, campusPins = CAMPUSES, activeCam
     if (pin.kind === 'campus') {
       const c = campusPins.find(c => c.id === pin.id)!;
       return <MapPinOverlay key={`campus:${c.id}`} lat={c.latitude} lng={c.longitude} zIndex={c.id === selectedCampusId ? 25 : 10}>
-        <button type="button" title={`${c.institute} ${c.name} — ${locationLabel(c)}`} aria-label={`Select ${c.institute} ${c.name} — ${locationLabel(c)}`} aria-pressed={c.id === selectedCampusId} onClick={() => onCampusSelect?.(c.id)} className={`student-campus-pin${c.id === selectedCampusId ? ' is-selected' : ''}`}>
+        <HoverMapPin id={c.id} name={`${c.institute} ${c.name}`} subtitle={c.area} kind="campus">
+        <button type="button" aria-label={`Select ${c.institute} ${c.name} — ${locationLabel(c)}`} aria-pressed={c.id === selectedCampusId} onClick={() => onCampusSelect?.(c.id)} className={`student-campus-pin${c.id === selectedCampusId ? ' is-selected' : ''}`}>
           <GraduationCap size={20}/><span>{c.institute}<small>{c.name}</small></span>
         </button>
+        </HoverMapPin>
       </MapPinOverlay>;
     }
     const { hostel, room } = items.find(({ hostel }) => hostel.id === pin.id)!;
     return <MapPinOverlay key={`hostel:${hostel.id}`} lat={hostel.latitude!} lng={hostel.longitude!} zIndex={selectedHostelId === hostel.id ? 30 : 20}>
-      <button type="button" title={`${hostel.name} — ${locationLabel(hostel)}`} aria-label={`Select ${hostel.name} on map`} aria-pressed={selectedHostelId === hostel.id} onClick={() => onSelect(hostel.id)} className={`student-hostel-pin${selectedHostelId === hostel.id ? ' is-selected' : ''}`}>
+      <HoverMapPin id={hostel.id} name={hostel.name} subtitle={hostel.locality} image={hostel.coverImage} kind="hostel">
+      <button type="button" aria-label={`Select ${hostel.name} on map`} aria-pressed={selectedHostelId === hostel.id} onClick={() => onSelect(hostel.id)} className={`student-hostel-pin${selectedHostelId === hostel.id ? ' is-selected' : ''}`}>
         <House size={15}/> ₹{monthlyTotal(room).toLocaleString('en-IN')}
       </button>
+      </HoverMapPin>
     </MapPinOverlay>;
   });
 }
