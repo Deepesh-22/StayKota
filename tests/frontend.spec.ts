@@ -99,3 +99,80 @@ test('reduced motion and image gallery remain functional', async ({ page }) => {
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).not.toBeVisible();
 });
+
+// Google is an external service. These checks validate integration state and URLs,
+// not Google's map content, tile availability or authenticated SDK rendering.
+async function stubGoogleFrame(page: Page) {
+  await page.route('https://www.google.com/**', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><html><body><p>External Google frame stub for integration tests.</p></body></html>' }));
+}
+
+test('whole Kota map opens city-wide and switches real-map layers', async ({ page }) => {
+  await stubGoogleFrame(page);
+  await page.goto('/map');
+  await expect(page.getByRole('heading', { name: 'Explore Kota', exact: true })).toBeVisible();
+  const frame = page.getByTitle('Google map of the whole city of Kota');
+  await expect(frame).toBeVisible();
+  const initial = new URL((await frame.getAttribute('src'))!);
+  expect(initial.origin).toBe('https://www.google.com');
+  expect(initial.searchParams.get('q')).toBe('25.183,75.839');
+  expect(initial.searchParams.get('z')).toBe('12');
+  await expect(page.locator('.discovery-map-illustration')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Satellite', exact: true }).click();
+  await expect(frame).toHaveAttribute('src', /t=k/);
+  await page.getByRole('button', { name: 'Map', exact: true }).click();
+  await expect(frame).toHaveAttribute('src', /t=m/);
+});
+
+test('city place search, campus and sample stay selection update Google view', async ({ page }) => {
+  await stubGoogleFrame(page);
+  await page.goto('/map');
+  const frame = page.getByTitle('Google map of the whole city of Kota');
+  await page.getByLabel('Search an area, road or landmark in Kota').fill('Chambal Garden');
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
+  await expect(page).toHaveURL(/q=Chambal/);
+  await expect(frame).toHaveAttribute('src', /Chambal/);
+  await page.getByRole('button', { name: 'Whole Kota', exact: true }).click();
+  await expect(page).not.toHaveURL(/q=/);
+  await page.getByLabel('Centre map on a coaching campus').selectOption('allen-talwandi');
+  await expect(frame).toHaveAttribute('src', /25.146%2C75.852/);
+  await page.getByRole('button', { name: 'Show Comfort Stay Hostel on map' }).click();
+  await expect(page).toHaveURL(/hostel=h1/);
+  await expect(frame).toHaveAttribute('src', /25.148%2C75.852/);
+  await expect(page.locator('.city-selected')).toContainText('Comfort Stay');
+  await page.getByRole('button', { name: 'Whole Kota', exact: true }).click();
+  await expect(frame).toHaveAttribute('src', /25.183%2C75.839/);
+  await expect(frame).toHaveAttribute('src', /z=12/);
+});
+
+test('city stay filters preserve room matching without hiding the actual city', async ({ page }) => {
+  await stubGoogleFrame(page);
+  await page.goto('/map?sharing=single&budget=5000&hostel=h5');
+  await expect(page.locator('.city-stay')).toHaveCount(0);
+  await expect(page.locator('.city-empty')).toBeVisible();
+  await expect(page.getByTitle('Google map of the whole city of Kota')).toBeVisible();
+  await expect(page.locator('.city-selected')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Reset room filters' }).click();
+  await expect(page.locator('.city-stay')).toHaveCount(7);
+  await expect(page.locator('.city-stays')).not.toContainText('Focus Nest');
+  await expect(page.locator('.city-selected')).toHaveCount(0);
+});
+
+test('mobile city map has an accessible hostel panel and a viewport-sized layout', async ({ page }) => {
+  await stubGoogleFrame(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/map');
+  await expect(page.getByTitle('Google map of the whole city of Kota')).toBeVisible();
+  const sizes = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth, height: document.documentElement.scrollHeight, window: innerHeight }));
+  expect(sizes.width).toBeLessThanOrEqual(sizes.viewport);
+  expect(sizes.height).toBeLessThanOrEqual(sizes.window + 1);
+  await page.getByRole('button', { name: /Stays \(/ }).click();
+  await expect(page.getByRole('dialog', { name: 'Hostel filters and sample stays' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Close hostel list' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Stays \(/ })).toBeFocused();
+  await page.getByRole('button', { name: /Stays \(/ }).click();
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByLabel('Centre map on a coaching campus')).toBeVisible();
+});

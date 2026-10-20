@@ -16,13 +16,14 @@ import { AdminPage } from './pages/AdminPage';
 import { HowItWorksPage } from './pages/HowItWorksPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { ComparePage } from './pages/ComparePage';
+import { KotaMapPage } from './pages/KotaMapPage';
 
 function RouteEffects() {
   const { pathname } = useLocation();
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
     const labels: Record<string, string> = { '/': 'Your Kota starts here', '/explore': 'Find your stay', '/compare': 'Compare your shortlist', '/login': 'Your student journey', '/dashboard': 'Your student space', '/owner': 'Owner workspace', '/admin': 'Listing moderation', '/how-it-works': 'How it works' };
-    document.title = `${labels[pathname] || (pathname.startsWith('/hostel/') ? 'Room details' : pathname.startsWith('/owner/listing/') ? 'Listing editor' : 'Find your way')} · StayKota`;
+    document.title = `${(pathname === '/map' ? 'Explore the whole of Kota' : labels[pathname]) || (pathname.startsWith('/hostel/') ? 'Room details' : pathname.startsWith('/owner/listing/') ? 'Listing editor' : 'Find your way')} · StayKota`;
   }, [pathname]);
   return null;
 }
@@ -37,6 +38,7 @@ export default function App() {
           <Route element={<Layout />}>
             <Route path="/" element={<HomePage />} />
             <Route path="/explore" element={<ExplorePage />} />
+            <Route path="/map" element={<KotaMapPage />} />
             <Route path="/compare" element={<ComparePage />} />
             <Route path="/hostel/:id" element={<HostelDetailPage />} />
             <Route path="/login" element={<LoginPage />} />
