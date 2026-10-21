@@ -833,6 +833,66 @@ html:not(:has(.home-page)) .wizard-sub-label {
   margin-bottom: 6px;
 }
 
+html:not(:has(.home-page)) .wizard-3d-preview-banner {
+  margin-bottom: 20px;
+}
+
+/* ==========================================================================
+   Non-Homepage Header Glassmorphism, Footer Refinement & Route Choreography
+   (Strictly scoped to `html:not(:has(.home-page))` — 0% effect on `/` Homepage)
+   ========================================================================== */
+
+html:not(:has(.home-page)) header.sticky {
+  background: rgba(248, 247, 241, 0.86) !important;
+  backdrop-filter: blur(16px) saturate(1.25);
+  border-bottom-color: rgba(196, 217, 203, 0.72) !important;
+  box-shadow: 0 6px 24px -14px rgba(15, 56, 46, 0.14);
+}
+
+html:not(:has(.home-page)) header nav a {
+  position: relative;
+  font-weight: 650;
+  transition: color 0.18s ease, transform 0.18s ease;
+}
+
+html:not(:has(.home-page)) header nav a[aria-current='page'] {
+  color: #0f766e !important;
+  font-weight: 750;
+}
+
+/* Smooth entrance motion across non-home pages (never interferes with La Phase 5 portal iris) */
+@keyframes sk-nonhome-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+html:not(:has(.home-page)):not(:has(.is-cinematic-entry)):not(:has(.is-portal-flying)) main > * {
+  animation: sk-nonhome-enter 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+html:not(:has(.home-page)) .owner-kpi,
+html:not(:has(.home-page)) .owner-listing,
+html:not(:has(.home-page)) .workspace-panel,
+html:not(:has(.home-page)) .detail-metric-tile {
+  transition:
+    transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.2s ease;
+}
+
+html:not(:has(.home-page)) .owner-kpi:hover,
+html:not(:has(.home-page)) .detail-metric-tile:hover {
+  transform: translateY(-3px);
+  border-color: #a9cebb;
+  box-shadow: 0 16px 32px -16px rgba(15, 62, 50, 0.18);
+}
+
 @media (max-width: 720px) {
   html:not(:has(.home-page)) .discovery-sort {
     width: 100%;

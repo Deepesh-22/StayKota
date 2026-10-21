@@ -24,6 +24,7 @@ import { useApp } from '../context/AppContext';
 import { LOCALITIES, AMENITIES } from '../data/mockData';
 import { Button } from '../components/ui/Button';
 import { CustomSelect } from '../components/ui/CustomSelect';
+import { HostelRoom3DCanvas } from '../components/three/HostelRoom3DCanvas';
 import type { Hostel, RoomType, SharingType, ListingStatus } from '../types';
 import { monthlyTotal } from '../lib/discovery';
 import {
@@ -911,6 +912,14 @@ export function ListingWizardPage() {
                     {errors.rooms}
                   </p>
                 )}
+
+                <div className="wizard-3d-preview-banner">
+                  <HostelRoom3DCanvas
+                    capacity={rooms[0]?.capacity || 2}
+                    roomName={rooms[0]?.name || 'Room option 1'}
+                    height={235}
+                  />
+                </div>
 
                 <div className="wizard-rooms-list">
                   {rooms.map((r, idx) => {

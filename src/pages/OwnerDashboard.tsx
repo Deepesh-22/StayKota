@@ -29,6 +29,7 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { CustomSelect } from '../components/ui/CustomSelect';
+import { KotaHorizon3DCanvas } from '../components/three/KotaHorizon3DCanvas';
 import type { Hostel, ListingStatus } from '../types';
 import { monthlyTotal } from '../lib/discovery';
 import { validCoordinates } from '../lib/coordinates';
@@ -471,8 +472,9 @@ export function OwnerDashboard() {
         </aside>
 
         <div className="owner-main">
-          <header className="owner-page-header">
-            <div>
+          <header className="owner-page-header sk-horizon-wrap">
+            <KotaHorizon3DCanvas />
+            <div className="sk-horizon-content">
               <p className="owner-eyebrow">HOSTEL OWNER DASHBOARD</p>
               <h1>
                 {section === 'visits'
@@ -487,7 +489,7 @@ export function OwnerDashboard() {
                   : 'Add real room photos, auto-detect your GPS entrance pin in one click, and publish straight to Explore & Kota Map.'}
               </p>
             </div>
-            <div className="owner-header-actions">
+            <div className="owner-header-actions sk-horizon-content">
               <Link className="owner-secondary" to="/map">
                 <MapPin size={15} /> Kota Map
               </Link>

@@ -10,6 +10,8 @@ import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { CustomSelect } from '../components/ui/CustomSelect';
+import { KotaHorizon3DCanvas } from '../components/three/KotaHorizon3DCanvas';
+import { KotaBeacon3DCanvas } from '../components/three/KotaBeacon3DCanvas';
 import type { VisitRequest } from '../types';
 import '../styles/workspaces.css';
 
@@ -45,9 +47,12 @@ export function StudentDashboard() {
 
   if (!user || user.role !== 'student') return (
     <div className="workspace-gate">
+      <div className="workspace-gate__3d">
+        <KotaBeacon3DCanvas mode="campus" height={205} label="YOUR KOTA SPACE · 3D" compact />
+      </div>
       <span className="workspace-gate-icon"><Heart size={28} /></span>
       <p className="workspace-eyebrow">Your student space</p>
-      <h1>A little closer to your new home.</h1>
+      <h1>A little closer to <em>your new home.</em></h1>
       <p>Sign in to keep your shortlist and visit requests together.</p>
       <Link className="workspace-primary-link" to={`/login?role=student&redirect=${encodeURIComponent(`/dashboard${params.size ? `?${params}` : ''}`)}`}>Student sign in <ArrowUpRight size={16} /></Link>
       <span className="workspace-fineprint">Demo sign in · No real SMS is sent</span>
@@ -116,16 +121,17 @@ export function StudentDashboard() {
   const empty = (message: string, detail: string) => <div className="workspace-empty"><MapPin size={30} /><h3>{message}</h3><p>{detail}</p><Link to={exploreUrl}>Explore nearby hostels <ArrowUpRight size={15} /></Link></div>;
 
   return <div className="workspace-shell student-workspace">
-    <div className="workspace-heading">
-      <div><p className="workspace-eyebrow">A place for your next chapter</p><h1>Hi, {user.name.split(' ')[0]}<span className="workspace-wave" aria-hidden="true"> ✳</span></h1><p>Keep exploring, compare your favourites, and plan your visits.</p></div>
-      <div className="workspace-campus"><MapPin size={17} /><span><small>Your coaching campus</small><CustomSelect variant="ghost" ariaLabel="Your coaching campus" value={campus.id} searchPlaceholder="Search coaching campus…" options={CAMPUSES.map(c => ({ value: c.id, label: `${c.institute} · ${c.name}` }))} onChange={nextVal => { const next = new URLSearchParams(params); next.set('campus', nextVal); setParams(next); }} /></span></div>
+    <div className="workspace-heading sk-horizon-wrap">
+      <KotaHorizon3DCanvas />
+      <div className="sk-horizon-content"><p className="workspace-eyebrow">A place for your next chapter</p><h1>Hi, {user.name.split(' ')[0]}<span className="workspace-wave" aria-hidden="true"> ✳</span></h1><p>Keep exploring, compare your favourites, and plan your visits.</p></div>
+      <div className="workspace-campus sk-horizon-content"><MapPin size={17} /><span><small>Your coaching campus</small><CustomSelect variant="ghost" ariaLabel="Your coaching campus" value={campus.id} searchPlaceholder="Search coaching campus…" options={CAMPUSES.map(c => ({ value: c.id, label: `${c.institute} · ${c.name}` }))} onChange={nextVal => { const next = new URLSearchParams(params); next.set('campus', nextVal); setParams(next); }} /></span></div>
     </div>
     <div className="workspace-grid">
       <aside className="workspace-sidebar"><nav aria-label="Student dashboard">{sections.map(({ id, label, icon: Icon }) => <button key={id} type="button" aria-current={section === id ? 'page' : undefined} onClick={() => setSection(id)}><Icon size={18} /><span>{label}</span>{id === 'visits' && upcoming.length > 0 && <small>{upcoming.length}</small>}</button>)}</nav><div className="workspace-sidebar-note"><ArrowUpRight aria-hidden="true" /><p>Same goals.<br />A place to grow.</p><Link to="/how-it-works">A little help along the way</Link></div></aside>
       <div className="workspace-main">
         {notice && <p className="workspace-notice" role="status"><Check size={16} />{notice}</p>}
         {section === 'overview' && <>
-          <section className="workspace-welcome"><div><p className="workspace-eyebrow">Room to focus. Space to feel at home.</p><h2>Your Kota shortlist</h2><p>A few good options, one clearer decision.</p><Link to={exploreUrl}>Continue exploring <ArrowUpRight size={16} /></Link></div><div className="workspace-mini-city" aria-hidden="true"><i /><i /><i /><i /><i /><span>✦</span></div></section>
+          <section className="workspace-welcome"><div className="workspace-welcome__copy"><p className="workspace-eyebrow">Room to focus. Space to feel at home.</p><h2>Your Kota shortlist</h2><p>A few good options, one clearer decision.</p><div className="workspace-kpis"><span><strong>{savedHostels.length}</strong> saved stays</span><span><strong>{upcoming.length}</strong> upcoming visits</span><span><strong>{comparisonIds.length}</strong> in compare</span></div><Link to={exploreUrl}>Continue exploring <ArrowUpRight size={16} /></Link></div><div className="workspace-welcome__3d"><KotaBeacon3DCanvas mode="campus" height={196} label="3D KOTA VIEW" compact /></div></section>
           <div className="workspace-section-heading"><h2>Saved for later <span>{savedHostels.length}</span></h2><button onClick={() => setSection('saved')}>View all <ArrowUpRight size={15} /></button></div>
           {savedHostels.length ? <div className="workspace-saved-grid">{savedHostels.slice(0, 2).map(h => <HostelCard key={h.id} hostel={h} campus={campus} />)}</div> : empty('Your shortlist starts here', 'Save a hostel while you browse. It will be waiting right here.')}
           <div className="workspace-overview-bottom"><section className="workspace-panel"><div className="workspace-section-heading"><h2>Visit requests</h2><button onClick={() => setSection('visits')}>View all</button></div>{myVisits.length ? myVisits.slice(0, 2).map(v => visitCard(v)) : <div className="workspace-small-empty"><CalendarDays size={24} /><p>No visits requested yet.</p><span>Find a room you like, then choose a day to visit.</span></div>}</section><section className="workspace-panel workspace-next-step"><Heart size={22} /><h2>Deciding together?</h2><p>Compare room costs and facilities side by side before you visit.</p><Link to={comparisonIds.length >= 2 ? `/compare?campus=${campus.id}` : exploreUrl}>{comparisonIds.length >= 2 ? `Compare ${comparisonIds.length} hostels` : 'Build your shortlist'} <ArrowUpRight size={16} /></Link><small>Shared photos and prices are sample content in this demo.</small></section></div>

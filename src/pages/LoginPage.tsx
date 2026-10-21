@@ -5,6 +5,7 @@ import { Check, Calendar, Heart, Shield } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Button } from '../components/ui/Button';
 import { KotaHorizon3DCanvas } from '../components/three/KotaHorizon3DCanvas';
+import { KotaBeacon3DCanvas } from '../components/three/KotaBeacon3DCanvas';
 import type { UserRole } from '../types';
 import '../styles/public-support.css';
 
@@ -149,9 +150,11 @@ export function LoginPage() {
           <Link to="/" className="login-brand sk-horizon-content inline-flex items-center gap-2.5 self-start"><div className="w-9 h-9 flex items-center justify-center font-bold text-white">S</div><span className="font-semibold text-lg">StayKota</span></Link>
           <div className="sk-horizon-content">
             <p className="public-eyebrow mb-4">Same city. Bigger dreams.</p>
-            <h2>Your next chapter<br/>starts close by.</h2>
+            <h2>Your next chapter<br/><em>starts close by.</em></h2>
             <p className="mt-4 text-sm leading-relaxed max-w-xs">A room near your coaching. A little space to make your own. Find your starting point in Kota.</p>
-            <svg className="login-scene" viewBox="0 0 420 230" aria-hidden="true"><ellipse cx="208" cy="191" rx="174" ry="25" fill="#dce4d2"/><path d="M32 168 147 120 251 171 379 106" fill="none" stroke="#fffdf5" strokeWidth="24"/><path d="M32 168 147 120 251 171 379 106" fill="none" stroke="#b8c4ac" strokeWidth="2" strokeDasharray="6 8"/><g><path d="m85 92 59-28 61 28v82l-61 28-59-28z" fill="#e4cfaf"/><path d="m144 120 61-28v82l-61 28z" fill="#c9b38f"/><path d="m85 92 59-28 61 28-61 28z" fill="#fff7e7"/><path d="m102 109 12 6v14l-12-6m24-2 12 6v14l-12-6m-24 5 12 6v14l-12-6m24-2 12 6v14l-12-6" fill="#9eac99"/><path d="m159 130 13-6v15l-13 6m15-23 13-6v15l-13 6m-28 16 13-6v15l-13 6m15-23 13-6v15l-13 6" fill="#8d9e85"/></g><path d="M289 39c-25 0-42 18-42 40 0 29 42 64 42 64s42-35 42-64c0-22-17-40-42-40" fill="#0f766e"/><circle cx="289" cy="78" r="13" fill="#fffdf5"/><path d="m262 145 25-12 27 12v41l-27 12-25-12z" fill="#d3bea1"/><path d="m287 157 27-12v41l-27 12z" fill="#bda480"/><circle cx="61" cy="124" r="17" fill="#b4c5a1"/><path d="M61 137v24" stroke="#8b9d78" strokeWidth="5"/><circle cx="356" cy="148" r="22" fill="#acbd98"/><path d="M356 167v26" stroke="#8b9d78" strokeWidth="5"/><path d="m218 56 4 7 7 2-7 3-4 7-3-7-7-3 7-2z" fill="#c9986f"/></svg>
+            <div className="login-scene">
+              <KotaBeacon3DCanvas mode="campus" height={214} label="DRAG TO ORBIT · 3D" compact />
+            </div>
             <div className="login-benefits"><span><Check size={12}/> Clear room costs</span><span><Heart size={12}/> Your shortlist</span><span><Calendar size={12}/> Plan a visit</span></div>
           </div>
           <p className="login-reassurance sk-horizon-content">Frontend preview · all listings are sample content.<br/>Demo login saves your session on this device. No real SMS is sent.</p>

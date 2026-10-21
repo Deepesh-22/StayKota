@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Building2, Check, ChevronDown, Info, MapPin } from 'lucide-react';
 import { TiltSurface3D } from '../components/ui/TiltSurface3D';
 import { KotaHorizon3DCanvas } from '../components/three/KotaHorizon3DCanvas';
+import { KotaBeacon3DCanvas } from '../components/three/KotaBeacon3DCanvas';
 import '../styles/public-support.css';
 
 const FAQS = [
@@ -26,12 +27,17 @@ export function HowItWorksPage() {
     { title: 'Request a visit', description: 'Save a date and your questions. In a real enquiry, the owner would coordinate the visit before you make a decision.' },
   ];
   return <div className="public-support help-page">
-    <div className="sk-horizon-wrap">
+    <div className="sk-horizon-wrap help-hero-band">
       <KotaHorizon3DCanvas />
-      <section className="public-container help-heading sk-horizon-content">
-        <p className="public-eyebrow"><MapPin size={14}/> A little guidance for your Kota journey</p>
-        <h1>Find your room.<br/><span>Know your next step.</span></h1>
-        <p>One less thing to figure out. Here’s how to explore your options, understand the costs and plan a visit.</p>
+      <section className="public-container help-heading help-heading--split sk-horizon-content">
+        <div>
+          <p className="public-eyebrow"><MapPin size={14}/> A little guidance for your Kota journey</p>
+          <h1>Find your room.<br/><span>Know your next step.</span></h1>
+          <p>One less thing to figure out. Here’s how to explore your options, understand fixed monthly costs and plan a visit with confidence.</p>
+        </div>
+        <div className="help-hero-3d">
+          <KotaBeacon3DCanvas mode="campus" height={252} label="INTERACTIVE 3D KOTA GUIDE" />
+        </div>
       </section>
     </div>
     <section className="public-container" aria-label="How to find a hostel">

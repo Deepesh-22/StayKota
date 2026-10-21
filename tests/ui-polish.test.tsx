@@ -6,13 +6,20 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { CustomSelect } from '../src/components/ui/CustomSelect';
 import { HostelRoom3DCanvas } from '../src/components/three/HostelRoom3DCanvas';
 import { KotaHorizon3DCanvas } from '../src/components/three/KotaHorizon3DCanvas';
+import { KotaBeacon3DCanvas } from '../src/components/three/KotaBeacon3DCanvas';
+import { KotaShortlist3DCanvas } from '../src/components/three/KotaShortlist3DCanvas';
 import { AppProvider } from '../src/context/AppContext';
 import { CompareProvider } from '../src/context/CompareContext';
 import { HostelTransitionProvider } from '../src/context/HostelTransitionContext';
+import { Layout } from '../src/components/layout/Layout';
+import { ComparePage } from '../src/pages/ComparePage';
 import { ExplorePage } from '../src/pages/ExplorePage';
+import { HomePage } from '../src/pages/HomePage';
 import { HostelDetailPage } from '../src/pages/HostelDetailPage';
 import { HostelPreviewPage } from '../src/pages/HostelPreviewPage';
 import { HowItWorksPage } from '../src/pages/HowItWorksPage';
+import { NotFoundPage } from '../src/pages/NotFoundPage';
+import { StudentDashboard } from '../src/pages/StudentDashboard';
 
 (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -291,5 +298,91 @@ describe('StayKota Non-Homepage UI/UX, CustomSelect & 3D Interactions', () => {
     expect(document.querySelector('.sk-horizon3d')).not.toBeNull();
     expect(document.querySelector('.sk-room3d__canvas-host')).not.toBeNull();
     expect(document.body.textContent).toContain('2 Students · 2-Sharing');
+  });
+
+  it('renders ComparePage with live 3D Shortlist Skyline, StudentDashboard & 404 3D Kota Beacon scenes, while keeping Homepage free of non-home chrome', async () => {
+    localStorage.setItem(
+      'staykota_user',
+      JSON.stringify({ id: 'u-student', name: 'Aarav Sharma', email: 'student@demo.local', role: 'student' }),
+    );
+
+    mount(
+      <AppProvider>
+        <CompareProvider>
+          <MemoryRouter initialEntries={['/compare?ids=h1,h4&sharing=double&campus=allen-talwandi']}>
+            <HostelTransitionProvider>
+              <Routes>
+                <Route element={<Layout />}>
+                  <Route path="/compare" element={<ComparePage />} />
+                </Route>
+              </Routes>
+            </HostelTransitionProvider>
+          </MemoryRouter>
+        </CompareProvider>
+      </AppProvider>,
+    );
+
+    expect(document.querySelector('.sk-scroll-progress')).not.toBeNull();
+    expect(document.querySelector('.sk-shortlist3d')).not.toBeNull();
+    expect(document.querySelectorAll('.compare-table thead th')).toHaveLength(3);
+
+    // Unmount and verify Homepage (`/`) renders ZERO non-home scroll progress bar
+    act(() => {
+      root?.unmount();
+    });
+    container?.remove();
+
+    mount(
+      <AppProvider>
+        <CompareProvider>
+          <MemoryRouter initialEntries={['/']}>
+            <HostelTransitionProvider>
+              <Routes>
+                <Route element={<Layout />}>
+                  <Route path="/" element={<HomePage />} />
+                </Route>
+              </Routes>
+            </HostelTransitionProvider>
+          </MemoryRouter>
+        </CompareProvider>
+      </AppProvider>,
+    );
+    expect(document.querySelector('.sk-scroll-progress')).toBeNull();
+
+    // Unmount and verify StudentDashboard + NotFoundPage + standalone 3D canvases render cleanly
+    act(() => {
+      root?.unmount();
+    });
+    container?.remove();
+
+    mount(
+      <AppProvider>
+        <CompareProvider>
+          <MemoryRouter initialEntries={['/dashboard']}>
+            <HostelTransitionProvider>
+              <div>
+                <StudentDashboard />
+                <NotFoundPage />
+                <KotaBeacon3DCanvas mode="detour" height={200} />
+                <KotaShortlist3DCanvas
+                  items={[{ id: 'h1', name: 'Comfort Stay Hostel', monthlyRent: 5500, distanceKm: 0.8 }]}
+                  campusName="ALLEN · Talwandi"
+                />
+              </div>
+            </HostelTransitionProvider>
+          </MemoryRouter>
+        </CompareProvider>
+      </AppProvider>,
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 60));
+    });
+
+    expect(document.querySelector('.workspace-welcome__3d .sk-beacon3d')).not.toBeNull();
+    expect(document.querySelector('.not-found-art .sk-beacon3d')).not.toBeNull();
+    expect(document.querySelector('.workspace-kpis')).not.toBeNull();
+
+    localStorage.clear();
   });
 });
