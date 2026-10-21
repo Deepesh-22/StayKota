@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, ChevronLeft, ChevronRight, Cuboid, Images } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ChevronLeft, ChevronRight, Cuboid, Images, Plus } from 'lucide-react';
 import type { Hostel, RoomType } from '../../types';
 import { RoomShowcase } from '../hostel/RoomShowcase';
 
@@ -15,6 +15,7 @@ export function FeaturedHostelStage({ hostel, room, expanded, onToggle }: {
   const failed = !image || failedImages.includes(image);
   const panelId = `featured-photos-${hostel.id}`;
   const sample = hostel.photography !== 'property';
+  const controlledPanels = `${panelId} featured-info-${hostel.id}`;
 
   return <div className={`featured-stage${expanded ? ' is-open' : ''}`}>
     <div className="featured-stage-concept" aria-hidden="true">
@@ -25,6 +26,10 @@ export function FeaturedHostelStage({ hostel, room, expanded, onToggle }: {
       <div className="featured-stage-model"><RoomShowcase capacity={room?.capacity || 1} /></div>
       <span className="featured-stage-capacity">{room ? `${room.capacity} ${room.capacity === 1 ? 'student' : 'students'} / room` : 'Concept room'}</span>
     </div>
+
+    {!expanded && <button type="button" className="featured-card-open" data-carousel-drag-surface aria-label={`Open photos and information for ${hostel.name}`} aria-expanded={expanded} aria-controls={controlledPanels} onClick={onToggle}>
+      <span><Plus size={18} aria-hidden="true" /></span>
+    </button>}
 
     <div className="featured-stage-photos" id={panelId} aria-hidden={!expanded} inert={!expanded}>
       {!failed ? <img className="featured-stage-image" src={image} alt={`${sample ? 'Sample' : 'Property'} photo ${photo + 1} at ${hostel.name}`} loading="lazy" decoding="async" onError={() => setFailedImages(current => [...current, image])} /> : <div className="featured-stage-image-error" role="status">
@@ -41,8 +46,8 @@ export function FeaturedHostelStage({ hostel, room, expanded, onToggle }: {
 
     <div className="featured-stage-toolbar">
       <span className="featured-stage-mode">{expanded ? <Images size={14} /> : <Cuboid size={14} />}{expanded ? 'Photos' : 'Room concept'}</span>
-      <button type="button" className="featured-stage-toggle" aria-expanded={expanded} aria-controls={panelId} aria-label={`${expanded ? 'Close' : 'Open'} a closer look at ${hostel.name}`} onClick={onToggle}>
-        <span>{expanded ? 'Back to room' : 'Take a closer look'}</span>{expanded ? <ArrowDownLeft size={16} /> : <ArrowUpRight size={16} />}
+      <button type="button" className="featured-stage-toggle" aria-expanded={expanded} aria-controls={controlledPanels} aria-label={`${expanded ? 'Close' : 'Open'} a closer look at ${hostel.name}`} onClick={onToggle}>
+        <span>{expanded ? 'Close preview' : 'Take a closer look'}</span>{expanded ? <ArrowDownLeft size={16} /> : <ArrowUpRight size={16} />}
       </button>
     </div>
     {!expanded && <p className="featured-stage-disclaimer">Concept illustration · not a measured floor plan</p>}

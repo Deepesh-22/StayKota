@@ -744,14 +744,19 @@ test('landing cards reveal photos without losing room, price, comparison or prev
   await page.goto('/');
   const deck = page.getByRole('region', { name: 'Featured demo hostels' });
   const card = deck.locator('article').first();
-  const price = await card.locator('.discovery-card-pricing').innerText();
-  const href = await card.locator('.discovery-card-cta').getAttribute('href');
+  const compactPrice = (await card.locator('.featured-card-starting-price').innerText()).match(/₹[\d,]+/)![0];
+  await expect(card.locator('.discovery-card-content')).toHaveAttribute('aria-hidden', 'true');
+  await expect(card.getByRole('button', { name: /Add .* to comparison/ })).toHaveCount(0);
   const compactWidth = (await card.boundingBox())!.width;
-  const open = card.getByRole('button', { name: /Open a closer look/ });
+  const open = card.locator('.featured-stage-toggle');
   await expect(open).toHaveAttribute('aria-expanded', 'false');
   await open.click();
   const close = card.getByRole('button', { name: /Close a closer look/ });
   await expect(close).toHaveAttribute('aria-expanded', 'true');
+  await expect(card.locator('.discovery-card-content')).toHaveAttribute('aria-hidden', 'false');
+  await expect(card.locator('.discovery-card-price')).toContainText(compactPrice);
+  const price = await card.locator('.discovery-card-pricing').innerText();
+  const href = await card.locator('.discovery-card-cta').getAttribute('href');
   await expect.poll(async () => (await card.boundingBox())!.width).toBeGreaterThan(compactWidth * 1.8);
   await expect(card.locator('.featured-reveal-address')).toContainText('45, Landmark City, Kota');
   const photo = card.locator('.featured-stage-image');
@@ -767,6 +772,7 @@ test('landing cards reveal photos without losing room, price, comparison or prev
   await page.keyboard.press('Escape');
   await expect(open).toHaveAttribute('aria-expanded', 'false');
   await expect(open).toBeFocused();
+  await expect(card.locator('.discovery-card-content')).toHaveAttribute('aria-hidden', 'true');
   await open.click();
   await card.locator('.discovery-card-cta').click();
   await expect(page).toHaveURL(/hostel\/h2\/preview\?.*campus=allen-landmark.*room=rt5/);
@@ -782,7 +788,7 @@ test('landing carousel opens one card at a time and reaches the last card in bot
   await page.goto('/');
   const cards = page.locator('.home-deck-item article');
   const count = await cards.count();
-  await cards.first().getByRole('button', { name: /Open a closer look/ }).click();
+  await cards.first().locator('.featured-stage-toggle').click();
   for (let index = 1; index < count; index++) {
     await page.getByRole('button', { name: 'Next featured hostel', exact: true }).click();
     await expect(cards.nth(index)).toHaveClass(/is-revealed/);
@@ -802,7 +808,7 @@ test('mobile landing reveal supports keyboard, reduced motion, horizontal browsi
   await page.goto('/');
   const deck = page.getByRole('region', { name: 'Featured demo hostels' });
   const card = deck.locator('article').first();
-  const open = card.getByRole('button', { name: /Open a closer look/ });
+  const open = card.locator('.featured-stage-toggle');
   await open.focus(); await page.keyboard.press('Enter');
   await expect(card).toHaveClass(/is-revealed/);
   const photo = card.locator('.featured-stage-image');
@@ -821,14 +827,14 @@ test('mobile landing reveal supports keyboard, reduced motion, horizontal browsi
   expect(widths.actual).toBeLessThanOrEqual(widths.viewport);
   await page.getByLabel('Monthly budget', { exact: true }).selectOption('5000');
   await expect(page.locator('.home-deck-item.is-expanded')).toHaveCount(0);
-  await expect(deck.locator('article').first().locator('.discovery-card-price')).toContainText('₹4,800');
+  await expect(deck.locator('article').first().locator('.featured-card-starting-price')).toContainText('₹4,800');
 });
 
 test('landing reveal recovers failed photographs and retains the selected room', async ({ page }) => {
   await page.route('**/images/hostel-exterior.webp', route => route.abort());
   await page.goto('/');
   const card = page.locator('.home-deck-item article').first();
-  await card.getByRole('button', { name: /Open a closer look/ }).click();
+  await card.locator('.featured-stage-toggle').click();
   await expect(card.getByRole('status')).toContainText('This photo couldn’t load.');
   await expect(card.locator('.discovery-card-price')).toContainText('₹7,000');
   await page.unroute('**/images/hostel-exterior.webp');
@@ -842,7 +848,7 @@ test('landing reveal recovers failed photographs and retains the selected room',
 
 test('a changed landing preference clears expanded state and recovers empty room results', async ({ page }) => {
   await page.goto('/');
-  await page.locator('.home-deck-item article').first().getByRole('button', { name: /Open a closer look/ }).click();
+  await page.locator('.home-deck-item article').first().locator('.featured-stage-toggle').click();
   await page.getByLabel('My coaching campus').selectOption('allen-talwandi');
   await expect(page.locator('.home-deck-item.is-expanded')).toHaveCount(0);
   await page.getByLabel('My kind of room').selectOption('single');
@@ -851,7 +857,7 @@ test('a changed landing preference clears expanded state and recovers empty room
   await page.getByRole('button', { name: /Reset room preferences/ }).click();
   await expect(page.locator('.home-deck-item')).toHaveCount(4);
   const card = page.locator('.home-deck-item article').first();
-  await card.getByRole('button', { name: /Open a closer look/ }).click();
+  await card.locator('.featured-stage-toggle').click();
   await expect(card).toHaveClass(/is-revealed/);
   await expect(card.locator('.discovery-card-campus')).toContainText('Talwandi');
 });
@@ -861,7 +867,7 @@ test('a single featured match reveals cleanly with disabled carousel arrows', as
   await page.getByRole('group', { name: 'Hostel preference' }).getByRole('button', { name: 'Co-ed', exact: true }).click();
   await expect(page.locator('.home-deck-item')).toHaveCount(1);
   const card = page.locator('.home-deck-item article');
-  await card.getByRole('button', { name: /Open a closer look/ }).click();
+  await card.locator('.featured-stage-toggle').click();
   await expect(card).toHaveClass(/is-revealed/);
   await expect(card.locator('.featured-reveal-address')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Previous featured hostel', exact: true })).toBeDisabled();
@@ -890,5 +896,113 @@ test('touch gestures browse the landing cards without triggering a reveal', asyn
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await expect.poll(() => deck.evaluate(node => node.scrollLeft)).toBeGreaterThan(100);
   await expect(deck.locator('article.is-revealed')).toHaveCount(0);
+  await context.close();
+});
+
+async function dragLandingPhoto(page: Page) {
+  const deck = page.getByRole('region', { name: 'Featured demo hostels' });
+  await deck.evaluate(node => node.scrollIntoView({ block: 'start', behavior: 'instant' }));
+  const surface = deck.locator('.featured-card-open').first();
+  const box = (await surface.boundingBox())!;
+  const x = box.x + box.width * .8;
+  const y = box.y + box.height * .45;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x - 190, y, { steps: 12 });
+  await page.mouse.up();
+  return deck;
+}
+
+test('desktop landing photo surfaces drag horizontally without opening and a deliberate click unfolds', async ({ page }) => {
+  await page.goto('/');
+  const deck = await dragLandingPhoto(page);
+  await expect.poll(() => deck.evaluate(node => node.scrollLeft)).toBeGreaterThan(100);
+  await expect(deck.locator('article.is-revealed')).toHaveCount(0);
+  await expect(page).toHaveURL(/\/$/);
+  const second = deck.locator('article').nth(1);
+  await second.locator('.featured-card-open').click();
+  await expect(second).toHaveClass(/is-revealed/);
+  await expect(second.locator('.featured-reveal-address')).toBeVisible();
+  await expect(second.getByRole('button', { name: /Add .* to comparison/ })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(second).not.toHaveClass(/is-revealed/);
+  await expect(second.locator('.featured-stage-toggle')).toBeFocused();
+  await second.locator('.featured-card-summary-open').click();
+  await expect(second).toHaveClass(/is-revealed/);
+});
+
+test('landing edge hover browses in either direction and stops at centre, outside or an open card', async ({ page }) => {
+  await page.goto('/');
+  const deck = page.getByRole('region', { name: 'Featured demo hostels' });
+  await deck.evaluate(node => node.scrollIntoView({ block: 'start', behavior: 'instant' }));
+  const box = (await deck.boundingBox())!;
+  const y = box.y + 120;
+  await page.mouse.move(box.x + box.width - 18, y);
+  await expect.poll(() => deck.evaluate(node => node.scrollLeft)).toBeGreaterThan(45);
+  const browsedRight = await deck.evaluate(node => node.scrollLeft);
+  await page.mouse.move(box.x + box.width / 2, y);
+  await page.waitForTimeout(150);
+  const centreStop = await deck.evaluate(node => node.scrollLeft);
+  expect(Math.abs(centreStop - browsedRight)).toBeLessThan(6);
+  await page.waitForTimeout(250);
+  expect(Math.abs(await deck.evaluate(node => node.scrollLeft) - centreStop)).toBeLessThan(3);
+
+  await page.mouse.move(box.x + 18, y);
+  await expect.poll(() => deck.evaluate(node => node.scrollLeft)).toBeLessThan(centreStop - 15);
+  await page.mouse.move(box.x + box.width / 2, box.y - 20);
+  await page.waitForTimeout(150);
+  const outsideStop = await deck.evaluate(node => node.scrollLeft);
+  await page.waitForTimeout(250);
+  expect(Math.abs(await deck.evaluate(node => node.scrollLeft) - outsideStop)).toBeLessThan(3);
+
+  const card = deck.locator('article').first();
+  await card.locator('.featured-card-open').click();
+  await expect(card).toHaveClass(/is-revealed/);
+  await page.waitForTimeout(700);
+  const openedBox = (await deck.boundingBox())!;
+  await page.mouse.move(openedBox.x + openedBox.width - 18, openedBox.y + 120);
+  const openStop = await deck.evaluate(node => node.scrollLeft);
+  await page.waitForTimeout(300);
+  expect(Math.abs(await deck.evaluate(node => node.scrollLeft) - openStop)).toBeLessThan(3);
+});
+
+test('reduced motion disables landing edge hover while retaining deliberate mouse dragging', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  const deck = page.getByRole('region', { name: 'Featured demo hostels' });
+  await deck.evaluate(node => node.scrollIntoView({ block: 'start', behavior: 'instant' }));
+  const box = (await deck.boundingBox())!;
+  const before = await deck.evaluate(node => node.scrollLeft);
+  await page.mouse.move(box.x + box.width - 18, box.y + 120);
+  await page.waitForTimeout(400);
+  expect(Math.abs(await deck.evaluate(node => node.scrollLeft) - before)).toBeLessThan(3);
+  await dragLandingPhoto(page);
+  await expect.poll(() => deck.evaluate(node => node.scrollLeft)).toBeGreaterThan(100);
+  await expect(deck.locator('article.is-revealed')).toHaveCount(0);
+});
+
+test('an immediate touch swipe interrupts the opened landing card positioning animation', async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  const page = await context.newPage();
+  await page.goto('/');
+  const deck = page.getByRole('region', { name: 'Featured demo hostels' });
+  await deck.evaluate(node => node.scrollIntoView({ block: 'start', behavior: 'instant' }));
+  const card = deck.locator('article').first();
+  await card.locator('.featured-card-open').click();
+  await expect(card).toHaveClass(/is-revealed/);
+  const box = (await deck.boundingBox())!;
+  const y = Math.max(130, box.y + 140);
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 300, y }] });
+  for (const x of [260, 220, 180]) {
+    await page.waitForTimeout(40);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y }] });
+  }
+  // The student's gesture must retain control while the opening animation is still running.
+  await page.waitForTimeout(50);
+  expect(await deck.evaluate(node => node.scrollLeft)).toBeGreaterThan(50);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect(card).toHaveClass(/is-revealed/);
+  await expect(deck.locator('article.is-revealed')).toHaveCount(1);
   await context.close();
 });

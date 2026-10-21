@@ -1,33 +1,50 @@
-/* Landing-page cards only. Explore keeps its existing room/photo switcher. */
-.featured-reveal-intro { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-bottom: 18px; color: #526d5c; }
+/* The compact landing collection unfolds into a photo and an information panel. */
+.featured-reveal-intro { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-bottom: 10px; color: #526d5c; }
 .featured-reveal-intro > span { font-size: 12px; font-weight: 600; }
 .featured-reveal-intro p { font-size: 11px; color: #788573; }
-.home-featured-deck--reveal { position: relative; align-items: stretch; scroll-snap-type: x proximity; scroll-margin-top: 96px; padding-top: 8px; padding-bottom: 24px; }
-.home-featured-deck--reveal.has-reveal { scroll-snap-type: none; }
-.home-featured-deck--reveal .home-deck-item { transition: flex-basis 600ms cubic-bezier(.22, 1, .36, 1); }
+.home-featured-deck.home-featured-deck--reveal { position: relative; align-items: center; min-height: 568px; scroll-snap-type: x proximity; scroll-margin-top: 96px; padding: 22px 2px 30px; cursor: grab; }
+.home-featured-deck--reveal.has-reveal, .home-featured-deck--reveal.is-dragging, .home-featured-deck--reveal.is-edge-scrolling { scroll-snap-type: none; }
+.home-featured-deck--reveal .home-deck-item { flex-basis: calc((100% - 72px) / 3.25); align-self: center; transition: flex-basis 620ms cubic-bezier(.22, 1, .36, 1); }
 .home-featured-deck--reveal .home-deck-item:hover { transform: none; }
-.home-featured-deck--reveal .home-deck-item.is-expanded { flex-basis: 78%; }
+.home-featured-deck--reveal .home-deck-item.is-expanded { flex-basis: 83%; }
 .home-featured-deck--reveal .home-deck-item.is-expanded:only-child { flex-basis: 100%; }
-.home-featured-deck--reveal .discovery-card--reveal { min-height: 606px; border-radius: 22px; background: #fffef9; box-shadow: 0 10px 24px -16px #354a352b; }
-.home-featured-deck--reveal .discovery-card--reveal.is-revealed { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 5px; border-color: #b5c5af; box-shadow: 0 18px 38px -22px #244c3b36; }
-.home-featured-deck--reveal .is-revealed .discovery-card-photo { min-width: 0; height: 100%; }
-.home-featured-deck--reveal .is-revealed .discovery-card-content { padding: 38px 22px 20px; justify-content: center; }
-.home-featured-deck--reveal .is-revealed .discovery-card-heading { flex-wrap: wrap; gap: 16px; }
-.home-featured-deck--reveal .is-revealed .discovery-card-heading h3 { font-size: 27px; letter-spacing: -.045em; }
+.home-featured-deck--reveal .discovery-card--reveal { min-height: 0; height: auto; border-radius: 22px; background: #fffef9; box-shadow: 0 22px 30px -22px #354a354a; transition: border-color 200ms, box-shadow 200ms; }
+.home-featured-deck--reveal .discovery-card--reveal:hover { box-shadow: 0 24px 36px -22px #354a3560; }
+.home-featured-deck--reveal .discovery-card--reveal > .discovery-card-content { display: none; }
+.home-featured-deck--reveal .discovery-card--reveal .discovery-card-photo { border-radius: 16px; }
+.featured-card-summary { padding: 0 9px; }
+.featured-card-summary-open { display: block; width: 100%; padding: 17px 2px 12px; text-align: left; cursor: grab; color: #183f36; }
+.featured-card-name { display: block; font-size: 21px; font-weight: 600; line-height: 1.3; letter-spacing: -.045em; }
+.featured-card-locality { display: flex; align-items: center; gap: 5px; color: #7a8775; font-size: 10px; margin-top: 6px; }
+.featured-card-locality svg { color: #328576; }
+.featured-card-summary-bottom { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px; margin-top: 19px; }
+.featured-card-starting-price { display: flex; align-items: baseline; gap: 5px; flex-wrap: wrap; }
+.featured-card-starting-price strong { font-size: 24px; font-weight: 650; line-height: 1.2; letter-spacing: -.04em; }
+.featured-card-starting-price small { font-size: 9px; color: #75836e; }
+.featured-card-open-cue { display: flex; align-items: center; gap: 5px; font-size: 10px; color: #39745e; padding-bottom: 3px; }
+.home-featured-deck--reveal .discovery-card--reveal.is-revealed { display: grid; grid-template-columns: minmax(0, 1.13fr) minmax(0, 1fr); gap: 14px; min-height: 520px; padding: 0; border: 0; background: transparent; box-shadow: none; overflow: visible; }
+.home-featured-deck--reveal .is-revealed .featured-card-summary { display: none; }
+.home-featured-deck--reveal .is-revealed .discovery-card-photo { min-width: 0; height: 100%; padding: 7px; border: 1px solid #dce4d3; border-radius: 22px; background: #fffef9; box-shadow: 0 20px 32px -24px #244c3b50; }
+.home-featured-deck--reveal .is-revealed .discovery-card-content { display: flex; padding: 31px 25px 23px; min-width: 0; border: 1px solid #dce4d3; border-radius: 22px; background: #fffef9; box-shadow: 0 20px 32px -24px #244c3b40; animation: featured-info-unfold 620ms cubic-bezier(.22, 1, .36, 1) both; transform-origin: left center; }
+.home-featured-deck--reveal .is-revealed .discovery-card-heading { flex-wrap: wrap; gap: 12px; }
+.home-featured-deck--reveal .is-revealed .discovery-card-heading h3 { font-size: 28px; letter-spacing: -.045em; }
 .home-featured-deck--reveal .is-revealed .discovery-card-distance { flex-direction: row; align-items: baseline; gap: 7px; max-width: none; text-align: left; }
 .home-featured-deck--reveal .is-revealed .discovery-card-campus { margin-top: 18px; }
-.home-featured-deck--reveal .is-revealed .discovery-card-roomline { margin-top: 22px; }
+.home-featured-deck--reveal .is-revealed .discovery-card-roomline { margin-top: 21px; }
 .home-featured-deck--reveal .is-revealed .discovery-card-pricing { align-items: flex-start; flex-wrap: wrap; gap: 13px; }
 .home-featured-deck--reveal .is-revealed .discovery-card-price { font-size: 29px; }
 .home-featured-deck--reveal .is-revealed .discovery-card-deposit { align-items: flex-start; }
 .home-featured-deck--reveal .is-revealed .discovery-card-features { margin: 22px 0; }
 .home-featured-deck--reveal .is-revealed .discovery-card-footer { margin-top: auto; padding-top: 18px; gap: 6px; }
-.featured-reveal-address { margin-top: 22px; padding-top: 20px; border-top: 1px solid #e8ebdf; animation: featured-detail-enter 440ms 100ms both; }
+.featured-reveal-address { margin-top: 21px; padding-top: 18px; border-top: 1px solid #e8ebdf; }
 .featured-reveal-address > span { display: block; font-size: 8px; letter-spacing: .14em; font-weight: 650; color: #829178; }
 .featured-reveal-address > p { font-size: 12px; line-height: 1.8; color: #5f7262; margin-top: 7px; }
+.home-featured-deck--reveal.is-dragging, .home-featured-deck--reveal.is-dragging * { cursor: grabbing !important; user-select: none; }
+.home-featured-deck--reveal:not(.has-reveal) .featured-stage, .home-featured-deck--reveal:not(.has-reveal) .featured-card-summary { user-select: none; }
+.home-featured-deck--reveal.has-reveal { cursor: default; }
 
-.featured-stage { position: relative; height: 292px; min-height: 292px; overflow: hidden; isolation: isolate; background: radial-gradient(ellipse at 50% 38%, #fffffc, #f3f2e9 60%, #eaece1); }
-.featured-stage-concept { position: absolute; inset: 40px 10px 76px; transition: opacity 280ms, transform 600ms cubic-bezier(.22, 1, .36, 1); }
+.featured-stage { position: relative; height: 292px; min-height: 292px; overflow: hidden; isolation: isolate; border-radius: 15px; background: radial-gradient(ellipse at 50% 38%, #fffffc, #f3f2e9 60%, #eaece1); }
+.featured-stage-concept { position: absolute; inset: 42px 7px 78px; transition: opacity 250ms, transform 620ms cubic-bezier(.22, 1, .36, 1); }
 .featured-stage-model { position: absolute; inset: 0; z-index: 2; filter: drop-shadow(0 14px 10px #2c402520); }
 .featured-stage-model svg { width: 100%; height: 100%; overflow: visible; }
 .featured-stage-shadow { position: absolute; bottom: 17px; left: 9%; width: 82%; height: 30px; border-radius: 50%; background: #d5dbc7; opacity: .45; }
@@ -35,17 +52,20 @@
 .featured-stage-echo--left { left: 1%; transform: perspective(500px) rotateY(25deg) rotate(-7deg); }
 .featured-stage-echo--right { right: 1%; transform: perspective(500px) rotateY(-25deg) rotate(7deg); }
 .home-featured-deck--reveal .featured-stage-echo img { transform: none; }
-.featured-stage-capacity { position: absolute; bottom: -7px; left: 50%; transform: translateX(-50%); z-index: 3; border: 1px solid #d6ddc9; border-radius: 20px; background: #fffef3; padding: 5px 10px; color: #658061; font-size: 9px; white-space: nowrap; }
-.featured-stage-photos { position: absolute; inset: 0; z-index: 2; opacity: 0; clip-path: inset(18% 27% 24% round 14px); transition: clip-path 600ms cubic-bezier(.22, 1, .36, 1), opacity 300ms; background: #dde3d6; }
-.featured-stage-photos::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, #153c3620, transparent 30%, #122c27b8 83%, #122c27dd); pointer-events: none; }
+.featured-stage-capacity { position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); z-index: 3; border: 1px solid #d6ddc9; border-radius: 20px; background: #fffef3; padding: 5px 10px; color: #658061; font-size: 9px; white-space: nowrap; }
+.featured-card-open { position: absolute; z-index: 3; inset: 48px 7px 77px; border-radius: 12px; background: transparent; cursor: grab; }
+.featured-card-open > span { position: absolute; top: 8px; right: 6px; display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid #d6dec9; border-radius: 50%; background: #fffef7d9; color: #3c6b53; opacity: 0; transform: scale(.8); transition: opacity 200ms, transform 200ms; }
+.featured-card-open:hover > span, .featured-card-open:focus-visible > span { opacity: 1; transform: scale(1); }
+.featured-stage-photos { position: absolute; inset: 0; z-index: 2; opacity: 0; clip-path: inset(12% 25% 17% round 14px); transition: clip-path 620ms cubic-bezier(.22, 1, .36, 1), opacity 300ms; background: #dde3d6; }
+.featured-stage-photos::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, #153c3620, transparent 30%, #122c27a8 83%, #122c27d9); pointer-events: none; }
 .home-featured-deck--reveal .featured-stage-image { display: block; width: 100%; height: 100%; object-fit: cover; transform: scale(1.13); transition: transform 800ms cubic-bezier(.22, 1, .36, 1); }
 .home-featured-deck--reveal .featured-stage.is-open .featured-stage-image { transform: scale(1); }
-.featured-stage.is-open { height: 100%; min-height: 590px; }
-.featured-stage.is-open .featured-stage-concept { opacity: 0; transform: translateY(25px) scale(.9); }
+.featured-stage.is-open { height: 100%; min-height: 504px; }
+.featured-stage.is-open .featured-stage-concept { opacity: 0; transform: translateX(-18px) scale(.88); }
 .featured-stage.is-open .featured-stage-photos { clip-path: inset(0 round 14px); opacity: 1; }
-.featured-stage-photo-caption { position: absolute; z-index: 2; bottom: 130px; left: 26px; right: 26px; color: #fffef4; }
+.featured-stage-photo-caption { position: absolute; z-index: 2; bottom: 130px; left: 25px; right: 25px; color: #fffef4; }
 .featured-stage-photo-caption > span { font-size: 9px; letter-spacing: .18em; font-weight: 600; }
-.featured-stage-photo-caption > strong { display: block; font-weight: 500; font-size: clamp(25px, 2.6vw, 37px); line-height: 1.14; letter-spacing: -.05em; margin-top: 14px; }
+.featured-stage-photo-caption > strong { display: block; font-weight: 500; font-size: clamp(25px, 2.6vw, 36px); line-height: 1.14; letter-spacing: -.05em; margin-top: 13px; }
 .featured-stage-photo-caption > p { max-width: 240px; margin-top: 12px; font-size: 10px; line-height: 1.7; color: #f1f2e3; }
 .featured-stage-photo-controls { position: absolute; z-index: 3; bottom: 77px; left: 23px; display: flex; gap: 10px; align-items: center; color: white; }
 .featured-stage-photo-controls button { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; border: 1px solid #fffef461; background: #fffef417; cursor: pointer; backdrop-filter: blur(10px); }
@@ -54,41 +74,49 @@
 .featured-stage-photo-controls > span { font-size: 11px; min-width: 42px; text-align: center; font-variant-numeric: tabular-nums; }
 .featured-stage-toolbar { position: absolute; z-index: 4; left: 12px; right: 12px; bottom: 29px; display: flex; align-items: center; justify-content: space-between; gap: 5px; }
 .featured-stage-mode { display: flex; align-items: center; gap: 5px; color: #75856a; font-size: 9px; white-space: nowrap; }
-.featured-stage-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid #d8e0cc; border-radius: 24px; background: #fffef6; padding: 9px 12px; min-height: 44px; font-size: 10px; color: #285c46; box-shadow: 0 4px 10px #26473508; cursor: pointer; }
+.featured-stage-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid #d8e0cc; border-radius: 24px; background: #fffef6; padding: 9px 11px; min-height: 44px; font-size: 10px; color: #285c46; box-shadow: 0 4px 10px #26473508; cursor: pointer; }
 .featured-stage-toggle:hover { background: #e9efdf; }
-.featured-stage.is-open .featured-stage-toolbar { bottom: 15px; left: 25px; right: 25px; }
+.featured-stage.is-open .featured-stage-toolbar { bottom: 15px; left: 23px; right: 23px; }
 .featured-stage.is-open .featured-stage-mode { color: #fffef4; }
 .featured-stage.is-open .featured-stage-toggle { background: #fffef4ed; border-color: transparent; }
 .featured-stage-disclaimer { position: absolute; bottom: 8px; left: 8px; right: 8px; font-size: 9px; text-align: center; color: #7b886f; }
-.featured-stage-image-error { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 9px; padding: 50px 20px 250px; text-align: center; color: #254d40; }
+.featured-stage-image-error { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 9px; padding: 50px 20px 230px; text-align: center; color: #254d40; }
 .featured-stage-image-error strong { font-size: 14px; }
 .featured-stage-image-error > span { font-size: 11px; }
 .featured-stage-image-error button { position: relative; z-index: 3; min-height: 44px; padding: 8px 15px; border-radius: 25px; background: #fffef7; border: 1px solid #bfcdb8; font-size: 12px; cursor: pointer; }
 .home-featured-section .home-deck-controls button { min-width: 44px; min-height: 44px; }
-@keyframes featured-detail-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes featured-info-unfold { from { opacity: 0; transform: perspective(1000px) rotateY(-9deg) translateX(-16px); } to { opacity: 1; transform: perspective(1000px) rotateY(0) translateX(0); } }
+
+@media (hover: hover) and (pointer: fine) {
+  .home-featured-deck.home-featured-deck--reveal { scroll-snap-type: none; }
+}
 
 @media (min-width: 961px) and (max-width: 1150px) {
-  .home-featured-deck--reveal .home-deck-item { flex-basis: calc((100% - 24px) / 2.18); }
-  .home-featured-deck--reveal .home-deck-item.is-expanded { flex-basis: 91%; }
+  .home-featured-deck--reveal .home-deck-item { flex-basis: calc((100% - 48px) / 2.6); }
+  .home-featured-deck--reveal .home-deck-item.is-expanded { flex-basis: 94%; }
 }
 @media (max-width: 960px) {
-  .home-featured-deck--reveal .home-deck-item.is-expanded { flex-basis: 92%; }
-  .home-featured-deck--reveal .discovery-card--reveal.is-revealed { grid-template-columns: minmax(0, 1fr) 290px; }
-  .home-featured-deck--reveal .is-revealed .discovery-card-content { padding: 28px 14px 18px; }
-  .home-featured-deck--reveal .is-revealed .discovery-card-heading h3 { font-size: 24px; }
+  .home-featured-deck--reveal .home-deck-item { flex-basis: calc((100% - 24px) / 2.15); }
+  .home-featured-deck--reveal .home-deck-item.is-expanded { flex-basis: 96%; }
+  .home-featured-deck--reveal .discovery-card--reveal.is-revealed { grid-template-columns: minmax(0, 1fr) minmax(260px, 1fr); gap: 10px; }
+  .home-featured-deck--reveal .is-revealed .discovery-card-content { padding: 27px 18px 19px; }
+  .home-featured-deck--reveal .is-revealed .discovery-card-heading h3 { font-size: 25px; }
   .featured-reveal-intro { display: block; }
   .featured-reveal-intro p { margin-top: 5px; }
 }
 @media (max-width: 700px) {
-  .home-featured-deck--reveal .home-deck-item, .home-featured-deck--reveal .home-deck-item.is-expanded { flex-basis: min(88%, 380px); }
-  .home-featured-deck--reveal .discovery-card--reveal.is-revealed { display: flex; gap: 0; }
+  .home-featured-deck.home-featured-deck--reveal { min-height: 0; align-items: flex-start; }
+  .home-featured-deck--reveal .home-deck-item, .home-featured-deck--reveal .home-deck-item.is-expanded { flex-basis: min(88%, 380px); align-self: flex-start; }
+  .home-featured-deck--reveal .discovery-card--reveal.is-revealed { display: flex; gap: 10px; }
   .home-featured-deck--reveal .is-revealed .discovery-card-photo { height: auto; }
-  .featured-stage { height: 292px; transition: height 500ms cubic-bezier(.22, 1, .36, 1); }
-  .featured-stage.is-open { height: 420px; min-height: 0; }
-  .home-featured-deck--reveal .is-revealed .discovery-card-content { padding: 20px 12px 12px; }
-  .home-featured-deck--reveal .is-revealed .discovery-card-heading h3 { font-size: 23px; }
+  .featured-stage { height: 292px; }
+  .featured-stage.is-open { height: 400px; min-height: 0; }
+  .home-featured-deck--reveal .is-revealed .discovery-card-content { padding: 23px 17px 18px; }
+  .home-featured-deck--reveal .is-revealed .discovery-card-heading h3 { font-size: 24px; }
+  .featured-card-name { font-size: 21px; }
+  .featured-card-summary-open { padding-bottom: 13px; }
   .featured-stage-photo-caption { left: 20px; right: 20px; bottom: 130px; }
-  .featured-stage-photo-caption > strong { font-size: 31px; }
+  .featured-stage-photo-caption > strong { font-size: 30px; }
   .featured-stage.is-open .featured-stage-toolbar { left: 18px; right: 18px; }
   .featured-stage-photo-controls { left: 18px; }
   .featured-reveal-address { margin-top: 17px; padding-top: 16px; }
@@ -96,7 +124,6 @@
   .home-featured-deck--reveal .is-revealed .discovery-card-pricing { flex-wrap: nowrap; }
   .home-featured-deck--reveal .is-revealed .discovery-card-deposit { align-items: flex-end; }
   .home-featured-deck--reveal .is-revealed .discovery-card-features { margin: 18px 0; }
-  .featured-stage-image-error { padding-bottom: 230px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .home-featured-deck--reveal *, .home-featured-deck--reveal *::before, .home-featured-deck--reveal *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }

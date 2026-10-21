@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight } from 'lucide-react';
 import type { Hostel, RoomType } from '../../types';
 import type { Campus } from '../../data/campuses';
 import { HostelCard } from '../hostel/HostelCard';
+import { useFeaturedDeckMotion } from './useFeaturedDeckMotion';
 import '../../styles/featured-reveal.css';
 
 export function FeaturedHostelDeck({ items, campus, onActiveChange }: {
@@ -16,12 +17,15 @@ export function FeaturedHostelDeck({ items, campus, onActiveChange }: {
   const currentExpandedId = items.some(item => item.hostel.id === expandedId) ? expandedId : null;
 
   const stopScrollAnimation = () => cancelAnimationFrame(animationRef.current);
+  const motion = useFeaturedDeckMotion({ deckRef, paused: Boolean(currentExpandedId), onManualInteraction: stopScrollAnimation });
 
   useEffect(() => {
     const deck = deckRef.current;
     if (!deck) return;
     const update = () => {
-      setPosition({ atStart: deck.scrollLeft <= 2, atEnd: deck.scrollLeft + deck.clientWidth >= deck.scrollWidth - 3 });
+      const atStart = deck.scrollLeft <= 2;
+      const atEnd = deck.scrollLeft + deck.clientWidth >= deck.scrollWidth - 3;
+      setPosition(current => current.atStart === atStart && current.atEnd === atEnd ? current : { atStart, atEnd });
       const cards = [...deck.children] as HTMLElement[];
       const nearest = currentExpandedId ? items.findIndex(item => item.hostel.id === currentExpandedId) : cards.reduce((best, card, index) => Math.abs(card.offsetLeft - deck.scrollLeft) < Math.abs(cards[best].offsetLeft - deck.scrollLeft) ? index : best, 0);
       setActiveIndex(nearest);
@@ -41,6 +45,8 @@ export function FeaturedHostelDeck({ items, campus, onActiveChange }: {
     if (!deck || !currentExpandedId) return;
     const selected = [...deck.children].find(item => (item as HTMLElement).dataset.hostel === currentExpandedId) as HTMLElement | undefined;
     if (!selected) return;
+    const focused = document.activeElement;
+    if (!focused || focused === document.body || focused.closest('.featured-card-summary')) selected.querySelector<HTMLButtonElement>('.featured-stage-toggle')?.focus({ preventScroll: true });
     const from = deck.scrollLeft;
     const start = performance.now();
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -57,6 +63,7 @@ export function FeaturedHostelDeck({ items, campus, onActiveChange }: {
     const deck = deckRef.current;
     if (!deck) return;
     stopScrollAnimation();
+    motion.stopMotion();
     const nextIndex = Math.max(0, Math.min(items.length - 1, activeIndex + direction));
     if (currentExpandedId) {
       setExpandedId(items[nextIndex].hostel.id);
@@ -76,9 +83,10 @@ export function FeaturedHostelDeck({ items, campus, onActiveChange }: {
       event.stopPropagation();
     }
   }}>
-    <div className="featured-reveal-intro"><span>Find a space that feels like you.</span><p>Open a card for a closer look. Swipe or use the arrows to explore.</p></div>
-    <div className={`home-featured-deck home-featured-deck--reveal${currentExpandedId ? ' has-reveal' : ''}`} ref={deckRef} role="region" aria-roledescription="carousel" aria-label="Featured demo hostels"
-      onPointerDown={stopScrollAnimation} onWheel={stopScrollAnimation}>
+    <div className="featured-reveal-intro"><span>Find a space that feels like you.</span><p>Drag to explore. Click a room to unfold its story.</p></div>
+    <div className={`home-featured-deck home-featured-deck--reveal${currentExpandedId ? ' has-reveal' : ''}${motion.isDragging ? ' is-dragging' : ''}${motion.isEdgeScrolling ? ' is-edge-scrolling' : ''}`} ref={deckRef} role="region" aria-roledescription="carousel" aria-label="Featured demo hostels"
+      onPointerDown={event => { stopScrollAnimation(); motion.onPointerDown(event); }} onPointerMove={motion.onPointerMove} onPointerUp={motion.onPointerUp} onPointerCancel={motion.onPointerCancel} onPointerLeave={motion.onPointerLeave} onLostPointerCapture={motion.onPointerCancel} onClickCapture={motion.onClickCapture}
+      onDragStart={event => event.preventDefault()} onWheel={() => { stopScrollAnimation(); motion.stopMotion(); }}>
       {items.map(({ hostel, rooms }, index) => <div key={hostel.id} data-hostel={hostel.id} className={`home-deck-item${currentExpandedId === hostel.id ? ' is-expanded' : ''}`} role="group" aria-roledescription="slide" aria-label={`${index + 1} of ${items.length}`}>
         <HostelCard hostel={hostel} room={rooms[0]} campus={campus} reveal={{ expanded: currentExpandedId === hostel.id, onToggle: () => setExpandedId(current => current === hostel.id ? null : hostel.id) }} />
       </div>)}

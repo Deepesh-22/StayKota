@@ -75,7 +75,14 @@ export function HostelCard({ hostel, room, campus, onHover, compact = false, act
           <Heart size={18} fill={saved ? 'currentColor' : 'none'} strokeWidth={1.8} />
         </button>
       </div>
-      <div className="discovery-card-content">
+      {reveal && <div className="featured-card-summary" aria-hidden={reveal.expanded} inert={reveal.expanded}>
+        <button type="button" className="featured-card-summary-open" data-carousel-drag-surface aria-expanded={reveal.expanded} aria-controls={`featured-photos-${hostel.id} featured-info-${hostel.id}`} aria-label={`Open a closer look at ${hostel.name}`} onClick={reveal.onToggle}>
+          <span className="featured-card-name" role="heading" aria-level={3}>{hostel.name}</span>
+          <span className="featured-card-locality"><MapPin size={12} aria-hidden="true" />{hostel.locality}, Kota</span>
+          <span className="featured-card-summary-bottom"><span className="featured-card-starting-price"><strong>{total != null ? money(total) : 'Currently full'}</strong>{total != null && <small>total / month</small>}</span><span className="featured-card-open-cue">Explore <ArrowUpRight size={16} aria-hidden="true" /></span></span>
+        </button>
+      </div>}
+      <div className="discovery-card-content" id={reveal ? `featured-info-${hostel.id}` : undefined} aria-hidden={reveal ? !reveal.expanded : undefined} inert={reveal ? !reveal.expanded : undefined}>
         <div className="discovery-card-heading">
           <div><h3><Link to={href}>{hostel.name}</Link></h3><p className="discovery-card-locality"><MapPin size={12} aria-hidden="true" />{hostel.locality}, Kota</p></div>
           {campus && <div className="discovery-card-distance"><strong>{formatDistance(distance)}</strong><span>{distance == null ? 'distance unavailable' : 'straight-line'}</span></div>}
