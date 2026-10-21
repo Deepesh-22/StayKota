@@ -1,0 +1,38 @@
+.map-circle-preview {
+  --circle-preview-size: 164px;
+  position: relative;
+  width: var(--circle-preview-size);
+  height: var(--circle-preview-size);
+  flex: 0 0 var(--circle-preview-size);
+  pointer-events: none;
+  user-select: none;
+  isolation: isolate;
+  filter: drop-shadow(0 8px 15px #071e3440);
+  animation: map-circle-appear 180ms cubic-bezier(.2,.8,.2,1) both;
+}
+.map-circle-preview__ring { display: block; position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.map-circle-preview__band { fill: none; stroke: #102c35; stroke-width: 28px; }
+.map-circle-preview__name,
+.map-circle-preview__subtitle {
+  fill: #eef3f4;
+  font-family: 'Manrope Variable', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 2.3px;
+}
+.map-circle-preview__subtitle { font-size: 11px; letter-spacing: 2.4px; }
+.map-circle-preview__dot { fill: #d7e1e4; }
+.map-circle-preview__centre {
+  position: absolute;
+  inset: 37px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  overflow: hidden;
+  color: #d4dee2;
+}
+.map-circle-preview__centre img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+.map-circle-preview__pin { filter: drop-shadow(0 2px 3px #102c3560); }
+.map-circle-preview__pin circle { color: #102c35; fill: #102c35; }
+@keyframes map-circle-appear { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .map-circle-preview { animation: none; } }
