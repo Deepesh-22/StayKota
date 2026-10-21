@@ -10,6 +10,9 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
+import { CustomSelect } from '../components/ui/CustomSelect';
+import { KotaHorizon3DCanvas } from '../components/three/KotaHorizon3DCanvas';
+import { KotaBeacon3DCanvas } from '../components/three/KotaBeacon3DCanvas';
 import { monthlyTotal } from '../lib/discovery';
 import '../styles/workspaces.css';
 import type { Hostel, ListingStatus } from '../types';
@@ -75,11 +78,16 @@ export function AdminPage() {
 
   if (!user || user.role !== 'admin') {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-20 text-center animate-fade-in">
-        <Shield className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-        <p className="text-slate-600">Admin access only. No public signup.</p>
-        <p className="text-xs text-slate-400 mt-2">Use /login?role=admin for the demo login.</p>
-        <Link to="/login?role=admin" className="mt-4 inline-block text-teal-600 font-medium">Login as Admin</Link>
+      <div className="workspace-gate animate-fade-in">
+        <div className="workspace-gate__3d">
+          <KotaBeacon3DCanvas mode="campus" height={205} label="MODERATION STUDIO · 3D" compact />
+        </div>
+        <span className="workspace-gate-icon"><Shield className="w-7 h-7" /></span>
+        <p className="workspace-eyebrow">Moderation workspace</p>
+        <h1>Trust &amp; clarity for <em>every Kota stay.</em></h1>
+        <p>Admin access only. No public signup.</p>
+        <Link to="/login?role=admin" className="workspace-primary-link">Login as Admin</Link>
+        <span className="workspace-fineprint">Use /login?role=admin for the demo login.</span>
       </div>
     );
   }
@@ -190,8 +198,9 @@ export function AdminPage() {
       <p className="workspace-local-note"><Shield size={15} /> Local moderation workspace · Sign-in and permissions are simulated in this frontend demo.</p>
 
       <div className="workspace-admin-inner">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
-          <div>
+        <div className="admin-hero-banner sk-horizon-wrap flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+          <KotaHorizon3DCanvas />
+          <div className="sk-horizon-content">
             <p className="workspace-eyebrow">Behind every good stay</p>
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
               {section === 'queue' ? 'Review listings' :
@@ -200,11 +209,11 @@ export function AdminPage() {
                section === 'reports' ? 'Reports' : 'Settings'}
             </h1>
             <p className="text-sm text-slate-500 mt-1">
-              {pending.length} awaiting review · Publication approval is separate from property verification
+              {pending.length} awaiting review · {approved.length} published live · Publication approval is separate from property verification
             </p>
           </div>
           {section === 'queue' && (
-            <div className="flex gap-2">
+            <div className="sk-horizon-content flex gap-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
@@ -291,14 +300,20 @@ export function AdminPage() {
                       <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} aria-label="Search all listings" placeholder="Search…"
                         className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-sm" />
                     </div>
-                    <select aria-label="Filter listing status" value={statusFilter} onChange={e => { setStatusFilter(e.target.value as ListingStatus | ''); setPage(1); }}
-                      className="px-3 py-2 rounded-xl border border-slate-200 text-sm">
-                      <option value="">All statuses</option>
-                      <option value="pending">Pending</option>
-                      <option value="approved">Live</option>
-                      <option value="draft">Draft</option>
-                      <option value="rejected">Rejected</option>
-                    </select>
+                    <div className="min-w-[185px]">
+                      <CustomSelect
+                        ariaLabel="Filter listing status"
+                        value={statusFilter}
+                        options={[
+                          { value: '', label: 'All statuses' },
+                          { value: 'pending', label: 'Pending' },
+                          { value: 'approved', label: 'Live' },
+                          { value: 'draft', label: 'Draft' },
+                          { value: 'rejected', label: 'Rejected' },
+                        ]}
+                        onChange={nextValue => { setStatusFilter(nextValue as ListingStatus | ''); setPage(1); }}
+                      />
+                    </div>
                   </div>
                 )}
 

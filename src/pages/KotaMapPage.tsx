@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowUpRight,
-  ChevronDown,
   GraduationCap,
   List,
   Map as MapIcon,
@@ -16,6 +15,9 @@ import {
 } from 'lucide-react';
 import { useLiveLocation } from '../hooks/useLiveLocation';
 import { useApp } from '../context/AppContext';
+import { useHostelTransition } from '../context/HostelTransitionContext';
+import { CustomSelect } from '../components/ui/CustomSelect';
+import type { MarkerActivationOrigin } from '../components/maps/HoverMapPin';
 import { CAMPUSES } from '../data/campuses';
 import { formatDistance, getCampus, getMatchingRooms, monthlyTotal } from '../lib/discovery';
 import {
@@ -30,8 +32,26 @@ import { MapLayerToggle } from '../components/maps/MapLayerToggle';
 import { KotaMap } from '../components/maps/KotaMap';
 import '../styles/city-map.css';
 
+interface KotaAreaPreset {
+  id: string;
+  label: string;
+  lat: number;
+  lng: number;
+  zoom: number;
+  aliases: string[];
+}
+
+const KOTA_AREAS: KotaAreaPreset[] = [
+  { id: 'talwandi', label: 'Talwandi', lat: 25.146, lng: 75.852, zoom: 14.5, aliases: ['talwandi'] },
+  { id: 'kunhadi', label: 'Kunhadi', lat: 25.215, lng: 75.862, zoom: 14.2, aliases: ['kunhadi', 'kunhari', 'landmark', 'landmark city'] },
+  { id: 'rg-nagar', label: 'R.G. Nagar', lat: 25.155, lng: 75.86, zoom: 14.5, aliases: ['rajeev gandhi', 'rajiv gandhi', 'r.g. nagar', 'rg nagar', 'indraprastha', 'ipia'] },
+  { id: 'vigyan-nagar', label: 'Vigyan Nagar', lat: 25.151, lng: 75.872, zoom: 14.5, aliases: ['vigyan nagar', 'vigyan'] },
+  { id: 'jawahar-nagar', label: 'Jawahar Nagar', lat: 25.172, lng: 75.85, zoom: 14.3, aliases: ['jawahar nagar', 'jawahar', 'indra vihar'] },
+];
+
 export function KotaMapPage() {
   const { hostels } = useApp();
+  const { startHostelTransition } = useHostelTransition();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const campus = getCampus(params.get('campus'));
@@ -46,15 +66,18 @@ export function KotaMapPage() {
   const sidebar = useRef<HTMLElement>(null);
   const staysTrigger = useRef<HTMLButtonElement>(null);
   const stage = useRef<HTMLElement>(null);
+
   useEffect(() => {
     setSearch(query);
   }, [query]);
+
   useEffect(() => {
     const desktop = window.matchMedia('(min-width: 761px)');
     const releasePanel = () => { if (desktop.matches) setShowStays(false); };
     desktop.addEventListener('change', releasePanel);
     return () => desktop.removeEventListener('change', releasePanel);
   }, []);
+
   useEffect(() => {
     if (!showStays) return;
     const before = document.activeElement as HTMLElement | null;
@@ -86,6 +109,7 @@ export function KotaMapPage() {
       before?.focus();
     };
   }, [showStays]);
+
   const rawBudget = Number(params.get('budget'));
   const budget = Number.isFinite(rawBudget) && rawBudget > 0 ? rawBudget : undefined;
   const sharing = ['single', 'double', 'triple', 'four'].includes(params.get('sharing') || '')
@@ -96,35 +120,71 @@ export function KotaMapPage() {
     : '';
   const basemap = params.get('type') === 'satellite' ? 'satellite' : 'street';
   const perspective = supports3D && params.get('view') === '3d' ? '3d' : '2d';
+  const activeArea = KOTA_AREAS.find(a => a.id === params.get('area'));
   const activeCampus = CAMPUSES.find(c => c.id === params.get('campus'));
   const origin = location || activeCampus;
   const radius = origin && [1, 3, 5].includes(Number(params.get('radius')))
-    ? Number(params.get('radius')) : location ? 3 : undefined;
+    ? Number(params.get('radius'))
+    : undefined;
+
+  const normalizedQuery = query.toLowerCase();
+  const matchedQueryArea = normalizedQuery
+    ? KOTA_AREAS.find(a => a.aliases.some(alias => alias.includes(normalizedQuery) || normalizedQuery.includes(alias)))
+    : undefined;
+
   const items = hostels
     .filter((h) => h.status === 'approved' && (!category || h.category === category))
-    .filter(h => !query || `${h.name} ${h.locality}`.toLowerCase().includes(query.toLowerCase()))
+    .filter(h => {
+      if (!query) return true;
+      const haystack = `${h.name} ${h.locality} ${h.address}`.toLowerCase();
+      if (haystack.includes(normalizedQuery)) return true;
+      return !!matchedQueryArea && matchedQueryArea.aliases.some(alias => haystack.includes(alias));
+    })
     .filter(h => !radius || (origin && withinCampusRadius(h, origin, radius)))
     .flatMap((hostel) => {
       const room = getMatchingRooms(hostel, { sharing, maxBudget: budget })[0];
       return room ? [{ hostel, room }] : [];
-    }).sort((a, b) => origin
-      ? (campusDistance(a.hostel, origin) ?? Infinity) - (campusDistance(b.hostel, origin) ?? Infinity) : 0);
+    })
+    .sort((a, b) => origin
+      ? (campusDistance(a.hostel, origin) ?? Infinity) - (campusDistance(b.hostel, origin) ?? Infinity)
+      : 0);
+
   const selected = items.find((item) => item.hostel.id === params.get('hostel'));
+
   let target: MapTarget = { ...CITY_TARGET, id: `kota-${revision}` };
-  if (activeCampus)
+  if (activeArea) {
     target = {
-      lat: campus.latitude, lng: campus.longitude,
-      zoom: radius === 5 ? 12 : radius === 3 ? 13 : 14,
-      id: `${campus.id}-${radius || 'all'}`,
+      lat: activeArea.lat,
+      lng: activeArea.lng,
+      zoom: activeArea.zoom,
+      id: `area-${activeArea.id}-${revision}`,
     };
-  if (location) target = { lat: location.latitude, lng: location.longitude, zoom: radius === 1 ? 15 : radius === 5 ? 12 : 13, id: `your-location-${revision}` };
-  if (selected && validCoordinates(selected.hostel.latitude, selected.hostel.longitude))
+  }
+  if (activeCampus) {
+    target = {
+      lat: campus.latitude,
+      lng: campus.longitude,
+      zoom: radius === 5 ? 12 : radius === 3 ? 13 : 14,
+      id: `${campus.id}-${radius || 'all'}-${revision}`,
+    };
+  }
+  if (location) {
+    target = {
+      lat: location.latitude,
+      lng: location.longitude,
+      zoom: radius === 1 ? 15 : radius === 5 ? 12 : 13,
+      id: `your-location-${inKotaMapArea(location) ? 'in' : 'out'}-${radius || 'all'}-${revision}`,
+    };
+  }
+  if (selected && validCoordinates(selected.hostel.latitude, selected.hostel.longitude)) {
     target = {
       lat: selected.hostel.latitude!,
       lng: selected.hostel.longitude!,
       zoom: 16,
-      id: selected.hostel.id,
+      id: `${selected.hostel.id}-${revision}`,
     };
+  }
+
   const update = (patch: Record<string, string | null>) => {
     const next = new URLSearchParams(params);
     for (const [key, value] of Object.entries(patch)) {
@@ -133,36 +193,76 @@ export function KotaMapPage() {
     }
     setParams(next);
   };
+
   const focusHostel = (id: string) => {
+    setRevision(n => n + 1);
     update({ hostel: id, q: null });
     setShowStays(false);
   };
-  const selectHostel = (id: string) => {
+
+  const selectHostel = (id: string, origin?: MarkerActivationOrigin) => {
     const item = items.find(value => value.hostel.id === id);
     if (!item) return;
     const back = new URLSearchParams(params);
-    back.set('hostel',id); back.delete('q');
+    back.set('hostel', id);
+    back.delete('q');
     const previewCampus = activeCampus || nearestCampus(item.hostel)?.campus || campus;
-    navigate(hostelPreviewHref(id,previewCampus.id,item.room.id,`/map?${back}`));
+    const targetHref = hostelPreviewHref(id, previewCampus.id, item.room.id, `/map?${back}`);
+    if (origin?.markerElement) {
+      startHostelTransition({
+        hostelId: id,
+        hostelName: item.hostel.name,
+        locality: item.hostel.locality,
+        coverImage: item.hostel.coverImage,
+        targetHref,
+        markerElement: origin.markerElement,
+        apertureElement: origin.apertureElement,
+      });
+      return;
+    }
+    navigate(targetHref);
   };
-  const selectCampus = (id: string) => { live.stop(); update({ campus: id, hostel: null, q: null }); };
+
+  const selectCampus = (id: string) => {
+    live.stop();
+    setRevision(n => n + 1);
+    update({ campus: id, area: null, hostel: null, q: null });
+  };
+
+  const selectArea = (id: string) => {
+    live.stop();
+    setRevision(n => n + 1);
+    update({ area: id, campus: null, hostel: null, q: null, radius: null });
+    setShowStays(false);
+  };
+
   const submitSearch = (event: FormEvent) => {
     event.preventDefault();
     live.stop();
     const term = search.trim().slice(0, 180);
     const normalized = term.toLowerCase();
     const hostelMatch = term && hostels.find(h => h.status === 'approved' && h.name.toLowerCase().includes(normalized));
+    const areaMatch = term && KOTA_AREAS.find(a => a.aliases.some(alias => alias === normalized || (normalized.length >= 4 && alias.includes(normalized))));
     const campusMatch = term && CAMPUSES.find(c => `${c.institute} ${c.name} ${c.area}`.toLowerCase().includes(normalized));
-    if (hostelMatch) update({ q: null, hostel: hostelMatch.id, campus: null, radius: null });
-    else if (campusMatch) update({ q: null, hostel: null, campus: campusMatch.id });
-    else update({ q: term || null, hostel: null, campus: null });
+    setRevision(n => n + 1);
+    if (hostelMatch) update({ q: null, hostel: hostelMatch.id, campus: null, area: null, radius: null });
+    else if (areaMatch) update({ q: null, area: areaMatch.id, hostel: null, campus: null, radius: null });
+    else if (campusMatch) update({ q: null, hostel: null, campus: campusMatch.id, area: null });
+    else update({ q: term || null, hostel: null, campus: null, area: null });
     setShowStays(false);
   };
+
   const locate = () => {
     setShowStays(false);
-    if (location) { update({ hostel: null, q: null }); setRevision(n => n + 1); }
-    else { live.start(); update({ campus: null, hostel: null, q: null, radius: '3' }); }
+    if (location) {
+      update({ hostel: null, q: null, area: null });
+      setRevision(n => n + 1);
+    } else {
+      live.start();
+      update({ campus: null, hostel: null, q: null, area: null, radius: '3' });
+    }
   };
+
   const fullscreen = async () => {
     try {
       if (document.fullscreenElement) await document.exitFullscreen();
@@ -173,26 +273,27 @@ export function KotaMapPage() {
       );
     }
   };
+
   return (
     <div className="city-page">
       <div className="city-toolbar">
         <div className="city-title">
           <span>
-            <MapIcon size={19} />
+            <MapIcon size={16} />
           </span>
           <div>
             <h1>Explore Kota</h1>
-            <p>The whole city. Your next neighbourhood.</p>
+            <p>Find hostels near your coaching or live GPS</p>
           </div>
         </div>
         <form className="city-search" onSubmit={submitSearch}>
-          <Search size={17} />
+          <Search size={15} />
           <label className="sr-only" htmlFor="city-search">
             Search a hostel, coaching or locality
           </label>
           <input
             id="city-search"
-            placeholder="Search a hostel, coaching or locality"
+            placeholder="Search hostel, ALLEN / PW / Motion, or locality…"
             value={search}
             maxLength={180}
             onChange={(e) => setSearch(e.target.value)}
@@ -206,38 +307,79 @@ export function KotaMapPage() {
                 update({ q: null });
               }}
             >
-              <X size={14} />
+              <X size={13} />
             </button>
           )}
           <button type="submit" className="city-search-submit">
             Search
           </button>
         </form>
+        <div className="city-area-pills" role="group" aria-label="Jump to Kota area">
+          {KOTA_AREAS.map(area => (
+            <button
+              key={area.id}
+              type="button"
+              className="city-area-pill"
+              aria-pressed={activeArea?.id === area.id}
+              onClick={() => selectArea(area.id)}
+            >
+              {area.label}
+            </button>
+          ))}
+        </div>
         <div className="city-toolbar-actions">
           <button
             type="button"
             onClick={() => {
               live.stop();
               setRevision((n) => n + 1);
-              update({ campus: null, hostel: null, q: null, radius: null });
+              update({ area: null, campus: null, hostel: null, q: null, radius: null });
             }}
             className="city-reset"
           >
-            <MapIcon size={15} />
+            <MapIcon size={14} />
             Whole Kota
           </button>
         </div>
       </div>
+
       <div className="city-location-bar">
-        <button type="button" onClick={locate} disabled={live.pending}>
-          <LocateFixed size={16} /> {live.pending ? 'Locating…' : location ? inKotaMapArea(location) ? 'Centre on me' : 'Show Kota map' : 'Use my location'}
+        <button
+          type="button"
+          className={live.tracking ? 'is-live-on' : undefined}
+          onClick={locate}
+          disabled={live.pending}
+        >
+          <LocateFixed size={14} />{' '}
+          {live.pending
+            ? 'Locating…'
+            : location
+              ? inKotaMapArea(location)
+                ? 'Centre on me'
+                : 'Show Kota map'
+              : 'Use my location'}
         </button>
-        {live.tracking && <button type="button" onClick={live.stop}>Stop location</button>}
-        <span role="status">{location
-          ? `Live location on · accuracy about ${Math.round(location.accuracy)} m · ${inKotaMapArea(location) ? `stays within ${radius} km` : 'outside the Kota map area'}`
-          : live.pending ? 'Waiting for your browser’s location permission…' : 'Find nearby hostels. Location is used only while this page is open.'}</span>
+        {live.tracking && (
+          <button type="button" className="city-stop-btn" onClick={live.stop}>
+            Stop location
+          </button>
+        )}
+        <span role="status">
+          {location
+            ? `Live location on · accuracy about ${Math.round(location.accuracy)} m · ${
+                inKotaMapArea(location)
+                  ? radius
+                    ? `stays within ${radius} km`
+                    : 'showing all Kota stays'
+                  : 'outside the Kota map area'
+              }`
+            : live.pending
+              ? 'Waiting for your browser’s location permission…'
+              : 'Tap “Use my location” to spot nearby hostels around you, or select your coaching institute.'}
+        </span>
         {live.error && <p role="alert">{live.error}</p>}
       </div>
+
       {notice && (
         <p className="city-notice" role="status">
           {notice}
@@ -246,6 +388,7 @@ export function KotaMapPage() {
           </button>
         </p>
       )}
+
       <div className="city-body">
         <aside
           ref={sidebar}
@@ -256,8 +399,8 @@ export function KotaMapPage() {
         >
           <div className="city-sidebar-top">
             <div>
-              <span className="sk-eyebrow">MAKE KOTA YOUR OWN</span>
-              <h2>A place to start.</h2>
+              <span className="sk-eyebrow">STUDENT FINDER</span>
+              <h2>Hostels &amp; coaching nearby</h2>
             </div>
             <button
               className="city-close-stays"
@@ -265,71 +408,87 @@ export function KotaMapPage() {
               onClick={() => setShowStays(false)}
               aria-label="Close hostel list"
             >
-              <X size={20} />
+              <X size={18} />
             </button>
           </div>
           <div className="city-campus">
-            <GraduationCap size={18} />
             <label className="sr-only" htmlFor="city-campus">
               Centre map on a coaching campus
             </label>
-            <select
+            <CustomSelect
               id="city-campus"
+              variant="ghost"
+              ariaLabel="Centre map on a coaching campus"
               value={params.get('campus') || ''}
-              onChange={(e) => selectCampus(e.target.value)}
-            >
-              <option value="">All of Kota</option>
-              {CAMPUSES.map((c) => (
-                <option value={c.id} key={c.id}>
-                  {c.institute} · {c.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={14} />
+              icon={<GraduationCap size={16} />}
+              searchPlaceholder="Search coaching campus…"
+              options={[
+                { value: '', label: 'All coaching institutes (Kota)' },
+                ...CAMPUSES.map((c) => ({
+                  value: c.id,
+                  label: `${c.institute} · ${c.name}`,
+                })),
+              ]}
+              onChange={(next) => selectCampus(next)}
+            />
           </div>
-          <label className="city-radius">
-            {location ? 'Distance from your location' : 'Distance from coaching'}
-            <select aria-label={location ? 'Distance from your location' : 'Distance from coaching'} disabled={!origin}
-              value={radius || ''} onChange={e => update({ radius: e.target.value, hostel: null })}>
-              {!location && <option value="">All distances</option>}
-              <option value="1">Within 1 km</option>
-              <option value="3">Within 3 km</option>
-              <option value="5">Within 5 km</option>
-            </select>
-            <small>{origin ? 'Nearest first · straight-line distance, not walking distance' : 'Choose a coaching campus to filter nearby stays.'}</small>
-          </label>
+          <div className="city-radius">
+            <span>{location ? 'Distance from your location' : 'Distance from coaching'}</span>
+            <CustomSelect
+              variant="compact"
+              ariaLabel={location ? 'Distance from your location' : 'Distance from coaching'}
+              disabled={!origin}
+              value={radius ? String(radius) : ''}
+              options={[
+                { value: '', label: 'All distances' },
+                { value: '1', label: 'Within 1 km' },
+                { value: '3', label: 'Within 3 km' },
+                { value: '5', label: 'Within 5 km' },
+              ]}
+              onChange={(next) => update({ radius: next || null, hostel: null })}
+            />
+            <small>
+              {origin
+                ? 'Sorted nearest first · straight-line estimate'
+                : 'Select a coaching institute or enable live location to filter by distance.'}
+            </small>
+          </div>
           <div className="city-room-filters">
-            <label>
-              Room type
-              <select
-                aria-label="Map room sharing"
+            <div>
+              <span>Room type</span>
+              <CustomSelect
+                variant="compact"
+                ariaLabel="Map room sharing"
                 value={sharing}
-                onChange={(e) => update({ sharing: e.target.value, hostel: null })}
-              >
-                <option value="">Any sharing</option>
-                <option value="single">Single room</option>
-                <option value="double">Double sharing</option>
-                <option value="triple">Triple sharing</option>
-                <option value="four">Four sharing</option>
-              </select>
-            </label>
-            <label>
-              Fixed monthly budget
-              <select
-                aria-label="Map monthly budget"
-                value={budget || ''}
-                onChange={(e) => update({ budget: e.target.value, hostel: null })}
-              >
-                <option value="">Any budget</option>
-                <option value="5000">Up to ₹5,000</option>
-                <option value="8000">Up to ₹8,000</option>
-                <option value="12000">Up to ₹12,000</option>
-                <option value="15000">Up to ₹15,000</option>
-                {budget && ![5000, 8000, 12000, 15000].includes(budget) && (
-                  <option value={budget}>Up to ₹{budget.toLocaleString('en-IN')}</option>
-                )}
-              </select>
-            </label>
+                options={[
+                  { value: '', label: 'Any sharing' },
+                  { value: 'single', label: 'Single room' },
+                  { value: 'double', label: 'Double sharing' },
+                  { value: 'triple', label: 'Triple sharing' },
+                  { value: 'four', label: 'Four sharing' },
+                ]}
+                onChange={(next) => update({ sharing: next, hostel: null })}
+              />
+            </div>
+            <div>
+              <span>Fixed monthly budget</span>
+              <CustomSelect
+                variant="compact"
+                ariaLabel="Map monthly budget"
+                value={budget ? String(budget) : ''}
+                options={[
+                  { value: '', label: 'Any budget' },
+                  { value: '5000', label: 'Up to ₹5,000' },
+                  { value: '8000', label: 'Up to ₹8,000' },
+                  { value: '12000', label: 'Up to ₹12,000' },
+                  { value: '15000', label: 'Up to ₹15,000' },
+                  ...(budget && ![5000, 8000, 12000, 15000].includes(budget)
+                    ? [{ value: String(budget), label: `Up to ₹${budget.toLocaleString('en-IN')}` }]
+                    : []),
+                ]}
+                onChange={(next) => update({ budget: next, hostel: null })}
+              />
+            </div>
           </div>
           <div className="city-category" aria-label="Map hostel category">
             {[
@@ -349,8 +508,8 @@ export function KotaMapPage() {
             ))}
           </div>
           <p className="city-result-count" aria-live="polite">
-            {items.length} matching sample {items.length === 1 ? 'stay' : 'stays'}{' '}
-            <span>Not live inventory</span>
+            {items.length} matching {items.length === 1 ? 'hostel' : 'hostels'}
+            <span>Click any card to focus</span>
           </p>
           <div className="city-stays">
             {items.length ? (
@@ -375,17 +534,23 @@ export function KotaMapPage() {
                         <small>
                           {hostel.locality} · {room.name}
                         </small>
-                        {location && <small className="city-coaching-distance">{formatDistance(campusDistance(hostel, location))} from your location · straight-line</small>}
-                        {nearby && <small className="city-coaching-distance">
-                          {formatDistance(nearby.distance)} from {nearby.campus.institute} · {nearby.campus.name}
-                        </small>}
+                        {location && (
+                          <small className="city-coaching-distance is-gps">
+                            {formatDistance(campusDistance(hostel, location))} from your location · straight-line
+                          </small>
+                        )}
+                        {nearby && (
+                          <small className="city-coaching-distance">
+                            {formatDistance(nearby.distance)} from {nearby.campus.institute} · {nearby.campus.name}
+                          </small>
+                        )}
                         <b>
                           ₹{monthlyTotal(room).toLocaleString('en-IN')}
-                          <em> fixed / month</em>
+                          <em> / month</em>
                         </b>
                       </span>
                     </button>
-                    <Link to={hostelPreviewHref(hostel.id,nearby?.campus.id || campus.id,room.id,`/map?${params}`)}>
+                    <Link to={hostelPreviewHref(hostel.id, nearby?.campus.id || campus.id, room.id, `/map?${params}`)}>
                       Preview stay <ArrowUpRight size={13} />
                     </Link>
                   </article>
@@ -393,9 +558,13 @@ export function KotaMapPage() {
               })
             ) : (
               <div className="city-empty">
-                <SlidersHorizontal size={26} />
+                <SlidersHorizontal size={22} />
                 <h3>A little more room in your search?</h3>
-                <p>{location ? `No sample hostels match within ${radius} km of your location. Try 5 km, change room filters or choose a coaching campus. Demo inventory only covers parts of Kota.` : 'No available sample rooms match these filters.'}</p>
+                <p>
+                  {location
+                    ? `No sample hostels match within ${radius} km of your location. Try 5 km, switch to All distances, change room filters or choose a coaching campus. Demo inventory only covers parts of Kota.`
+                    : 'No available hostels match these filters.'}
+                </p>
                 <button
                   type="button"
                   onClick={() => update({ sharing: null, category: null, budget: null, radius: null })}
@@ -405,33 +574,61 @@ export function KotaMapPage() {
               </div>
             )}
           </div>
-          <p className="city-sample-note">
-            OpenFreeMap supplies the OpenStreetMap basemap. StayKota listings and campus locations are illustrative
-            sample data.
-          </p>
         </aside>
+
         <section
           className="city-map-stage"
           ref={stage}
           aria-label="Interactive whole-city Kota map"
         >
+          <span className="sr-only" id="city-perspective-help">
+            Switch between flat 2D map view and tilted 3D view.
+          </span>
           <div className="city-map-tools">
-            <MapLayerToggle basemap={basemap} onChange={value => update({ type: value === 'satellite' ? 'satellite' : null })}/>
+            <MapLayerToggle basemap={basemap} onChange={value => update({ type: value === 'satellite' ? 'satellite' : null })} />
             <div className="city-layer-toggle city-perspective-toggle" role="group" aria-label="Map perspective">
-              <button type="button" aria-pressed={perspective === '2d'}
-                onClick={() => update({ view: null })}>2D</button>
-              <button type="button" aria-pressed={perspective === '3d'} disabled={!supports3D}
+              <button type="button" aria-pressed={perspective === '2d'} onClick={() => update({ view: null })}>
+                2D
+              </button>
+              <button
+                type="button"
+                aria-pressed={perspective === '3d'}
+                disabled={!supports3D}
                 aria-describedby="city-perspective-help"
-                onClick={() => update({ view: '3d' })}>3D tilt</button>
+                onClick={() => update({ view: '3d' })}
+              >
+                3D tilt
+              </button>
             </div>
-            {selected && <button type="button" className="city-clear-selection" aria-label="Clear selected hostel" onClick={() => update({ hostel:null })}><X size={14}/><span>Clear selection</span></button>}
+            {radius && (
+              <button
+                type="button"
+                className="city-clear-selection"
+                onClick={() => update({ radius: null })}
+                title="Show all Kota stays across every locality"
+              >
+                <X size={13} />
+                <span>Within {radius} km · All Kota</span>
+              </button>
+            )}
+            {selected && (
+              <button
+                type="button"
+                className="city-clear-selection"
+                aria-label="Clear selected hostel"
+                onClick={() => update({ hostel: null })}
+              >
+                <X size={14} />
+                <span>Clear selection</span>
+              </button>
+            )}
             <button
               type="button"
               className="city-fullscreen"
               onClick={fullscreen}
               aria-label="Expand city map to full screen"
             >
-              <Maximize2 size={16} />
+              <Maximize2 size={15} />
             </button>
             <button
               type="button"
@@ -440,10 +637,11 @@ export function KotaMapPage() {
               aria-expanded={showStays}
               onClick={() => setShowStays(true)}
             >
-              <List size={15} />
+              <List size={14} />
               Stays ({items.length})
             </button>
           </div>
+
           {query && (
             <div className="city-search-context">
               <Search size={13} />
@@ -459,15 +657,47 @@ export function KotaMapPage() {
               </button>
             </div>
           )}
+
           <div className="city-map-surface">
             <div className="city-map-location-controls" role="group" aria-label="Current location map controls">
-              <button type="button" className={`city-map-locate${live.tracking ? ' is-active' : ''}`}
-                aria-label={location ? inKotaMapArea(location) ? 'Centre map on my current location' : 'Show Kota map while outside the service area' : 'Use my current location on map'}
-                title={live.pending ? 'Finding your location…' : location ? inKotaMapArea(location) ? 'Centre on your current location' : 'Show Kota map while outside the service area' : 'Show your current location'}
-                aria-pressed={live.tracking} aria-busy={live.pending} disabled={live.pending} onClick={locate}>
-                <LocateFixed size={22} className={live.pending ? 'animate-pulse' : undefined}/>
+              <button
+                type="button"
+                className={`city-map-locate${live.tracking ? ' is-active' : ''}`}
+                aria-label={
+                  location
+                    ? inKotaMapArea(location)
+                      ? 'Centre map on my current location'
+                      : 'Show Kota map while outside the service area'
+                    : 'Use my current location on map'
+                }
+                title={
+                  live.pending
+                    ? 'Finding your location…'
+                    : location
+                      ? inKotaMapArea(location)
+                        ? 'Centre on your current location'
+                        : 'Show Kota map while outside the service area'
+                      : 'Use live location to find nearby hostels'
+                }
+                aria-pressed={live.tracking}
+                aria-busy={live.pending}
+                disabled={live.pending}
+                onClick={locate}
+              >
+                <LocateFixed size={17} className={live.pending ? 'animate-pulse' : undefined} />
+                <span>{live.pending ? 'Locating…' : live.tracking ? 'Live location' : 'Near me'}</span>
               </button>
-              {live.tracking && <button type="button" className="city-map-stop-location" aria-label="Turn off current location on map" title="Turn off location" onClick={live.stop}><X size={17}/></button>}
+              {live.tracking && (
+                <button
+                  type="button"
+                  className="city-map-stop-location"
+                  aria-label="Turn off current location on map"
+                  title="Turn off location"
+                  onClick={live.stop}
+                >
+                  <X size={15} />
+                </button>
+              )}
             </div>
             <KotaMap
               campus={campus}
@@ -484,10 +714,6 @@ export function KotaMapPage() {
               on3DAvailabilityChange={setSupports3D}
             />
           </div>
-          <p className="city-map-caption" id="city-perspective-help">
-            Explore Kota and its configured 3 km buffer. Hover or focus a hostel/coaching pin for a circular preview; click a hostel to open its preview page. 2D is flat; 3D tilts the map. Zoom in for buildings where OpenStreetMap data is available.
-            Only StayKota hostel/coaching pins are shown. Locations are demo data; distances are straight-line.
-          </p>
         </section>
       </div>
     </div>

@@ -1,0 +1,339 @@
+/* ==========================================================================
+   StayKota Custom Dropdown System (Non-Homepage Global UI Upgrade)
+   Replaces native white OS <select> menus with an animated StayKota popover
+   while preserving full ARIA keyboard navigation and hidden native <select> sync.
+   ========================================================================== */
+
+.sk-select {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  font-family: "Manrope Variable", "Manrope", system-ui, -apple-system, sans-serif;
+}
+
+/* Synchronized accessible native select: invisible to mouse so OS white popup never opens,
+   while staying completely functional for screen-reader tools & programmatic .selectOption() */
+.sk-select__native {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  z-index: -1;
+}
+
+.sk-select__trigger {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: #ffffff;
+  color: #163a32;
+  border: 1px solid #d5e0d5;
+  border-radius: 12px;
+  padding: 10px 13px;
+  min-height: 42px;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.2s ease,
+    transform 0.16s ease;
+  box-shadow: 0 1px 2px rgba(17, 52, 43, 0.04);
+}
+
+.sk-select__trigger:hover:not(:disabled) {
+  border-color: #9ec0b1;
+  background: #fcfefd;
+  box-shadow: 0 4px 14px rgba(15, 118, 110, 0.08);
+}
+
+.sk-select__trigger:focus-visible,
+.sk-select--open .sk-select__trigger {
+  outline: none;
+  border-color: #0f766e;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15), 0 6px 18px rgba(15, 118, 110, 0.09);
+}
+
+.sk-select__trigger:disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
+  background: #f3f5ef;
+}
+
+.sk-select__value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.sk-select__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #0f766e;
+  flex-shrink: 0;
+}
+
+.sk-select__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.sk-select__chevron {
+  flex-shrink: 0;
+  color: #4f6f63;
+  transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), color 0.18s ease;
+}
+
+.sk-select--open .sk-select__chevron {
+  transform: rotate(180deg);
+  color: #0f766e;
+}
+
+/* Ghost / inline variant inside compound search bars (e.g. /explore hero bar, /compare bar) */
+.sk-select--ghost .sk-select__trigger {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  padding: 5px 8px;
+  margin: -5px -8px;
+  width: calc(100% + 16px);
+  min-height: 36px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #143830;
+}
+
+.sk-select--ghost .sk-select__trigger:hover:not(:disabled) {
+  background: rgba(15, 118, 110, 0.06);
+  border-color: rgba(15, 118, 110, 0.16);
+  box-shadow: none;
+}
+
+.sk-select--ghost.sk-select--open .sk-select__trigger,
+.sk-select--ghost .sk-select__trigger:focus-visible {
+  background: rgba(15, 118, 110, 0.085);
+  border-color: rgba(15, 118, 110, 0.34);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+}
+
+/* Compact pill variant (e.g. Sort by control, Map filter cells) */
+.sk-select--compact .sk-select__trigger {
+  min-height: 38px;
+  padding: 8px 11px;
+  border-radius: 10px;
+  font-size: 13px;
+  background: #fcfcf8;
+}
+
+/* Error highlight */
+.sk-select--error .sk-select__trigger {
+  border-color: #dc4c3e;
+}
+
+/* ==========================================================================
+   Portal Popover Menu — 3D Spring Unfold + Custom Slim Scrollbar
+   ========================================================================== */
+
+.sk-select__menu {
+  position: fixed;
+  z-index: 12000;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #fffffe 0%, #fafaf4 100%);
+  border: 1px solid #cbddd0;
+  border-radius: 16px;
+  padding: 6px;
+  box-shadow:
+    0 24px 60px -12px rgba(14, 45, 37, 0.22),
+    0 8px 20px -6px rgba(14, 45, 37, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.9) inset;
+  font-family: "Manrope Variable", "Manrope", system-ui, -apple-system, sans-serif;
+  transform-origin: var(--sk-menu-origin, top center);
+  animation: sk-select-unfold-3d 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+  backdrop-filter: blur(18px);
+}
+
+@keyframes sk-select-unfold-3d {
+  from {
+    opacity: 0;
+    transform: perspective(900px) rotateX(var(--sk-menu-rx, -9deg)) translateY(var(--sk-menu-ty, -6px)) scale(0.975);
+  }
+  to {
+    opacity: 1;
+    transform: perspective(900px) rotateX(0deg) translateY(0) scale(1);
+  }
+}
+
+.sk-select__search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 2px 6px;
+  padding: 8px 11px;
+  border-radius: 10px;
+  background: #f2f6ef;
+  border: 1px solid #dce6d9;
+  color: #5b786a;
+}
+
+.sk-select__search-wrap:focus-within {
+  background: #ffffff;
+  border-color: #0f766e;
+  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.14);
+}
+
+.sk-select__search {
+  border: 0;
+  outline: none;
+  background: transparent;
+  width: 100%;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #163a32;
+}
+
+.sk-select__search::placeholder {
+  color: #7c9284;
+}
+
+.sk-select__list {
+  list-style: none;
+  margin: 0;
+  padding: 2px;
+  max-height: var(--sk-menu-max-h, 290px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #b4cabe transparent;
+}
+
+.sk-select__list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.sk-select__list::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+
+.sk-select__list::-webkit-scrollbar-thumb {
+  background: #b9cebe;
+  border-radius: 999px;
+}
+
+.sk-select__list::-webkit-scrollbar-thumb:hover {
+  background: #0f766e;
+}
+
+.sk-select__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  cursor: pointer;
+  color: #21453c;
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 1.35;
+  transition: background-color 0.13s ease, color 0.13s ease, transform 0.13s ease;
+  user-select: none;
+}
+
+.sk-select__option + .sk-select__option {
+  margin-top: 2px;
+}
+
+.sk-select__option:hover,
+.sk-select__option.is-highlighted {
+  background: #eef5ee;
+  color: #0d4a40;
+}
+
+.sk-select__option.is-selected {
+  background: linear-gradient(135deg, #e5f3ec 0%, #edf6ef 100%);
+  color: #0c5e54;
+  font-weight: 700;
+}
+
+.sk-select__option.is-disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.sk-select__option-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.sk-select__option-primary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sk-select__option-sub {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #627f70;
+  margin-top: 1px;
+}
+
+.sk-select__option.is-selected .sk-select__option-sub {
+  color: #166a5e;
+}
+
+.sk-select__check {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #0f766e;
+  color: #ffffff;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(15, 118, 110, 0.25);
+}
+
+.sk-select__empty {
+  padding: 18px 12px;
+  text-align: center;
+  font-size: 12.5px;
+  color: #6e8578;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk-select__menu {
+    animation: none;
+  }
+  .sk-select__chevron {
+    transition: none;
+  }
+}

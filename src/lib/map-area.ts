@@ -12,6 +12,17 @@ export function bufferedBounds(bounds: AreaBounds, km: number): AreaBounds {
   return [[bounds[0][0] - lngPadding, bounds[0][1] - latPadding], [bounds[1][0] + lngPadding, bounds[1][1] + latPadding]];
 }
 export const KOTA_MAP_BOUNDS = bufferedBounds(KOTA_CITY_BOUNDS, KOTA_BUFFER_KM);
+/** Viewport-aware Kota camera constraint for MapLibre's transformConstrain hook:
+ * keeps the camera centre inside KOTA_AREA_POLYGON without locking viewport frustum edges in 2D or 3D tilt. */
+export function constrainKotaCamera(latitude: number, longitude: number, zoom: number, width: number, height: number) {
+  const centre = constrainedMapCentre(latitude, longitude);
+  const minZoom = Math.max(0, minimumKotaZoom(width, height));
+  return {
+    latitude: centre.latitude,
+    longitude: centre.longitude,
+    zoom: Math.max(minZoom, Math.min(19, zoom)),
+  };
+}
 function destination(longitude: number, latitude: number, bearing: number): number[] {
   const rad = Math.PI / 180, angular = KOTA_BUFFER_KM / 6371;
   const phi = latitude * rad, theta = bearing * rad;
