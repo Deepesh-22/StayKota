@@ -738,3 +738,157 @@ test('preview protects unpublished hostels, rejects unsafe returns and handles c
   await expect(page.locator('.hostel-preview-price')).toContainText('₹5,500');
   await expect(page.getByRole('link',{name:'See full details',exact:true})).toBeVisible();
 });
+
+test('landing cards reveal photos without losing room, price, comparison or preview context', async ({ page }) => {
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  const deck = page.getByRole('region', { name: 'Featured demo hostels' });
+  const card = deck.locator('article').first();
+  const price = await card.locator('.discovery-card-pricing').innerText();
+  const href = await card.locator('.discovery-card-cta').getAttribute('href');
+  const compactWidth = (await card.boundingBox())!.width;
+  const open = card.getByRole('button', { name: /Open a closer look/ });
+  await expect(open).toHaveAttribute('aria-expanded', 'false');
+  await open.click();
+  const close = card.getByRole('button', { name: /Close a closer look/ });
+  await expect(close).toHaveAttribute('aria-expanded', 'true');
+  await expect.poll(async () => (await card.boundingBox())!.width).toBeGreaterThan(compactWidth * 1.8);
+  await expect(card.locator('.featured-reveal-address')).toContainText('45, Landmark City, Kota');
+  const photo = card.locator('.featured-stage-image');
+  const firstPhoto = await photo.getAttribute('src');
+  await card.getByRole('button', { name: /Next photo of/ }).click();
+  await expect(photo).not.toHaveAttribute('src', firstPhoto!);
+  await card.getByRole('button', { name: /Previous photo of/ }).click();
+  await expect(photo).toHaveAttribute('src', firstPhoto!);
+  await card.getByRole('button', { name: /Add .* to comparison/ }).click();
+  await expect(card.getByRole('button', { name: /Remove .* from comparison/ })).toHaveAttribute('aria-pressed', 'true');
+  expect(await card.locator('.discovery-card-pricing').innerText()).toBe(price);
+  await expect(card.locator('.discovery-card-cta')).toHaveAttribute('href', href!);
+  await page.keyboard.press('Escape');
+  await expect(open).toHaveAttribute('aria-expanded', 'false');
+  await expect(open).toBeFocused();
+  await open.click();
+  await card.locator('.discovery-card-cta').click();
+  await expect(page).toHaveURL(/hostel\/h2\/preview\?.*campus=allen-landmark.*room=rt5/);
+  await expect(page.getByRole('heading', { name: "Scholar's PG", exact: true })).toBeVisible();
+  await page.getByRole('link', { name: /See full details/ }).click();
+  await expect(page).toHaveURL(/login\?.*reason=hostel-details/);
+  await page.getByRole('button', { name: 'Use sample student account' }).click();
+  await expect(page).toHaveURL(/hostel\/h2\?.*room=rt5/);
+  expect(errors).toEqual([]);
+});
+
+test('landing carousel opens one card at a time and reaches the last card in both directions', async ({ page }) => {
+  await page.goto('/');
+  const cards = page.locator('.home-deck-item article');
+  const count = await cards.count();
+  await cards.first().getByRole('button', { name: /Open a closer look/ }).click();
+  for (let index = 1; index < count; index++) {
+    await page.getByRole('button', { name: 'Next featured hostel', exact: true }).click();
+    await expect(cards.nth(index)).toHaveClass(/is-revealed/);
+    await expect(page.locator('.home-deck-item.is-expanded')).toHaveCount(1);
+    await expect(cards.nth(index).locator('.discovery-card-cta')).toBeInViewport();
+  }
+  await expect(page.getByRole('button', { name: 'Next featured hostel', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Previous featured hostel', exact: true }).click();
+  await expect(cards.nth(count - 2)).toHaveClass(/is-revealed/);
+  await cards.nth(count - 2).getByRole('button', { name: /Close a closer look/ }).click();
+  await expect(page.locator('.home-deck-item.is-expanded')).toHaveCount(0);
+});
+
+test('mobile landing reveal supports keyboard, reduced motion, horizontal browsing and filter resets', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  const deck = page.getByRole('region', { name: 'Featured demo hostels' });
+  const card = deck.locator('article').first();
+  const open = card.getByRole('button', { name: /Open a closer look/ });
+  await open.focus(); await page.keyboard.press('Enter');
+  await expect(card).toHaveClass(/is-revealed/);
+  const photo = card.locator('.featured-stage-image');
+  expect(await photo.evaluate(node => Math.max(...getComputedStyle(node).transitionDuration.split(',').map(value => Number.parseFloat(value))))).toBeLessThanOrEqual(.001);
+  const photoBox = (await card.locator('.discovery-card-photo').boundingBox())!;
+  const contentBox = (await card.locator('.discovery-card-content').boundingBox())!;
+  expect(contentBox.y).toBeGreaterThanOrEqual(photoBox.y + photoBox.height);
+  await page.getByRole('button', { name: 'Next featured hostel', exact: true }).click();
+  await expect(deck.locator('article').nth(1)).toHaveClass(/is-revealed/);
+  await expect(deck.locator('article').nth(1).getByRole('button', { name: /Close a closer look/ })).toBeInViewport();
+  await page.keyboard.press('Escape');
+  await expect(deck.locator('article.is-revealed')).toHaveCount(0);
+  await deck.evaluate(node => { node.scrollLeft = node.scrollWidth; });
+  await expect.poll(() => deck.evaluate(node => node.scrollLeft)).toBeGreaterThan(0);
+  const widths = await page.evaluate(() => ({ actual: document.documentElement.scrollWidth, viewport: innerWidth }));
+  expect(widths.actual).toBeLessThanOrEqual(widths.viewport);
+  await page.getByLabel('Monthly budget', { exact: true }).selectOption('5000');
+  await expect(page.locator('.home-deck-item.is-expanded')).toHaveCount(0);
+  await expect(deck.locator('article').first().locator('.discovery-card-price')).toContainText('₹4,800');
+});
+
+test('landing reveal recovers failed photographs and retains the selected room', async ({ page }) => {
+  await page.route('**/images/hostel-exterior.webp', route => route.abort());
+  await page.goto('/');
+  const card = page.locator('.home-deck-item article').first();
+  await card.getByRole('button', { name: /Open a closer look/ }).click();
+  await expect(card.getByRole('status')).toContainText('This photo couldn’t load.');
+  await expect(card.locator('.discovery-card-price')).toContainText('₹7,000');
+  await page.unroute('**/images/hostel-exterior.webp');
+  await card.getByRole('button', { name: 'Retry photo', exact: true }).click();
+  await expect(card.getByRole('status')).toHaveCount(0);
+  await expect.poll(() => card.locator('.featured-stage-image').evaluate(node => (node as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  await card.getByRole('button', { name: /Next photo of/ }).click();
+  await expect(card.locator('.featured-stage-photo-controls')).toContainText('02 / 03');
+  await expect(card.locator('.discovery-card-cta')).toHaveAttribute('href', /room=rt5/);
+});
+
+test('a changed landing preference clears expanded state and recovers empty room results', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('.home-deck-item article').first().getByRole('button', { name: /Open a closer look/ }).click();
+  await page.getByLabel('My coaching campus').selectOption('allen-talwandi');
+  await expect(page.locator('.home-deck-item.is-expanded')).toHaveCount(0);
+  await page.getByLabel('My kind of room').selectOption('single');
+  await page.getByLabel('Monthly budget', { exact: true }).selectOption('5000');
+  await expect(page.locator('.home-empty')).toBeVisible();
+  await page.getByRole('button', { name: /Reset room preferences/ }).click();
+  await expect(page.locator('.home-deck-item')).toHaveCount(4);
+  const card = page.locator('.home-deck-item article').first();
+  await card.getByRole('button', { name: /Open a closer look/ }).click();
+  await expect(card).toHaveClass(/is-revealed/);
+  await expect(card.locator('.discovery-card-campus')).toContainText('Talwandi');
+});
+
+test('a single featured match reveals cleanly with disabled carousel arrows', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('group', { name: 'Hostel preference' }).getByRole('button', { name: 'Co-ed', exact: true }).click();
+  await expect(page.locator('.home-deck-item')).toHaveCount(1);
+  const card = page.locator('.home-deck-item article');
+  await card.getByRole('button', { name: /Open a closer look/ }).click();
+  await expect(card).toHaveClass(/is-revealed/);
+  await expect(card.locator('.featured-reveal-address')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Previous featured hostel', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Next featured hostel', exact: true })).toBeDisabled();
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await expect(card.locator('.discovery-card-cta')).toBeVisible();
+  const widths = await page.evaluate(() => ({ actual: document.documentElement.scrollWidth, viewport: innerWidth }));
+  expect(widths.actual).toBeLessThanOrEqual(widths.viewport);
+});
+
+test('touch gestures browse the landing cards without triggering a reveal', async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  const page = await context.newPage();
+  await page.goto('/');
+  const deck = page.getByRole('region', { name: 'Featured demo hostels' });
+  await deck.evaluate(node => node.scrollIntoView({ block: 'start', behavior: 'instant' }));
+  const box = (await deck.boundingBox())!;
+  const cdp = await context.newCDPSession(page);
+  const y = Math.max(130, box.y + 140);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 300, y }] });
+  // Space native touch moves across frames so Chromium recognises a scroll gesture.
+  for (const x of [260, 220, 180, 140, 100, 50]) {
+    await page.waitForTimeout(50);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y }] });
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await expect.poll(() => deck.evaluate(node => node.scrollLeft)).toBeGreaterThan(100);
+  await expect(deck.locator('article.is-revealed')).toHaveCount(0);
+  await context.close();
+});

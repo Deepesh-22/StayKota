@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, BedDouble, Check, ChevronDown, GraduationCap, MapPin, Search, SlidersHorizontal, Sparkles } from 'lucide-react';
+import { ArrowDown, ArrowRight, ArrowUpRight, BedDouble, Check, ChevronDown, GraduationCap, MapPin, Search, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { HostelCard } from '../components/hostel/HostelCard';
+import { FeaturedHostelDeck } from '../components/home/FeaturedHostelDeck';
 import { KotaNeighbourhood } from '../components/home/KotaNeighbourhood';
 import { CAMPUSES, DEFAULT_CAMPUS_ID } from '../data/campuses';
 import { distanceKm, getCampus, getMatchingRooms } from '../lib/discovery';
@@ -24,8 +24,6 @@ export function HomePage() {
   const [sharing, setSharing] = useState<SharingType | ''>('');
   const [category, setCategory] = useState('');
   const [activeCard, setActiveCard] = useState(0);
-  const [deckPosition, setDeckPosition] = useState({ atStart: true, atEnd: false });
-  const deckRef = useRef<HTMLDivElement>(null);
   const campus = getCampus(campusId);
 
   const featured = useMemo(() => hostels
@@ -34,16 +32,6 @@ export function HomePage() {
     .filter(item => item.rooms.length > 0)
     .sort((a, b) => (distanceKm(a.hostel, campus) ?? Infinity) - (distanceKm(b.hostel, campus) ?? Infinity))
     .slice(0, 4), [hostels, campus, sharing, maxBudget, category]);
-
-  useEffect(() => {
-    const deck = deckRef.current;
-    if (!deck) return;
-    const updatePosition = () => setDeckPosition({ atStart: deck.scrollLeft <= 1, atEnd: deck.scrollLeft + deck.clientWidth >= deck.scrollWidth - 2 });
-    updatePosition();
-    const observer = new ResizeObserver(updatePosition);
-    observer.observe(deck);
-    return () => observer.disconnect();
-  }, [featured.length]);
 
   const searchParams = () => {
     const params = new URLSearchParams({ campus: campusId });
@@ -60,23 +48,11 @@ export function HomePage() {
 
   const resetDeck = () => {
     setActiveCard(0);
-    setDeckPosition({ atStart: true, atEnd: featured.length <= 1 });
-    deckRef.current?.scrollTo({ left: 0, behavior: 'instant' });
   };
 
   const changeCampus = (id: string) => {
     setCampusId(id);
     resetDeck();
-  };
-
-  const scrollDeck = (direction: number) => {
-    const deck = deckRef.current;
-    if (!deck) return;
-    const firstCard = deck.querySelector<HTMLElement>('.home-deck-item');
-    const gap = Number.parseFloat(window.getComputedStyle(deck).columnGap) || 24;
-    const cardWidth = (firstCard?.offsetWidth ?? 340) + gap;
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    deck.scrollBy({ left: direction * cardWidth, behavior: reduceMotion ? 'instant' : 'smooth' });
   };
 
   const selectedItem = featured[Math.min(activeCard, Math.max(0, featured.length - 1))];
@@ -128,18 +104,7 @@ export function HomePage() {
           <div className="home-section-topline"><span className="home-section-kicker"><span /> SPACES FOR YOUR NEXT CHAPTER</span><span className="home-section-note">Sample collection</span></div>
           <div className="home-section-heading"><div><h2 id="home-featured-heading">A place to settle.<br /><span>A little closer to you.</span></h2><p>Room to study, switch off, and feel at home near {campus.institute}’s {campus.name}.</p></div><Link to={`/explore?${searchParams()}`} className="home-text-link">Explore all stays <ArrowUpRight size={19} /></Link></div>
 
-          {featured.length > 0 ? <>
-            <div className="home-featured-deck" ref={deckRef} role="region" aria-roledescription="carousel" aria-label="Featured demo hostels" onScroll={() => {
-              const deck = deckRef.current;
-              const card = deck?.querySelector<HTMLElement>('.home-deck-item');
-              if (deck && card) {
-                const gap = Number.parseFloat(window.getComputedStyle(deck).columnGap) || 24;
-                setActiveCard(Math.min(featured.length - 1, Math.round(deck.scrollLeft / (card.offsetWidth + gap))));
-                setDeckPosition({ atStart: deck.scrollLeft <= 1, atEnd: deck.scrollLeft + deck.clientWidth >= deck.scrollWidth - 2 });
-              }
-            }}>{featured.map(({ hostel, rooms }, index) => <div key={hostel.id} className={`home-deck-item ${activeCard === index ? 'is-focused' : ''}`} role="group" aria-roledescription="slide" aria-label={`${index + 1} of ${featured.length}`} onMouseEnter={() => setActiveCard(index)} onFocus={() => setActiveCard(index)}><HostelCard hostel={hostel} room={rooms[0]} campus={campus} /></div>)}</div>
-            <div className="home-deck-footer"><div className="home-deck-progress" aria-hidden="true">{featured.map(item => <span key={item.hostel.id} className={item.hostel.id === selectedItem?.hostel.id ? 'is-active' : ''} />)}</div><p><span>0{Math.min(activeCard + 1, featured.length)}</span> / 0{featured.length}</p><div className="home-deck-controls"><button type="button" aria-label="Previous featured hostel" onClick={() => scrollDeck(-1)} disabled={deckPosition.atStart}><ArrowLeft size={18} /></button><button type="button" aria-label="Next featured hostel" onClick={() => scrollDeck(1)} disabled={deckPosition.atEnd || featured.length <= 1}><ArrowRight size={18} /></button></div></div>
-          </> : <div className="home-empty"><SlidersHorizontal size={27} /><h3>A little more room in your search?</h3><p>No sample rooms match these preferences. Try another budget or sharing type.</p><button onClick={() => { setMaxBudget(''); setSharing(''); setCategory(''); resetDeck(); }} type="button">Reset room preferences <ArrowRight size={17} /></button></div>}
+          {featured.length > 0 ? <FeaturedHostelDeck key={`${campusId}:${maxBudget}:${sharing}:${category}`} items={featured} campus={campus} onActiveChange={setActiveCard} /> : <div className="home-empty"><SlidersHorizontal size={27} /><h3>A little more room in your search?</h3><p>No sample rooms match these preferences. Try another budget or sharing type.</p><button onClick={() => { setMaxBudget(''); setSharing(''); setCategory(''); resetDeck(); }} type="button">Reset room preferences <ArrowRight size={17} /></button></div>}
         </div>
       </section>
 
