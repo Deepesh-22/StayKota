@@ -228,30 +228,33 @@ describe('cinematic hostel marker-to-detail transition suite', () => {
     const preview2 = container.querySelector(`[data-preview-id="${secondHostel.id}"]`);
     expect(preview2?.querySelector('img')?.getAttribute('src')).toBe(secondHostel.coverImage);
 
-    // Click second marker (plus rapid duplicate clicks) -> only one portal launches in Stage A ("pulse")
+    // Click second marker (plus rapid duplicate clicks) -> Stage 1 bilateral white ring sweep (`sweep`)
     act(() => {
       pin2.click();
       pin2.click();
       pin2.click();
     });
-    const portalPulse = document.body.querySelector('.sk-marker-portal');
-    expect(portalPulse).not.toBeNull();
-    expect(portalPulse?.getAttribute('data-stage')).toBe('pulse');
-    expect(portalPulse?.getAttribute('data-transition-hostel')).toBe(secondHostel.id);
+    const portalSweep = document.body.querySelector('.sk-marker-portal');
+    expect(portalSweep).not.toBeNull();
+    expect(portalSweep?.getAttribute('data-stage')).toBe('sweep');
+    expect(portalSweep?.getAttribute('data-transition-hostel')).toBe(secondHostel.id);
+    expect(portalSweep?.querySelectorAll('.sk-marker-portal__arc-fill')).toHaveLength(2);
 
-    // Advance past Stage A into Stage B ("expand") + route handoff to `/hostel/:id/preview`
+    // Advance past 300ms sweep into Stage 2 circular iris expansion (`iris`) + route handoff
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(160);
+      await vi.advanceTimersByTimeAsync(340);
     });
+    expect(document.body.querySelector('.sk-marker-portal')?.getAttribute('data-stage')).toBe('iris');
+    expect(document.body.querySelector('.sk-marker-portal__hero-title')?.textContent).toBe(secondHostel.name);
     expect(container.querySelector('[data-testid="current-route"]')?.textContent).toContain(
       `/hostel/${secondHostel.id}/preview`,
     );
     expect(container.querySelector('#hostel-preview-title')?.textContent).toBe(secondHostel.name);
     expect(container.textContent).toContain(secondHostel.locality);
 
-    // Advance past Stage D completion -> portal completely cleaned up from DOM and focus moved to title
+    // Advance past full settle completion -> portal cleanly removed from DOM and focus moved to title
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(750);
+      await vi.advanceTimersByTimeAsync(700);
     });
     expect(document.body.querySelector('.sk-marker-portal')).toBeNull();
     expect(document.activeElement?.id).toBe('hostel-preview-title');

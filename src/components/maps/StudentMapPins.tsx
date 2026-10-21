@@ -150,6 +150,13 @@ export function StudentMapPins({
                 pathname: window.location.pathname,
                 search: window.location.search,
               });
+              if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                map.easeTo({
+                  center: [hostel.longitude!, hostel.latitude!],
+                  zoom: Math.max(map.getZoom(), 15.2),
+                  duration: 300,
+                });
+              }
             }
             onSelect(hostel.id, origin);
           }}

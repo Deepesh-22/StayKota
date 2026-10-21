@@ -11,6 +11,7 @@ import {
   LockKeyhole,
   MapPin,
   ShieldCheck,
+  X,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useHostelTransition } from '../context/HostelTransitionContext';
@@ -107,9 +108,19 @@ export function HostelPreviewPage() {
             <ArrowLeft size={16} />
             {backLabel}
           </Link>
-          <span>
-            A first look <span aria-hidden="true">/</span> Hostel preview
-          </span>
+          <div className="hostel-preview-nav-right">
+            <span>
+              A first look <span aria-hidden="true">/</span> Hostel preview
+            </span>
+            <Link
+              to={returnTo}
+              className="hostel-preview-close-btn"
+              aria-label="Close preview and return"
+              title={backLabel}
+            >
+              <X size={16} />
+            </Link>
+          </div>
         </nav>
 
         <header className="hostel-preview-intro">

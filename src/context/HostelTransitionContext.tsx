@@ -12,18 +12,17 @@ import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { MapPin } from 'lucide-react';
 import {
-  computeFallbackTargetGeometry,
   computeOriginAperture,
   preloadImageSafe,
-  type ApertureGeometry,
 } from '../lib/marker-transition';
 import '../styles/marker-transition.css';
 
-export type TransitionStage = 'pulse' | 'expand' | 'settle';
+export type TransitionStage = 'sweep' | 'iris' | 'settle';
 
 export interface StartHostelTransitionInput {
   hostelId: string;
   hostelName: string;
+  locality?: string;
   coverImage?: string;
   targetHref: string;
   markerElement: HTMLElement | null;
@@ -34,31 +33,34 @@ interface ActivePortalState {
   token: number;
   hostelId: string;
   hostelName: string;
+  locality: string;
   coverImage?: string;
   imageBroken: boolean;
   stage: TransitionStage;
-  reducedMotion: boolean;
-  originCenterX: number;
-  originCenterY: number;
-  ringDiameter: number;
-  frame: ApertureGeometry;
+  ringX: number;
+  ringY: number;
 }
 
 interface HostelTransitionContextValue {
   /** Currently open circular hover/tap preview ID so only one marker expands at a time */
   hoveredPinId: string | null;
   setHoveredPinId: (id: string | null) => void;
-  /** Active shared-element transition state */
+  /** Active La Phase 5 inspired ring-sweep + circular iris transition portal */
   portal: ActivePortalState | null;
-  /** Hostel ID that recently completed or started a cinematic entry */
+  /** Hostel ID that entered via marker animation */
   arrivedHostelId: string | null;
-  /** Hostel ID that the user just returned to on the map */
+  /** Hostel ID that the student just returned to on the map */
   returnedHostelId: string | null;
   setReturnedHostelId: (id: string | null) => void;
-  /** Launch cinematic marker-to-preview expansion */
+  /** Launch full cinematic ring-sweep -> circular iris zoom-through -> HostelPreviewPage reveal */
   startHostelTransition: (input: StartHostelTransitionInput) => void;
-  /** Called by `HostelPreviewPage` when its `.hostel-preview-visual` hero container mounts */
+  /** Registered destination visual ref hook on `HostelPreviewPage` */
   registerPreviewVisualTarget: (hostelId: string, element: HTMLElement | null) => void;
+}
+
+function shortArcLabel(value: string, maxLen = 22): string {
+  const clean = value.trim().replace(/\s+/g, ' ').toUpperCase();
+  return clean.length > maxLen ? `${clean.slice(0, maxLen - 1).trimEnd()}…` : clean;
 }
 
 const HostelTransitionContext = createContext<HostelTransitionContextValue | null>(null);
@@ -90,7 +92,6 @@ export function HostelTransitionProvider({ children }: { children: ReactNode }) 
     setPortal(null);
   }, [clearScheduledWork]);
 
-  // Clear hover state whenever route path changes; abort mid-flight portal if user navigates away unexpectedly
   useEffect(() => {
     setHoveredPinId(null);
     if (arrivedHostelId && !location.pathname.includes(`/hostel/${encodeURIComponent(arrivedHostelId)}`)) {
@@ -98,7 +99,6 @@ export function HostelTransitionProvider({ children }: { children: ReactNode }) 
     }
   }, [location.pathname, arrivedHostelId]);
 
-  // Clean up safely if browser Back/Forward interrupts an active animation
   useEffect(() => {
     const onPopState = () => {
       if (inFlightRef.current) {
@@ -128,19 +128,18 @@ export function HostelTransitionProvider({ children }: { children: ReactNode }) 
     ({
       hostelId,
       hostelName,
+      locality = 'Kota',
       coverImage,
       targetHref,
       markerElement,
       apertureElement,
     }: StartHostelTransitionInput) => {
-      // Prevent accidental double/rapid clicks from spawning overlapping animations
       if (inFlightRef.current) return;
 
       const reducedMotion =
         typeof window !== 'undefined' &&
         window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-      // Fallback immediately to clean router navigation if no DOM rect can be measured
       if (!markerElement || typeof window === 'undefined') {
         navigate(targetHref);
         return;
@@ -150,12 +149,6 @@ export function HostelTransitionProvider({ children }: { children: ReactNode }) 
       inFlightRef.current = true;
       const currentToken = ++tokenRef.current;
 
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      const markerRect = markerElement.getBoundingClientRect();
-      const apertureRect = apertureElement?.getBoundingClientRect() ?? null;
-
-      // Reduced-motion mode: short, respectful 150ms cross-dissolve directly into destination
       if (reducedMotion) {
         setArrivedHostelId(hostelId);
         void import('../pages/HostelPreviewPage')
@@ -168,6 +161,10 @@ export function HostelTransitionProvider({ children }: { children: ReactNode }) 
         return;
       }
 
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const markerRect = markerElement.getBoundingClientRect();
+      const apertureRect = apertureElement?.getBoundingClientRect() ?? null;
       const origin = computeOriginAperture({
         markerRect,
         apertureRect,
@@ -175,35 +172,53 @@ export function HostelTransitionProvider({ children }: { children: ReactNode }) 
         viewportHeight: vh,
       });
 
+      const startX = origin.left + origin.width / 2;
+      const startY = origin.top + origin.height / 2;
+      const centerX = Math.round(vw / 2);
+      const centerY = Math.round(vh / 2);
+
       setHoveredPinId(null);
       setArrivedHostelId(hostelId);
+
+      // Mount ring right at the clicked marker position
       setPortal({
         token: currentToken,
         hostelId,
         hostelName,
+        locality,
         coverImage,
         imageBroken: !coverImage,
-        stage: 'pulse',
-        reducedMotion: false,
-        originCenterX: origin.left + origin.width / 2,
-        originCenterY: origin.top + origin.height / 2,
-        ringDiameter: Math.max(152, origin.width + 62),
-        frame: origin,
+        stage: 'sweep',
+        ringX: startX,
+        ringY: startY,
       });
 
-      // Stage A (0 -> 115ms): Selection ring bloom + chunk & cover image warm-up in parallel
-      const stageAPromise = new Promise<void>((resolve) => {
-        scheduleTimeout(resolve, 115);
+      // Next animation frame: glide the 164px ring smoothly into exact screen center `(50vw, 50vh)`
+      // in lockstep with the live MapLibre camera glide + bilateral 6->12 o'clock white arc fill!
+      scheduleRaf(() => {
+        scheduleRaf(() => {
+          if (tokenRef.current !== currentToken) return;
+          setPortal((prev) =>
+            prev && prev.token === currentToken
+              ? { ...prev, ringX: centerX, ringY: centerY }
+              : prev,
+          );
+        });
+      });
+
+      // Stage 1 completes at 300ms just as the bilateral white arcs kiss at 12 o'clock top center!
+      const sweepPromise = new Promise<void>((resolve) => {
+        scheduleTimeout(resolve, 300);
       });
 
       void Promise.all([
-        stageAPromise,
+        sweepPromise,
         import('../pages/HostelPreviewPage').catch(() => undefined),
-        preloadImageSafe(coverImage, 85),
+        preloadImageSafe(coverImage, 220),
       ]).then(([, , imageReady]) => {
         if (tokenRef.current !== currentToken) return;
 
-        // Commit route navigation cleanly once Stage A completes
+        // Commit route navigation cleanly underneath the full-bleed iris zoom-through
         try {
           navigate(targetHref);
         } catch {
@@ -211,27 +226,22 @@ export function HostelTransitionProvider({ children }: { children: ReactNode }) 
           return;
         }
 
-        // Begin Stage B expansion immediately toward predicted hero bounds;
-        // `registerPreviewVisualTarget` will refine to exact measured DOM pixel bounds on mount!
+        // Stage 2 (`300ms -> 720ms`): Expand circular iris portal across entire screen
+        // with wide-to-tight letter-spaced title convergence over the interior photograph!
         scheduleRaf(() => {
           if (tokenRef.current !== currentToken) return;
-          const fallbackTarget = computeFallbackTargetGeometry(
-            window.innerWidth,
-            window.innerHeight,
-          );
           setPortal((prev) =>
             prev && prev.token === currentToken
               ? {
                   ...prev,
                   imageBroken: prev.imageBroken || !imageReady,
-                  stage: 'expand',
-                  frame: fallbackTarget,
+                  stage: 'iris',
                 }
               : prev,
           );
         });
 
-        // Stage D completion: fade out portal cleanly & release lock after morph settles (530ms + 130ms dissolve)
+        // Release click guard & fade out iris stage seamlessly into interactive `HostelPreviewPage`
         scheduleTimeout(() => {
           if (tokenRef.current !== currentToken) return;
           setPortal((prev) =>
@@ -242,43 +252,20 @@ export function HostelTransitionProvider({ children }: { children: ReactNode }) 
           scheduleTimeout(() => {
             if (tokenRef.current !== currentToken) return;
             setPortal(null);
-            // Move keyboard focus politely to the destination heading without jumping scroll
             const heading = document.getElementById('hostel-preview-title');
             heading?.focus({ preventScroll: true });
-          }, 155);
-        }, 530);
+          }, 180);
+        }, 420);
       });
     },
     [cancelPortalImmediately, clearScheduledWork, navigate, scheduleRaf, scheduleTimeout],
   );
 
   const registerPreviewVisualTarget = useCallback(
-    (hostelId: string, element: HTMLElement | null) => {
-      if (!element) return;
-      // Measure live destination container on next frame so CSS layout is 100% resolved
-      scheduleRaf(() => {
-        setPortal((prev) => {
-          if (!prev || prev.hostelId !== hostelId) return prev;
-          const rect = element.getBoundingClientRect();
-          if (rect.width < 40 || rect.height < 40) return prev;
-          const computedRadius = Number.parseFloat(
-            window.getComputedStyle(element).borderTopLeftRadius || '20',
-          );
-          return {
-            ...prev,
-            stage: prev.stage === 'pulse' ? 'expand' : prev.stage,
-            frame: {
-              left: Math.round(rect.left),
-              top: Math.round(rect.top),
-              width: Math.round(rect.width),
-              height: Math.round(rect.height),
-              borderRadius: Number.isFinite(computedRadius) ? computedRadius : 20,
-            },
-          };
-        });
-      });
+    (_hostelId: string, _element: HTMLElement | null) => {
+      // Destination visual hook preserved for future layout telemetry
     },
-    [scheduleRaf],
+    [],
   );
 
   const value = useMemo<HostelTransitionContextValue>(
@@ -309,33 +296,16 @@ export function HostelTransitionProvider({ children }: { children: ReactNode }) 
         portal &&
         createPortal(
           <div
-            className={`sk-marker-portal${portal.stage === 'pulse' ? ' is-capturing' : ''}`}
+            className={`sk-marker-portal${portal.stage === 'sweep' ? ' is-capturing' : ''}`}
             data-stage={portal.stage}
             data-transition-hostel={portal.hostelId}
             aria-hidden="true"
           >
-            <div className="sk-marker-portal__backdrop" />
-            <div
-              className="sk-marker-portal__ring-halo"
-              style={{
-                left: `${portal.originCenterX}px`,
-                top: `${portal.originCenterY}px`,
-                width: `${portal.ringDiameter}px`,
-                height: `${portal.ringDiameter}px`,
-              }}
-            />
-            <div
-              className="sk-marker-portal__aperture"
-              style={{
-                left: `${portal.frame.left}px`,
-                top: `${portal.frame.top}px`,
-                width: `${portal.frame.width}px`,
-                height: `${portal.frame.height}px`,
-                borderRadius: `${portal.frame.borderRadius}px`,
-              }}
-            >
+            {/* Stage 2: Full-bleed Circular Iris Reveal + Tracked Editorial Title Convergence */}
+            <div className="sk-marker-portal__iris-stage">
               {portal.coverImage && !portal.imageBroken ? (
                 <img
+                  className="sk-marker-portal__iris-media"
                   src={portal.coverImage}
                   alt=""
                   decoding="sync"
@@ -347,11 +317,68 @@ export function HostelTransitionProvider({ children }: { children: ReactNode }) 
                   }
                 />
               ) : (
-                <div className="sk-marker-portal__fallback">
-                  <MapPin size={42} strokeWidth={1.6} />
+                <div className="sk-marker-portal__iris-fallback">
+                  <MapPin size={54} strokeWidth={1.5} />
                 </div>
               )}
-              <div className="sk-marker-portal__scrim" />
+              <div className="sk-marker-portal__iris-vignette" />
+              <div className="sk-marker-portal__hero-type">
+                <span className="sk-marker-portal__hero-eyebrow">
+                  {portal.locality} · Kota
+                </span>
+                <strong className="sk-marker-portal__hero-title">
+                  {portal.hostelName}
+                </strong>
+              </div>
+            </div>
+
+            {/* Stage 1: Gliding 164px Circular Badge with Symmetric 6-to-12 o'clock White Ring Sweep */}
+            <div
+              className="sk-marker-portal__ring-assembly"
+              style={{
+                left: `${portal.ringX}px`,
+                top: `${portal.ringY}px`,
+              }}
+            >
+              <svg className="sk-marker-portal__ring-svg" viewBox="0 0 164 164">
+                <defs>
+                  <path id="sk-portal-top-arc" d="M 17 82 A 65 65 0 0 1 147 82" />
+                  <path id="sk-portal-bot-arc" d="M 10 82 A 72 72 0 0 0 154 82" />
+                </defs>
+                <circle cx="82" cy="82" r="68" className="sk-marker-portal__ring-base" />
+                <text className="sk-marker-portal__ring-text" textAnchor="middle">
+                  <textPath href="#sk-portal-top-arc" startOffset="50%">
+                    {shortArcLabel(portal.hostelName)}
+                  </textPath>
+                </text>
+                <text className="sk-marker-portal__ring-subtext" textAnchor="middle">
+                  <textPath href="#sk-portal-bot-arc" startOffset="50%">
+                    {shortArcLabel(portal.locality)}
+                  </textPath>
+                </text>
+                <circle cx="14" cy="82" r="2.4" className="sk-marker-portal__ring-dot" />
+                <circle cx="150" cy="82" r="2.4" className="sk-marker-portal__ring-dot" />
+                {/* Bilateral symmetric white arcs climbing equally from 6 o'clock (82, 150) to 12 o'clock (82, 14) */}
+                <path d="M 82 150 A 68 68 0 0 1 82 14" className="sk-marker-portal__arc-fill" />
+                <path d="M 82 150 A 68 68 0 0 0 82 14" className="sk-marker-portal__arc-fill" />
+              </svg>
+              <span className="sk-marker-portal__ring-thumb">
+                {portal.coverImage && !portal.imageBroken ? (
+                  <img
+                    src={portal.coverImage}
+                    alt=""
+                    decoding="sync"
+                    draggable={false}
+                    onError={() =>
+                      setPortal((prev) =>
+                        prev && prev.token === portal.token ? { ...prev, imageBroken: true } : prev,
+                      )
+                    }
+                  />
+                ) : (
+                  <MapPin size={40} strokeWidth={1.6} />
+                )}
+              </span>
             </div>
           </div>,
           document.body,

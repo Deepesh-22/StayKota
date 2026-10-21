@@ -86,6 +86,7 @@ export function NeighbourhoodMap({ campus, items, activeHostelId, onCampusChange
                 startHostelTransition({
                   hostelId: id,
                   hostelName: matched.hostel.name,
+                  locality: matched.hostel.locality,
                   coverImage: matched.hostel.coverImage,
                   targetHref,
                   markerElement: origin.markerElement,

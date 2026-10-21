@@ -1,5 +1,5 @@
 /* ==========================================================================
-   StayKota — Cinematic Hostel Marker-to-Detail Shared-Element Portal
+   StayKota — La Phase 5 Inspired Cinematic Ring-Sweep & Iris Portal Transition
    ========================================================================== */
 
 .sk-marker-portal {
@@ -16,116 +16,224 @@
   cursor: progress;
 }
 
-/* Warm architectural paper backdrop matching `.hostel-preview-page` (#f8f8f3) */
-.sk-marker-portal__backdrop {
+/* Stage 1: Floating 164px Ring Gliding Smoothly from Marker Position to Screen Center
+   while Bilateral White Arcs Sweep Symmetrically from 6 o'clock -> 12 o'clock */
+.sk-marker-portal__ring-assembly {
+  position: fixed;
+  width: 164px;
+  height: 164px;
+  transform: translate(-50%, -50%) scale(1);
+  z-index: 3;
+  filter: drop-shadow(0 16px 34px rgba(10, 28, 36, 0.42));
+  will-change: left, top, transform, opacity;
+  transition:
+    left 300ms cubic-bezier(0.32, 0.72, 0, 1),
+    top 300ms cubic-bezier(0.32, 0.72, 0, 1),
+    transform 360ms cubic-bezier(0.19, 1, 0.22, 1),
+    opacity 240ms ease;
+}
+
+.sk-marker-portal[data-stage='iris'] .sk-marker-portal__ring-assembly {
+  transform: translate(-50%, -50%) scale(6.2);
+  opacity: 0;
+}
+
+.sk-marker-portal[data-stage='settle'] .sk-marker-portal__ring-assembly {
+  transform: translate(-50%, -50%) scale(7);
+  opacity: 0;
+}
+
+.sk-marker-portal__ring-svg {
+  display: block;
   position: absolute;
   inset: 0;
-  background: #f8f8f3;
-  opacity: 0;
-  will-change: opacity;
-  transition: opacity 300ms cubic-bezier(0.22, 1, 0.36, 1);
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 
-.sk-marker-portal[data-stage='pulse'] .sk-marker-portal__backdrop {
-  opacity: 0.42;
+.sk-marker-portal__ring-base {
+  fill: none;
+  stroke: #102c35;
+  stroke-width: 28px;
 }
 
-.sk-marker-portal[data-stage='expand'] .sk-marker-portal__backdrop {
-  opacity: 1;
+.sk-marker-portal__ring-text {
+  fill: #eef3f4;
+  font-family: 'Manrope Variable', system-ui, sans-serif;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 2.2px;
 }
 
-.sk-marker-portal[data-stage='settle'] .sk-marker-portal__backdrop {
-  opacity: 0;
-  transition-duration: 180ms;
+.sk-marker-portal__ring-subtext {
+  fill: #cbe2df;
+  font-family: 'Manrope Variable', system-ui, sans-serif;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 2.3px;
 }
 
-/* Stage A tactile ring bloom radiating from the circular marker origin */
-.sk-marker-portal__ring-halo {
-  position: fixed;
+.sk-marker-portal__ring-dot {
+  fill: #d7e1e4;
+}
+
+/* Twin symmetric white half-circle arcs sweeping from 6 o'clock (bottom) to 12 o'clock (top) */
+.sk-marker-portal__arc-fill {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 29.5px;
+  stroke-linecap: butt;
+  stroke-dasharray: 216;
+  stroke-dashoffset: 216;
+  animation: sk-bilateral-arc-sweep 295ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+@keyframes sk-bilateral-arc-sweep {
+  0% {
+    stroke-dashoffset: 216;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.sk-marker-portal__ring-thumb {
+  position: absolute;
+  inset: 37px;
   border-radius: 50%;
-  border: 22px solid #102c35;
-  box-shadow:
-    0 12px 30px rgba(16, 44, 53, 0.32),
-    inset 0 0 0 1.5px rgba(238, 243, 244, 0.35);
-  transform: translate(-50%, -50%) scale(1);
-  opacity: 0.94;
-  will-change: transform, opacity;
-  transition:
-    transform 340ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 280ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.sk-marker-portal[data-stage='expand'] .sk-marker-portal__ring-halo,
-.sk-marker-portal[data-stage='settle'] .sk-marker-portal__ring-halo {
-  transform: translate(-50%, -50%) scale(1.42);
-  opacity: 0;
-}
-
-/* Shared-element morphing photo frame: 90px circle -> full 20px-radius `.hostel-preview-visual` */
-.sk-marker-portal__aperture {
-  position: fixed;
   overflow: hidden;
-  background: #e9eddf;
-  box-shadow:
-    0 24px 60px rgba(16, 44, 53, 0.26),
-    0 4px 16px rgba(16, 44, 53, 0.14);
-  will-change: left, top, width, height, border-radius, opacity;
-  transition:
-    left 520ms cubic-bezier(0.22, 1, 0.36, 1),
-    top 520ms cubic-bezier(0.22, 1, 0.36, 1),
-    width 520ms cubic-bezier(0.22, 1, 0.36, 1),
-    height 520ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-radius 520ms cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 520ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 150ms ease;
+  display: grid;
+  place-items: center;
+  background: #183640;
+  color: #e2ecef;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.55);
 }
 
-.sk-marker-portal[data-stage='pulse'] .sk-marker-portal__aperture {
-  transform: scale(1.06);
-  transition: transform 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.sk-marker-portal[data-stage='settle'] .sk-marker-portal__aperture {
-  opacity: 0;
-  box-shadow: none;
-}
-
-.sk-marker-portal__aperture img {
+.sk-marker-portal__ring-thumb img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
-  transform: scale(1.08);
-  will-change: transform;
-  transition: transform 560ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.sk-marker-portal[data-stage='expand'] .sk-marker-portal__aperture img,
-.sk-marker-portal[data-stage='settle'] .sk-marker-portal__aperture img {
-  transform: scale(1);
+/* Stage 2: Full-Viewport Circular Iris Zoom-Through Stage + Tracked Display Title Convergence */
+.sk-marker-portal__iris-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  background: #122620;
+  clip-path: circle(0px at 50% 50%);
+  opacity: 0;
+  will-change: clip-path, opacity;
+  transition:
+    clip-path 420ms cubic-bezier(0.19, 1, 0.22, 1),
+    opacity 175ms ease;
 }
 
-/* Graceful missing-photo fallback surface inside the morphing aperture */
-.sk-marker-portal__fallback {
+.sk-marker-portal[data-stage='iris'] .sk-marker-portal__iris-stage {
+  opacity: 1;
+  clip-path: circle(145vmax at 50% 50%);
+}
+
+.sk-marker-portal[data-stage='settle'] .sk-marker-portal__iris-stage {
+  opacity: 0;
+  clip-path: circle(145vmax at 50% 50%);
+}
+
+.sk-marker-portal__iris-media {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
+  object-fit: cover;
+  display: block;
+  transform: scale(1.24);
+  filter: brightness(0.84) contrast(1.03);
+  will-change: transform;
+  transition: transform 520ms cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.sk-marker-portal[data-stage='iris'] .sk-marker-portal__iris-media,
+.sk-marker-portal[data-stage='settle'] .sk-marker-portal__iris-media {
+  transform: scale(1.03);
+}
+
+.sk-marker-portal__iris-fallback {
+  position: absolute;
+  inset: 0;
   display: grid;
   place-items: center;
-  background: radial-gradient(circle at 35% 30%, #f3f6eb, #dde5d2);
-  color: #4f6c58;
+  background: radial-gradient(circle at 50% 42%, #20483d, #0f241f);
+  color: rgba(255, 255, 255, 0.72);
 }
 
-/* Subtle bottom vignette gradient emerging smoothly as the photo lands */
-.sk-marker-portal__scrim {
+.sk-marker-portal__iris-vignette {
   position: absolute;
-  inset: auto 0 0 0;
-  height: 38%;
-  background: linear-gradient(transparent, rgba(20, 45, 38, 0.72));
-  opacity: 0;
-  transition: opacity 360ms ease 140ms;
+  inset: 0;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(12, 30, 26, 0.16) 0%,
+    rgba(12, 30, 26, 0.56) 100%
+  );
 }
 
-.sk-marker-portal[data-stage='expand'] .sk-marker-portal__scrim {
+/* Signature Wide-to-Tight Letter-Spaced Title Convergence over the Interior Photo */
+.sk-marker-portal__hero-type {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 28px;
+  text-align: center;
+  color: #ffffff;
+  text-shadow: 0 6px 28px rgba(0, 0, 0, 0.45);
+}
+
+.sk-marker-portal__hero-eyebrow {
+  font-family: 'Manrope Variable', system-ui, sans-serif;
+  font-size: clamp(11px, 1.1vw, 13.5px);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.34em;
+  color: rgba(255, 255, 255, 0.92);
+  margin-bottom: 10px;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition:
+    opacity 320ms cubic-bezier(0.19, 1, 0.22, 1) 40ms,
+    transform 360ms cubic-bezier(0.19, 1, 0.22, 1) 40ms;
+}
+
+.sk-marker-portal__hero-title {
+  font-family: 'Manrope Variable', system-ui, sans-serif;
+  font-size: clamp(24px, 4.2vw, 54px);
+  font-weight: 800;
+  line-height: 1.08;
+  text-transform: uppercase;
+  max-width: 18ch;
+  letter-spacing: 0.48em;
+  transform: scaleX(1.18);
+  opacity: 0.2;
+  will-change: letter-spacing, transform, opacity;
+  transition:
+    letter-spacing 430ms cubic-bezier(0.19, 1, 0.22, 1),
+    transform 430ms cubic-bezier(0.19, 1, 0.22, 1),
+    opacity 280ms ease;
+}
+
+.sk-marker-portal[data-stage='iris'] .sk-marker-portal__hero-eyebrow,
+.sk-marker-portal[data-stage='settle'] .sk-marker-portal__hero-eyebrow {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.sk-marker-portal[data-stage='iris'] .sk-marker-portal__hero-title,
+.sk-marker-portal[data-stage='settle'] .sk-marker-portal__hero-title {
+  letter-spacing: 0.12em;
+  transform: scaleX(1);
   opacity: 1;
 }
 
@@ -133,51 +241,53 @@
    Coordinated Destination Arrival Reveal on `HostelPreviewPage`
    ========================================================================== */
 
-.hostel-preview-page.is-portal-flying .hostel-preview-visual > img,
-.hostel-preview-page.is-portal-flying .hostel-preview-visual > .hostel-preview-image-fallback {
-  opacity: 0;
+.hostel-preview-page.is-cinematic-entry .hostel-preview-visual > img {
+  animation: sk-hero-photo-settle 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.hostel-preview-page.is-portal-flying .hostel-preview-photo-note,
-.hostel-preview-page.is-portal-flying .hostel-preview-photo-caption {
-  opacity: 0;
-  transform: translateY(10px);
-}
-
-.hostel-preview-page.is-portal-arrived .hostel-preview-photo-note,
-.hostel-preview-page.is-portal-arrived .hostel-preview-photo-caption {
-  animation: sk-preview-rise 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+.hostel-preview-page.is-cinematic-entry .hostel-preview-photo-note,
+.hostel-preview-page.is-cinematic-entry .hostel-preview-photo-caption {
+  animation: sk-preview-rise 380ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
 }
 
 .hostel-preview-page.is-cinematic-entry .hostel-preview-nav,
 .hostel-preview-page.is-cinematic-entry .hostel-preview-intro {
-  animation: sk-preview-rise 420ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
+  animation: sk-preview-rise 400ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
 }
 
 .hostel-preview-page.is-cinematic-entry .hostel-preview-summary > * {
-  animation: sk-preview-rise 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: sk-preview-rise 440ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .hostel-preview-page.is-cinematic-entry .hostel-preview-summary > *:nth-child(1) {
   animation-delay: 110ms;
 }
 .hostel-preview-page.is-cinematic-entry .hostel-preview-summary > *:nth-child(2) {
-  animation-delay: 155ms;
+  animation-delay: 150ms;
 }
 .hostel-preview-page.is-cinematic-entry .hostel-preview-summary > *:nth-child(3) {
-  animation-delay: 195ms;
+  animation-delay: 190ms;
 }
 .hostel-preview-page.is-cinematic-entry .hostel-preview-summary > *:nth-child(4) {
-  animation-delay: 235ms;
+  animation-delay: 230ms;
 }
 .hostel-preview-page.is-cinematic-entry .hostel-preview-summary > *:nth-child(5) {
-  animation-delay: 275ms;
+  animation-delay: 270ms;
 }
 .hostel-preview-page.is-cinematic-entry .hostel-preview-summary > *:nth-child(6) {
-  animation-delay: 315ms;
+  animation-delay: 310ms;
 }
 .hostel-preview-page.is-cinematic-entry .hostel-preview-summary > *:nth-child(7) {
-  animation-delay: 350ms;
+  animation-delay: 345ms;
+}
+
+@keyframes sk-hero-photo-settle {
+  from {
+    transform: scale(1.06);
+  }
+  to {
+    transform: scale(1);
+  }
 }
 
 @keyframes sk-preview-rise {
@@ -219,26 +329,23 @@
 
 /* Reduced Motion Accessibility Guarantee */
 @media (prefers-reduced-motion: reduce) {
-  .sk-marker-portal__backdrop {
-    transition: opacity 120ms linear;
-  }
-
-  .sk-marker-portal__ring-halo {
-    display: none;
-  }
-
-  .sk-marker-portal__aperture,
-  .sk-marker-portal__aperture img,
-  .sk-marker-portal__scrim {
-    transition: opacity 130ms linear !important;
+  .sk-marker-portal__ring-assembly,
+  .sk-marker-portal__arc-fill,
+  .sk-marker-portal__iris-stage,
+  .sk-marker-portal__iris-media,
+  .sk-marker-portal__hero-eyebrow,
+  .sk-marker-portal__hero-title {
+    animation: none !important;
+    transition: opacity 120ms linear !important;
     transform: none !important;
   }
 
+  .hostel-preview-page.is-cinematic-entry .hostel-preview-visual > img,
   .hostel-preview-page.is-cinematic-entry .hostel-preview-nav,
   .hostel-preview-page.is-cinematic-entry .hostel-preview-intro,
   .hostel-preview-page.is-cinematic-entry .hostel-preview-summary > *,
-  .hostel-preview-page.is-portal-arrived .hostel-preview-photo-note,
-  .hostel-preview-page.is-portal-arrived .hostel-preview-photo-caption,
+  .hostel-preview-page.is-cinematic-entry .hostel-preview-photo-note,
+  .hostel-preview-page.is-cinematic-entry .hostel-preview-photo-caption,
   .student-hostel-pin.is-returned-origin {
     animation: none !important;
     opacity: 1 !important;

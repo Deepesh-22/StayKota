@@ -212,6 +212,7 @@ export function KotaMapPage() {
       startHostelTransition({
         hostelId: id,
         hostelName: item.hostel.name,
+        locality: item.hostel.locality,
         coverImage: item.hostel.coverImage,
         targetHref,
         markerElement: origin.markerElement,
