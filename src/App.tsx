@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { lazy, useEffect } from 'react';
 import { AppProvider } from './context/AppContext';
 import { CompareProvider } from './context/CompareContext';
+import { HostelTransitionProvider } from './context/HostelTransitionContext';
 import { Layout } from './components/layout/Layout';
 import { RequireHostelLogin } from './components/auth/RequireHostelLogin';
 import { HomePage } from './pages/HomePage';
@@ -35,6 +36,7 @@ export default function App() {
     <AppProvider>
       <CompareProvider>
       <BrowserRouter>
+        <HostelTransitionProvider>
         <RouteEffects />
         <Routes>
           <Route element={<Layout />}>
@@ -56,6 +58,7 @@ export default function App() {
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>
+        </HostelTransitionProvider>
       </BrowserRouter>
       </CompareProvider>
     </AppProvider>

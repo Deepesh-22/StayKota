@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { useLiveLocation } from '../hooks/useLiveLocation';
 import { useApp } from '../context/AppContext';
+import { useHostelTransition } from '../context/HostelTransitionContext';
+import type { MarkerActivationOrigin } from '../components/maps/HoverMapPin';
 import { CAMPUSES } from '../data/campuses';
 import { formatDistance, getCampus, getMatchingRooms, monthlyTotal } from '../lib/discovery';
 import {
@@ -49,6 +51,7 @@ const KOTA_AREAS: KotaAreaPreset[] = [
 
 export function KotaMapPage() {
   const { hostels } = useApp();
+  const { startHostelTransition } = useHostelTransition();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const campus = getCampus(params.get('campus'));
@@ -197,14 +200,26 @@ export function KotaMapPage() {
     setShowStays(false);
   };
 
-  const selectHostel = (id: string) => {
+  const selectHostel = (id: string, origin?: MarkerActivationOrigin) => {
     const item = items.find(value => value.hostel.id === id);
     if (!item) return;
     const back = new URLSearchParams(params);
     back.set('hostel', id);
     back.delete('q');
     const previewCampus = activeCampus || nearestCampus(item.hostel)?.campus || campus;
-    navigate(hostelPreviewHref(id, previewCampus.id, item.room.id, `/map?${back}`));
+    const targetHref = hostelPreviewHref(id, previewCampus.id, item.room.id, `/map?${back}`);
+    if (origin?.markerElement) {
+      startHostelTransition({
+        hostelId: id,
+        hostelName: item.hostel.name,
+        coverImage: item.hostel.coverImage,
+        targetHref,
+        markerElement: origin.markerElement,
+        apertureElement: origin.apertureElement,
+      });
+      return;
+    }
+    navigate(targetHref);
   };
 
   const selectCampus = (id: string) => {

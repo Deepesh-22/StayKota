@@ -5,6 +5,7 @@ import type { Hostel, RoomType } from '../../types';
 import type { Campus } from '../../data/campuses';
 import { hostelPreviewHref } from '../../lib/hostel-navigation';
 import { validCoordinates, type MapTarget } from '../../lib/maps';
+import { useHostelTransition } from '../../context/HostelTransitionContext';
 import { MapLayerToggle } from '../maps/MapLayerToggle';
 import type { MapBasemap } from '../../lib/satellite-map';
 import { KotaMap } from '../maps/KotaMap';
@@ -25,6 +26,7 @@ interface Props {
 export function NeighbourhoodMap({ campus, items, activeHostelId, onCampusChange, focusRevision = 0 }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { startHostelTransition } = useHostelTransition();
   const [basemap, setBasemap] = useState<MapBasemap>('street');
   const selected = items.find(({ hostel }) => hostel.id === activeHostelId);
   const [campusView, setCampusView] = useState(false);
@@ -71,17 +73,27 @@ export function NeighbourhoodMap({ campus, items, activeHostelId, onCampusChange
           campus={campus}
           items={items}
           selectedHostelId={activeHostelId}
-          onSelect={(id) => {
+          onSelect={(id, origin) => {
             const matched = items.find((value) => value.hostel.id === id);
             if (matched) {
-              navigate(
-                hostelPreviewHref(
-                  id,
-                  campus.id,
-                  matched.room.id,
-                  location.pathname + location.search,
-                ),
+              const targetHref = hostelPreviewHref(
+                id,
+                campus.id,
+                matched.room.id,
+                location.pathname + location.search,
               );
+              if (origin?.markerElement) {
+                startHostelTransition({
+                  hostelId: id,
+                  hostelName: matched.hostel.name,
+                  coverImage: matched.hostel.coverImage,
+                  targetHref,
+                  markerElement: origin.markerElement,
+                  apertureElement: origin.apertureElement,
+                });
+                return;
+              }
+              navigate(targetHref);
             }
           }}
           activeCampusId={campus.id}

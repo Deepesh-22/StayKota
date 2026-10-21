@@ -723,10 +723,27 @@ test('circular hostel and coaching previews open on hover/focus without selectin
   await hostel.click();
   await expect(page).toHaveURL(/hostel\/h1\/preview/);
   await expect(page.getByRole('heading',{name:'Comfort Stay Hostel',exact:true})).toBeVisible();
+  await expect(page.locator('.sk-marker-portal')).toHaveCount(0);
   await page.getByRole('link',{name:'Back to Kota map',exact:true}).click();
   await coaching.click();
   await expect(page).not.toHaveURL(/hostel=h1/);
   await expect(map).toHaveAttribute('data-target','25.146,75.852');
+});
+
+test('cinematic hostel marker expansion animates portal from clicked circle into detail preview and preserves return camera', async ({ page }) => {
+  await stubOpenMapStyle(page);
+  await page.goto('/map?campus=allen-talwandi');
+  const hostel = page.getByRole('button', { name: 'Select Comfort Stay Hostel on map', exact: true });
+  await expect(hostel).toBeVisible();
+  await hostel.hover();
+  await expect(page.locator('.map-circle-preview[data-preview-id="h1"] img')).toBeVisible();
+  await hostel.click();
+  await expect(page.locator('.sk-marker-portal[data-transition-hostel="h1"]')).toBeVisible();
+  await expect(page).toHaveURL(/\/hostel\/h1\/preview/);
+  await expect(page.getByRole('heading', { name: 'Comfort Stay Hostel', exact: true })).toBeVisible();
+  await expect(page.locator('.sk-marker-portal')).toHaveCount(0, { timeout: 2000 });
+  await page.getByRole('link', { name: 'Back to Kota map', exact: true }).click();
+  await expect(page).toHaveURL(/\/map\?/);
 });
 
 test('guest preview shows a summary and login returns to the same hostel and room', async ({ page }) => {

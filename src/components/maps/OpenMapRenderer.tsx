@@ -5,6 +5,8 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { useSatelliteLayer } from '../../hooks/useSatelliteLayer';
 import { SATELLITE_SOURCE_ID } from '../../lib/satellite-map';
 import { inKotaMapArea, minimumKotaZoom, constrainKotaCamera } from '../../lib/map-area';
+import { consumeMapCameraSnapshot } from '../../lib/marker-transition';
+import { useHostelTransition } from '../../context/HostelTransitionContext';
 import { CITY_TARGET } from '../../lib/maps';
 import { OPEN_MAP_STYLE_URL, radiusPolygon, studentMapStyle } from '../../lib/open-map-style';
 import { CityMapContext } from './MapContext';
@@ -16,6 +18,7 @@ setWorkerUrl(mapWorkerUrl);
 
 export default function OpenMapRenderer({ target = CITY_TARGET, perspective = '2d', basemap = 'street', userLocation, radiusKm, on3DAvailabilityChange, ...props }: KotaMapProps) {
   const container = useRef<HTMLDivElement>(null);
+  const { setReturnedHostelId } = useHostelTransition();
   const [map, setMap] = useState<Map | null>(null);
   const [camera, setCamera] = useState({ lat: CITY_TARGET.lat, lng: CITY_TARGET.lng, zoom: CITY_TARGET.zoom, pitch: 0 });
   const [minZoom, setMinZoom] = useState(11);
@@ -104,14 +107,30 @@ export default function OpenMapRenderer({ target = CITY_TARGET, perspective = '2
   }, [map]);
 
   useEffect(() => {
-    const current = latestTarget.current;
-    if (!inKotaMapArea({ latitude: current.lat, longitude: current.lng })) {
-      map?.jumpTo({ center: [CITY_TARGET.lng, CITY_TARGET.lat], zoom: CITY_TARGET.zoom, pitch: currentPerspective.current === '3d' ? 50 : 0 });
+    if (!map) return;
+    const restored = typeof window !== 'undefined' ? consumeMapCameraSnapshot(window.location.pathname) : null;
+    if (restored && inKotaMapArea({ latitude: restored.lat, longitude: restored.lng })) {
+      map.jumpTo({
+        center: [restored.lng, restored.lat],
+        zoom: restored.zoom,
+        pitch: restored.pitch || (currentPerspective.current === '3d' ? 50 : 0),
+        bearing: restored.bearing || 0,
+      });
+      if (restored.hostelId) {
+        setReturnedHostelId(restored.hostelId);
+        const timer = window.setTimeout(() => setReturnedHostelId(null), 1800);
+        return () => window.clearTimeout(timer);
+      }
       return;
     }
-    if (current.bounds) map?.fitBounds(current.bounds, { padding: 65, maxZoom: 16, duration: 0 });
-    else map?.jumpTo({ center: [current.lng, current.lat], zoom: current.zoom, pitch: currentPerspective.current === '3d' ? 50 : 0 });
-  }, [map, target.id]);
+    const current = latestTarget.current;
+    if (!inKotaMapArea({ latitude: current.lat, longitude: current.lng })) {
+      map.jumpTo({ center: [CITY_TARGET.lng, CITY_TARGET.lat], zoom: CITY_TARGET.zoom, pitch: currentPerspective.current === '3d' ? 50 : 0 });
+      return;
+    }
+    if (current.bounds) map.fitBounds(current.bounds, { padding: 65, maxZoom: 16, duration: 0 });
+    else map.jumpTo({ center: [current.lng, current.lat], zoom: current.zoom, pitch: currentPerspective.current === '3d' ? 50 : 0 });
+  }, [map, setReturnedHostelId, target.id]);
 
   useEffect(() => {
     if (!map || !ready) return;
