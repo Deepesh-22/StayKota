@@ -1,3 +1,4 @@
+import { safeAppPath } from '../lib/hostel-navigation';
 import { locationLabel } from '../lib/location-status';
 import { useEffect, useId, useRef, useState, type ReactNode, type SyntheticEvent, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -249,7 +250,7 @@ export function HostelDetailPage() {
     <div className="detail-page">
       <div className="detail-shell">
         <nav className="detail-breadcrumb" aria-label="Breadcrumb">
-          <Link to={'/explore?campus=' + campus.id}><ArrowLeft size={15} /> Back to nearby stays</Link>
+          <Link to={safeAppPath(searchParams.get('returnTo'), '/explore?campus=' + campus.id)}><ArrowLeft size={15} /> {searchParams.get('returnTo')?.startsWith('/map') ? 'Back to Kota map' : 'Back to nearby stays'}</Link>
           <span aria-hidden="true">/</span><span>{hostel.name}</span>
         </nav>
 

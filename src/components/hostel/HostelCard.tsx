@@ -6,6 +6,7 @@ import { useApp } from '../../context/AppContext';
 import { useCompare } from '../../context/CompareContext';
 import { distanceKm, formatDistance, getMatchingRooms, monthlyTotal } from '../../lib/discovery';
 import '../../styles/discovery.css';
+import { hostelPreviewHref } from '../../lib/hostel-navigation';
 import { locationLabel } from '../../lib/location-status';
 import { RoomCardStage } from './RoomCardStage';
 
@@ -34,7 +35,7 @@ export function HostelCard({ hostel, room, campus, onHover, compact = false, act
   const params = new URLSearchParams();
   if (campus) params.set('campus', campus.id);
   if (selectedRoom) params.set('room', selectedRoom.id);
-  const href = `/hostel/${hostel.id}${params.size ? `?${params.toString()}` : ''}`;
+  const href = !user || user.role === 'visitor' ? hostelPreviewHref(hostel.id, campus?.id || 'allen-landmark', selectedRoom?.id, location.pathname + location.search) : `/hostel/${hostel.id}${params.size ? `?${params.toString()}` : ''}`;
   const total = selectedRoom ? monthlyTotal(selectedRoom) : null;
   const extras = selectedRoom && total != null ? total - selectedRoom.rent : 0;
   const distance = campus ? distanceKm(hostel, campus) : null;
@@ -91,7 +92,7 @@ export function HostelCard({ hostel, room, campus, onHover, compact = false, act
             aria-label={`${compared ? 'Remove' : 'Add'} ${hostel.name} ${compared ? 'from' : 'to'} comparison`} title={comparisonFull ? 'Compare up to 3 hostels. Remove one to add this hostel.' : undefined}>
             {compared ? <Check size={14} aria-hidden="true" /> : <Plus size={14} aria-hidden="true" />}{compared ? 'Selected' : 'Compare'}
           </button>
-          <Link to={href} className="discovery-card-cta">{selectedRoom ? 'View rooms' : 'View hostel'}<ArrowUpRight size={15} aria-hidden="true" /></Link>
+          <Link to={href} className="discovery-card-cta">{!user || user.role === 'visitor' ? 'Preview stay' : selectedRoom ? 'View rooms' : 'View hostel'}<ArrowUpRight size={15} aria-hidden="true" /></Link>
         </div>
       </div>
     </article>

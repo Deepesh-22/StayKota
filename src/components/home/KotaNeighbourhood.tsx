@@ -1,3 +1,4 @@
+import { hostelPreviewHref } from '../../lib/hostel-navigation';
 import { ArrowUpRight, BedDouble, GraduationCap, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { CAMPUSES } from '../../data/campuses';
@@ -92,7 +93,7 @@ export function KotaNeighbourhood({ campus, onCampusChange, hostel, room }: Prop
     </svg>
     <div className="scene-campus-hotspots">{[...CAMPUSES.slice(0, 4), ...(CAMPUSES.slice(0, 4).some(item => item.id === campus.id) ? [] : [campus])].map(item => <button key={item.id} type="button" aria-label={`Choose ${item.institute} ${item.name}`} aria-pressed={item.id === campus.id} onClick={() => onCampusChange(item.id)} className={`scene-campus-pin ${item.id === campus.id ? 'is-selected' : ''}`} style={{ left: `${item.sceneX}%`, top: `${item.sceneY}%` }}><span className="scene-pin-dot"><GraduationCap size={16} strokeWidth={1.7} /></span><span className="scene-pin-label">{item.institute}<small>{item.area}</small></span></button>)}</div>
     <div className="scene-little-note"><span className="scene-note-doodle" aria-hidden="true">↘</span>study. settle. repeat.</div>
-    {hostel && room && <Link to={`/hostel/${hostel.id}?campus=${campus.id}&room=${room.id}`} className="scene-hostel-preview" key={hostel.id}><span className="scene-preview-photo"><img src={hostel.coverImage} alt="" width="60" height="62" /><span><BedDouble size={13} /></span></span><span className="scene-preview-copy"><small>A LITTLE SPACE FOR YOU</small><strong>{hostel.name}</strong><span>₹{monthlyTotal(room).toLocaleString('en-IN')}<em> / month*</em></span></span><ArrowUpRight size={17} className="scene-preview-arrow" /><span className="scene-preview-footnote">*Known recurring costs · demo room</span></Link>}
+    {hostel && room && <Link to={hostelPreviewHref(hostel.id,campus.id,room.id,'/')} className="scene-hostel-preview" key={hostel.id}><span className="scene-preview-photo"><img src={hostel.coverImage} alt="" width="60" height="62" /><span><BedDouble size={13} /></span></span><span className="scene-preview-copy"><small>A LITTLE SPACE FOR YOU</small><strong>{hostel.name}</strong><span>₹{monthlyTotal(room).toLocaleString('en-IN')}<em> / month*</em></span></span><ArrowUpRight size={17} className="scene-preview-arrow" /><span className="scene-preview-footnote">*Known recurring costs · demo room</span></Link>}
     <div className="scene-map-caption"><span /> Illustrative map · demo locations</div>
   </div>;
 }

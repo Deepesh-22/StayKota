@@ -1,6 +1,7 @@
+import { hostelPreviewHref } from '../lib/hostel-navigation';
 import { inKotaMapArea } from '../lib/map-area';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowUpRight,
   ChevronDown,
@@ -31,6 +32,7 @@ import '../styles/city-map.css';
 
 export function KotaMapPage() {
   const { hostels } = useApp();
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const campus = getCampus(params.get('campus'));
   const live = useLiveLocation();
@@ -131,9 +133,17 @@ export function KotaMapPage() {
     }
     setParams(next);
   };
-  const selectHostel = (id: string) => {
+  const focusHostel = (id: string) => {
     update({ hostel: id, q: null });
     setShowStays(false);
+  };
+  const selectHostel = (id: string) => {
+    const item = items.find(value => value.hostel.id === id);
+    if (!item) return;
+    const back = new URLSearchParams(params);
+    back.set('hostel',id); back.delete('q');
+    const previewCampus = activeCampus || nearestCampus(item.hostel)?.campus || campus;
+    navigate(hostelPreviewHref(id,previewCampus.id,item.room.id,`/map?${back}`));
   };
   const selectCampus = (id: string) => { live.stop(); update({ campus: id, hostel: null, q: null }); };
   const submitSearch = (event: FormEvent) => {
@@ -355,7 +365,7 @@ export function KotaMapPage() {
                     <button
                       type="button"
                       className="city-stay-select"
-                      onClick={() => selectHostel(hostel.id)}
+                      onClick={() => focusHostel(hostel.id)}
                       aria-label={`Show ${hostel.name} on map`}
                       aria-pressed={selected?.hostel.id === hostel.id}
                     >
@@ -375,8 +385,8 @@ export function KotaMapPage() {
                         </b>
                       </span>
                     </button>
-                    <Link to={`/hostel/${hostel.id}?campus=${campus.id}&room=${room.id}`}>
-                      Room details <ArrowUpRight size={13} />
+                    <Link to={hostelPreviewHref(hostel.id,nearby?.campus.id || campus.id,room.id,`/map?${params}`)}>
+                      Preview stay <ArrowUpRight size={13} />
                     </Link>
                   </article>
                 );
@@ -414,6 +424,7 @@ export function KotaMapPage() {
                 aria-describedby="city-perspective-help"
                 onClick={() => update({ view: '3d' })}>3D tilt</button>
             </div>
+            {selected && <button type="button" className="city-clear-selection" aria-label="Clear selected hostel" onClick={() => update({ hostel:null })}><X size={14}/><span>Clear selection</span></button>}
             <button
               type="button"
               className="city-fullscreen"
@@ -473,33 +484,8 @@ export function KotaMapPage() {
               on3DAvailabilityChange={setSupports3D}
             />
           </div>
-          {selected && (
-            <div className="city-selected">
-              <img src={selected.hostel.coverImage} alt="" />
-              <div>
-                <small>SAMPLE LOCATION SELECTED</small>
-                <strong>{selected.hostel.name}</strong>
-                <span>
-                  {selected.room.name} · ₹{monthlyTotal(selected.room).toLocaleString('en-IN')}{' '}
-                  fixed / student / month
-                </span>
-              </div>
-              <Link
-                to={`/hostel/${selected.hostel.id}?campus=${campus.id}&room=${selected.room.id}`}
-              >
-                View rooms <ArrowUpRight size={14} />
-              </Link>
-              <button
-                type="button"
-                onClick={() => update({ hostel: null })}
-                aria-label="Clear selected hostel"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          )}
           <p className="city-map-caption" id="city-perspective-help">
-            Explore Kota and its configured 3 km buffer. Hover or focus a hostel/coaching pin for a circular preview; click to select. 2D is flat; 3D tilts the map. Zoom in for buildings where OpenStreetMap data is available.
+            Explore Kota and its configured 3 km buffer. Hover or focus a hostel/coaching pin for a circular preview; click a hostel to open its preview page. 2D is flat; 3D tilts the map. Zoom in for buildings where OpenStreetMap data is available.
             Only StayKota hostel/coaching pins are shown. Locations are demo data; distances are straight-line.
           </p>
         </section>

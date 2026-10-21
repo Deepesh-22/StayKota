@@ -104,19 +104,6 @@ export function ExplorePage() {
     });
   }, [hostels, applied, campus]);
 
-  const selectFromMap = (id: string) => {
-    setActiveHostel(id);
-    const index = results.findIndex(item => item.hostel.id === id);
-    if (index < 0) return;
-    const nextPage = Math.floor(index / PAGE_SIZE) + 1;
-    if (nextPage !== applied.page) updateFilters({ page: nextPage });
-    if (window.matchMedia('(max-width: 960px)').matches) setView('list');
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      const card = document.querySelector<HTMLElement>(`[data-hostel-id="${id}"]`);
-      card?.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
-      card?.querySelector<HTMLButtonElement>('.discovery-show-map')?.focus({ preventScroll: true });
-    }));
-  };
   const showOnMap = (id: string) => {
     setActiveHostel(id);
     setMapFocusRevision(n => n + 1);
@@ -166,7 +153,7 @@ export function ExplorePage() {
             {results.length > 0 ? <div className="discovery-grid">{pageItems.map(({ hostel, room }) => <HostelCard key={hostel.id} hostel={hostel} room={room} campus={campus} active={activeHostel === hostel.id} onHover={id => { if (id) setActiveHostel(id); }} onShowMap={showOnMap} />)}</div> : <div className="discovery-no-results"><div><Search size={29} strokeWidth={1.3} aria-hidden="true" /></div><span className="discovery-eyebrow">A LITTLE MORE ROOM TO EXPLORE</span><h3>Your next room is still out there.</h3><p>No available sample rooms match all your filters.<br />Try a wider budget or another sharing type.</p><button type="button" onClick={resetFilters}><RotateCcw size={16} aria-hidden="true" />Reset my filters</button></div>}
             {totalPages > 1 && <nav className="discovery-pagination" aria-label="Results pages"><button type="button" onClick={() => updateFilters({ page: page - 1 })} disabled={page <= 1} aria-label="Previous results page"><ArrowLeft size={15} /></button>{Array.from({ length: totalPages }, (_, index) => index + 1).map(value => <button type="button" key={value} className={page === value ? 'is-active' : ''} onClick={() => updateFilters({ page: value })} aria-current={page === value ? 'page' : undefined} aria-label={`Results page ${value}`}>{value}</button>)}<button type="button" onClick={() => updateFilters({ page: page + 1 })} disabled={page >= totalPages} aria-label="Next results page"><ArrowRight size={15} /></button></nav>}
           </div>
-          <aside className="discovery-results-map"><NeighbourhoodMap campus={campus} items={results} activeHostelId={activeHostel} focusRevision={mapFocusRevision} onActivate={selectFromMap} onCampusChange={id => { setActiveHostel(null); updateFilters({ campus: id }); }} /></aside>
+          <aside className="discovery-results-map"><NeighbourhoodMap campus={campus} items={results} activeHostelId={activeHostel} focusRevision={mapFocusRevision} onCampusChange={id => { setActiveHostel(null); updateFilters({ campus: id }); }} /></aside>
         </div>
         <p className="discovery-results-disclaimer"><Sparkles size={13} aria-hidden="true" />A preview of better hostel hunting. Listings, photos, prices and locations are sample content.</p>
       </div>

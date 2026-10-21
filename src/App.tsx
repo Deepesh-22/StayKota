@@ -3,8 +3,10 @@ import { lazy, useEffect } from 'react';
 import { AppProvider } from './context/AppContext';
 import { CompareProvider } from './context/CompareContext';
 import { Layout } from './components/layout/Layout';
+import { RequireHostelLogin } from './components/auth/RequireHostelLogin';
 import { HomePage } from './pages/HomePage';
 const ExplorePage = lazy(() => import('./pages/ExplorePage').then(module => ({ default: module.ExplorePage })));
+const HostelPreviewPage = lazy(() => import('./pages/HostelPreviewPage').then(module => ({ default: module.HostelPreviewPage })));
 const HostelDetailPage = lazy(() => import('./pages/HostelDetailPage').then(module => ({ default: module.HostelDetailPage })));
 const LoginPage = lazy(() => import('./pages/LoginPage').then(module => ({ default: module.LoginPage })));
 const FavouritesPage = lazy(() => import('./pages/FavouritesPage').then(module => ({ default: module.FavouritesPage })));
@@ -23,7 +25,7 @@ function RouteEffects() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
     const labels: Record<string, string> = { '/': 'Your Kota starts here', '/explore': 'Find your stay', '/compare': 'Compare your shortlist', '/login': 'Your student journey', '/dashboard': 'Your student space', '/owner': 'Owner workspace', '/admin': 'Listing moderation', '/how-it-works': 'How it works' };
-    document.title = `${(pathname === '/map' ? 'Explore the whole of Kota' : labels[pathname]) || (pathname.startsWith('/hostel/') ? 'Room details' : pathname.startsWith('/owner/listing/') ? 'Listing editor' : 'Find your way')} · StayKota`;
+    document.title = `${(pathname === '/map' ? 'Explore the whole of Kota' : labels[pathname]) || (pathname.startsWith('/hostel/') ? pathname.endsWith('/preview') ? 'Hostel preview' : 'Room details' : pathname.startsWith('/owner/listing/') ? 'Listing editor' : 'Find your way')} · StayKota`;
   }, [pathname]);
   return null;
 }
@@ -40,7 +42,8 @@ export default function App() {
             <Route path="/explore" element={<ExplorePage />} />
             <Route path="/map" element={<KotaMapPage />} />
             <Route path="/compare" element={<ComparePage />} />
-            <Route path="/hostel/:id" element={<HostelDetailPage />} />
+            <Route path="/hostel/:id/preview" element={<HostelPreviewPage />} />
+            <Route element={<RequireHostelLogin />}><Route path="/hostel/:id" element={<HostelDetailPage />} /></Route>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/dashboard" element={<StudentDashboard />} />
             <Route path="/favourites" element={<FavouritesPage />} />

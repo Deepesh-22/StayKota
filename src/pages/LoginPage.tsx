@@ -1,3 +1,4 @@
+import { hostelPreviewHref, safeAppPath } from '../lib/hostel-navigation';
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Check, Calendar, Heart, Shield } from 'lucide-react';
@@ -11,12 +12,16 @@ type AuthStep = 'phone' | 'otp' | 'loading' | 'success';
 const DEMO_OTP = '4242'; // clearly labelled demo code
 
 export function LoginPage() {
-  const { login, user } = useApp();
+  const { login, user, hostels } = useApp();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preferredRole = (searchParams.get('role') as UserRole) || 'student';
   const requestedRedirect = searchParams.get('redirect') || '/';
-  const redirect = requestedRedirect.startsWith('/') && !requestedRedirect.startsWith('//') && !requestedRedirect.includes('\\') ? requestedRedirect : '/';
+  const redirect = safeAppPath(requestedRedirect);
+  const explicitRedirect = searchParams.has('redirect') && redirect !== '/';
+  const returnHostelId = /^\/hostel\/([^/?#]+)/.exec(redirect)?.[1];
+  const returnHostel = hostels.find(value => value.id === returnHostelId && value.status === 'approved');
+  const returnParams = new URL(redirect, 'https://staykota.invalid').searchParams;
   const showAdmin = searchParams.get('admin') === '1' || preferredRole === 'admin';
 
   const [role, setRole] = useState<UserRole>(
@@ -27,19 +32,19 @@ export function LoginPage() {
   const [step, setStep] = useState<AuthStep>('phone');
   const [error, setError] = useState('');
   const [resendIn, setResendIn] = useState(0);
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [mode, setMode] = useState<'login' | 'signup'>(searchParams.get('mode') === 'signup' ? 'signup' : 'login');
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
     if (user) {
       const dest =
-        user.role === 'owner' ? '/owner' :
+        explicitRedirect ? redirect : user.role === 'owner' ? '/owner' :
         user.role === 'admin' ? '/admin' :
         redirect;
       navigate(dest, { replace: true });
     }
-  }, [user, navigate, redirect]);
+  }, [user, navigate, redirect, explicitRedirect]);
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -105,11 +110,6 @@ export function LoginPage() {
           : `${identifier.replace(/\D/g, '')}@demo.staykota.local`;
       login(emailLike, role);
       setStep('success');
-      setTimeout(() => {
-        if (role === 'owner') navigate('/owner');
-        else if (role === 'admin') navigate('/admin');
-        else navigate(redirect || '/');
-      }, 600);
     }, 500);
   };
 
@@ -130,11 +130,6 @@ export function LoginPage() {
     setTimeout(() => {
       login(`google-${role}@demo.staykota.local`, role);
       setStep('success');
-      setTimeout(() => {
-        if (role === 'owner') navigate('/owner');
-        else if (role === 'admin') navigate('/admin');
-        else navigate(redirect || '/');
-      }, 500);
     }, 600);
   };
 
@@ -143,7 +138,7 @@ export function LoginPage() {
       ? 'Log in to manage listings and visit requests.'
       : role === 'admin'
         ? 'Admin access is restricted. Demo login only.'
-        : 'Log in to save hostels and track visit requests.';
+        : returnHostel ? 'Log in or create an account to view the full hostel details.' : 'Log in to save hostels and track visit requests.';
 
   return (
     <div className="login-page min-h-[calc(100vh-4rem)] bg-[#faf8f5] flex items-center justify-center px-4 py-10 animate-fade-in">
@@ -174,6 +169,8 @@ export function LoginPage() {
           </h1>
           <p className="mt-1.5 text-sm text-slate-500">{subtitle}</p>
 
+          {returnHostel && <div className="login-return-card"><img src={returnHostel.coverImage} alt="" onError={event => { event.currentTarget.style.display = 'none'; }}/><div><small>CONTINUE WHERE YOU LEFT OFF</small><strong>{returnHostel.name}</strong><span>Your hostel and room selection will be kept.</span><Link to={hostelPreviewHref(returnHostel.id,returnParams.get('campus') || 'allen-landmark',returnParams.get('room') || undefined,returnParams.get('returnTo') || undefined)}>Back to preview</Link></div></div>}
+          <div className="login-mode-tabs" role="group" aria-label="Login or registration"><button type="button" aria-pressed={mode === 'login'} disabled={step === 'loading'} onClick={() => { setMode('login'); setStep('phone'); setError(''); }}>Log in</button><button type="button" aria-pressed={mode === 'signup'} disabled={step === 'loading'} onClick={() => { setMode('signup'); setStep('phone'); setError(''); }}>Create account</button></div>
           <div className="login-role-tabs mt-6 inline-flex p-1 rounded-full bg-slate-100 self-start" role="group" aria-label="Choose your role">
             {roleTabs.map(r => (
               <button
@@ -280,7 +277,7 @@ export function LoginPage() {
               <p id="login-error" className="text-sm text-red-600" role="alert">{error}</p>
 
               <Button type="submit" className="w-full rounded-xl" size="lg" loading={step === 'loading'} disabled={step === 'loading'}>
-                {step === 'otp' || (step === 'loading' && otp.some(Boolean)) ? 'Verify & log in' : 'Send OTP'}
+                {step === 'otp' || (step === 'loading' && otp.some(Boolean)) ? mode === 'signup' ? 'Verify & create account' : 'Verify & log in' : 'Send OTP'}
               </Button>
 
               <div className="relative flex items-center gap-3 py-1">

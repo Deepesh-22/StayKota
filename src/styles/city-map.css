@@ -651,3 +651,4 @@
 .city-map-location-controls button:disabled { cursor:wait; opacity:.7; }
 .city-map-location-controls .city-map-stop-location { height:32px; }
 .city-map-location-controls{z-index:120}
+.city-clear-selection{display:flex;align-items:center;gap:5px;font-size:11px;color:#4e705d;border:1px solid #d7e1d0;border-radius:7px;padding:8px 10px;background:#fffdf6;min-height:36px}.city-clear-selection:hover{background:#eef3e7}@media(max-width:420px){.city-clear-selection span{display:none}.city-clear-selection{min-width:36px;justify-content:center}}

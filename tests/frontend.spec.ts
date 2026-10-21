@@ -92,6 +92,7 @@ test('mobile navigation, map and dialogs work without horizontal overflow', asyn
 });
 
 test('reduced motion and image gallery remain functional', async ({ page }) => {
+  await sampleStudent(page);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/hostel/h1?room=rt2');
   await page.getByRole('button', { name: 'Open hostel photo gallery' }).click();
@@ -133,7 +134,7 @@ test('keyless MapLibre map renders real demo pins, attribution and 2D/3D control
   expect(googleRequests).toEqual([]);
 });
 
-test('groups expand, hostel pins select a matching card and coaching selection centres the map', async ({ page }) => {
+test('groups expand, hostel pins open previews and coaching selection centres the map', async ({ page }) => {
   await stubOpenMapStyle(page);
   await page.goto('/map');
   await expect(page.locator('.student-pin-group').first()).toBeVisible();
@@ -145,9 +146,14 @@ test('groups expand, hostel pins select a matching card and coaching selection c
   await page.locator('.maplibregl-ctrl-zoom-in').click();
   await page.locator('.maplibregl-ctrl-zoom-in').click();
   await page.getByRole('button', { name: 'Select Comfort Stay Hostel on map', exact: true }).click();
+  await expect(page).toHaveURL(/hostel\/h1\/preview/);
+  await expect(page.getByRole('heading',{name:'Comfort Stay Hostel',exact:true})).toBeVisible();
+  await page.getByRole('link',{name:'Back to Kota map',exact:true}).click();
   await expect(page.locator('.student-hostel-pin.is-selected')).toBeVisible();
-  await expect(page.locator('.city-selected')).toContainText('Comfort Stay');
   await expect(page.locator('.student-city-map')).toHaveAttribute('data-target', '25.148,75.852');
+  await page.getByRole('button', { name: 'Clear selected hostel', exact: true }).click();
+  await expect(page).not.toHaveURL(/hostel=h1/);
+  await expect(page).toHaveURL(/campus=allen-talwandi/);
   await page.getByRole('button', { name: 'Whole Kota', exact: true }).click();
   await expect(page.locator('.student-city-map')).toHaveAttribute('data-target', '25.183,75.839');
 });
@@ -193,7 +199,7 @@ test('failed tile service shows an honest retry state while manual hostel search
   await page.getByRole('button', { name: 'Retry map', exact: true }).click();
   await expect.poll(() => requests).toBeGreaterThan(before);
   await page.getByRole('button', { name: 'Show Comfort Stay Hostel on map' }).click();
-  await expect(page.locator('.city-selected')).toContainText('Comfort Stay');
+  await expect(page.locator('.city-stay.is-selected')).toContainText('Comfort Stay');
 });
 
 // Browser location is simulated here; these tests never request a student's real location.
@@ -341,7 +347,7 @@ test('satellite imagery keeps the same map, selected hostel, filters, pitch and 
   await expect(page.locator('.student-city-map')).toHaveAttribute('data-imagery-state', 'ready');
   await expect(page).toHaveURL(/type=satellite/);
   await expect(page).toHaveURL(/radius=1/);
-  await expect(page.locator('.city-selected')).toContainText('Comfort Stay');
+  await expect(page.locator('.city-stay.is-selected')).toContainText('Comfort Stay');
   await expect(compass).toHaveAttribute('style', /rotateX\(50deg\)/);
   const after = (await selected.boundingBox())!;
   expect(after.x).toBeCloseTo(before.x, 0); expect(after.y).toBeCloseTo(before.y, 0);
@@ -413,7 +419,7 @@ test('cutaway cards switch to photos without changing the matched room, costs or
   expect(await card.locator('.discovery-card-pricing').textContent()).toBe(price);
   await expect(card.locator('.discovery-card-cta')).toHaveAttribute('href', href!);
   await card.locator('.discovery-card-cta').click();
-  await expect(page).toHaveURL(/hostel\/h1\?.*room=rt2/);
+  await expect(page).toHaveURL(/hostel\/h1\/preview\?.*room=rt2/);
 });
 
 test('card preview buttons work with a keyboard and reduced motion on a narrow screen', async ({ page }) => {
@@ -444,40 +450,35 @@ test('homepage hostel preference reaches results and can be reset', async ({ pag
   await expect(page.locator('.discovery-grid article')).toHaveCount(6);
 });
 
-test('list and map selection stays linked across result pages and campus changes', async ({ page }) => {
+test('Explore cards highlight matching pins and map clicks open the same-room public preview', async ({ page }) => {
   await stubOpenMapStyle(page);
-  await page.goto('/explore?campus=allen-talwandi');
+  await page.goto('/explore?campus=allen-talwandi&sharing=double');
   const first = page.locator('.discovery-grid article').first();
-  const id = await first.getAttribute('data-hostel-id');
-  await first.getByRole('button', { name: 'Show on map' }).click();
+  await first.getByRole('button',{name:'Show on map'}).click();
   await expect(first).toHaveClass(/discovery-card--active/);
-  await expect(page.locator('.student-city-map')).toHaveAttribute('data-target', '25.148,75.852');
-  await expect(page.getByRole('button', { name: 'Select Comfort Stay Hostel on map' })).toHaveAttribute('aria-pressed', 'true');
-  await page.getByRole('button', { name: 'Centre on campus', exact: true }).click();
-  await expect(page.locator('.student-city-map')).toHaveAttribute('data-target', '25.146,75.852');
-  await page.getByRole('button', { name: 'Next results page' }).click();
-  await expect(page.locator(`article[data-hostel-id="${id}"]`)).toHaveCount(0);
-  await page.getByRole('button', { name: 'Select Comfort Stay Hostel on map' }).click();
-  await expect(page.locator(`article[data-hostel-id="${id}"]`)).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Results page 1', exact: true })).toHaveAttribute('aria-current', 'page');
-  await page.getByRole('button', { name: /Select ALLEN Talwandi campus/ }).click();
-  await expect(page.locator('.student-city-map')).toHaveAttribute('data-target', '25.146,75.852');
+  await expect(page.locator('.student-city-map')).toHaveAttribute('data-target','25.148,75.852');
+  await page.getByRole('button',{name:'Select Comfort Stay Hostel on map'}).click();
+  await expect(page).toHaveURL(/hostel\/h1\/preview\?.*room=rt2/);
+  await expect(page.locator('.hostel-preview-price')).toContainText('₹5,500');
+  await page.getByRole('link',{name:'Back to nearby stays',exact:true}).click();
+  await expect(page).toHaveURL(/explore\?.*sharing=double/);
+  await page.getByRole('button',{name:'Centre on campus',exact:true}).click();
+  await expect(page.locator('.student-city-map')).toHaveAttribute('data-target','25.146,75.852');
 });
 
-test('mobile map selection returns to the matching card and filters open as a sheet', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
+test('mobile map click opens a responsive preview and returns to the existing filter sheet', async ({ page }) => {
+  await page.setViewportSize({width:390,height:844});
   await stubOpenMapStyle(page);
   await page.goto('/explore?campus=allen-talwandi');
-  await page.locator('.discovery-grid article').first().getByRole('button', { name: 'Show on map' }).click();
-  await expect(page.locator('.discovery-results-map')).toBeVisible();
-  await page.getByRole('button', { name: 'Select Comfort Stay Hostel on map' }).click();
-  await expect(page.locator('article[data-hostel-id="h1"]')).toBeVisible();
-  await expect(page.locator('.discovery-results-map')).not.toBeVisible();
-  await page.getByRole('button', { name: /All filters/ }).click();
-  const bounds = await page.getByRole('dialog').boundingBox();
-  expect(Math.abs(bounds!.y + bounds!.height - 844)).toBeLessThan(2);
+  await page.locator('.discovery-grid article').first().getByRole('button',{name:'Show on map'}).click();
+  await page.getByRole('button',{name:'Select Comfort Stay Hostel on map'}).click();
+  await expect(page.locator('.hostel-preview-summary')).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.getByRole('link',{name:'Back to nearby stays',exact:true}).click();
+  await page.getByRole('button',{name:/All filters/}).click();
+  const bounds=await page.getByRole('dialog').boundingBox();
+  expect(Math.abs(bounds!.y+bounds!.height-844)).toBeLessThan(2);
   await page.keyboard.press('Escape');
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
 test('owner coordinates reject swaps and can be saved and cleared without restoring demo pins', async ({ page }) => {
@@ -505,6 +506,7 @@ test('owner coordinates reject swaps and can be saved and cleared without restor
 });
 
 test('curved showroom navigates real photo indices with arrows, keyboard, drag and trackpad', async ({ page }) => {
+  await sampleStudent(page);
   await page.goto('/hostel/h1?room=rt2&campus=allen-talwandi');
   const gallery = page.getByRole('region', { name: 'Comfort Stay Hostel photo showroom' });
   const caption = gallery.locator('.curved-gallery__caption');
@@ -537,6 +539,7 @@ test('curved showroom navigates real photo indices with arrows, keyboard, drag a
 });
 
 test('curved showroom supports mobile swipe, reduced motion and honest contact/map fallbacks', async ({ page }) => {
+  await sampleStudent(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await stubOpenMapStyle(page);
@@ -571,7 +574,7 @@ test('curved showroom supports mobile swipe, reduced motion and honest contact/m
 });
 
 test('showroom handles missing and failed photos without inventing property imagery', async ({ page }) => {
-  await page.goto('/');
+  await sampleStudent(page);
   await page.evaluate(() => {
     const hostels = JSON.parse(localStorage.getItem('staykota_hostels') || '[]');
     const hostel = hostels.find((h: { id: string }) => h.id === 'h1');
@@ -665,9 +668,73 @@ test('circular hostel and coaching previews open on hover/focus without selectin
   expect(page.url()).toBe(url);
   await page.keyboard.press('Escape');
   await hostel.click();
-  await expect(page.locator('.city-selected')).toContainText('Comfort Stay Hostel');
-  await expect(page.locator('.city-selected a')).toHaveAttribute('href', /\/hostel\/h1/);
+  await expect(page).toHaveURL(/hostel\/h1\/preview/);
+  await expect(page.getByRole('heading',{name:'Comfort Stay Hostel',exact:true})).toBeVisible();
+  await page.getByRole('link',{name:'Back to Kota map',exact:true}).click();
   await coaching.click();
   await expect(page).not.toHaveURL(/hostel=h1/);
   await expect(map).toHaveAttribute('data-target','25.146,75.852');
+});
+
+test('guest preview shows a summary and login returns to the same hostel and room', async ({ page }) => {
+  await page.goto('/hostel/h1/preview?campus=allen-talwandi&room=rt2&returnTo=%2Fmap%3Fcampus%3Dallen-talwandi%26sharing%3Ddouble');
+  await expect(page.getByRole('heading',{name:'Comfort Stay Hostel',exact:true})).toBeVisible();
+  await expect(page.locator('.hostel-preview-price')).toContainText('₹5,500');
+  await expect(page.locator('.hostel-preview-address')).toContainText('12, Near Allen');
+  await expect(page.locator('.hostel-preview-visual>img')).toBeVisible();
+  await expect(page.locator('.detail-page,.curved-gallery,.detail-price')).toHaveCount(0);
+  await page.getByRole('link',{name:'See full details',exact:true}).click();
+  await expect(page).toHaveURL(/\/login\?/);
+  await expect(page.locator('.login-return-card')).toContainText('Comfort Stay Hostel');
+  const redirect=new URL(page.url()).searchParams.get('redirect')!;
+  expect(new URL(redirect,'https://staykota.invalid').searchParams.get('room')).toBe('rt2');
+  await page.getByRole('button',{name:'Use sample student account'}).click();
+  await expect(page.locator('.detail-page')).toBeVisible();
+  await expect(page).toHaveURL(/\/hostel\/h1\?.*room=rt2/);
+  await expect(page.locator('.detail-room-option.is-selected')).toContainText('Double Sharing');
+  await page.reload();
+  await expect(page.locator('.detail-page')).toBeVisible();
+  await page.getByRole('button',{name:'Log out',exact:true}).click();
+  await expect(page).toHaveURL(/\/login\?/);
+  await expect(page.locator('.detail-page')).toHaveCount(0);
+});
+
+test('direct full-detail URLs require login without rendering protected details', async ({ page }) => {
+  await page.goto('/hostel/h1?campus=allen-talwandi&room=rt2#detail-rooms');
+  await expect(page).toHaveURL(/\/login\?/);
+  await expect(page.locator('.detail-price,.detail-room-options,.curved-gallery')).toHaveCount(0);
+  const target=new URL(page.url()).searchParams.get('redirect')!;
+  expect(target).toBe('/hostel/h1?campus=allen-talwandi&room=rt2#detail-rooms');
+  await page.reload();
+  await expect(page.locator('.login-return-card')).toContainText('Comfort Stay Hostel');
+  await page.getByRole('link',{name:'Back to preview',exact:true}).click();
+  await expect(page).toHaveURL(/\/hostel\/h1\/preview/);
+  await expect(page.locator('.hostel-preview-price')).toContainText('₹5,500');
+});
+
+test('student registration keeps the intended full-detail destination and authenticated previews open directly', async ({ page }) => {
+  await page.goto('/hostel/h1/preview?campus=allen-talwandi&room=rt2');
+  await page.getByRole('link',{name:'Create an account',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Create a demo account'})).toBeVisible();
+  await page.getByLabel('Mobile number', {exact:true}).fill('9876543210');
+  await page.getByRole('button',{name:'Send OTP',exact:true}).click();
+  for(let i=1;i<=4;i++) await page.getByRole('textbox',{name:`OTP digit ${i}`}).fill('4');
+  await page.getByRole('button',{name:'Verify & create account',exact:true}).click();
+  await expect(page.locator('.detail-page')).toBeVisible();
+  await expect(page).toHaveURL(/\/hostel\/h1\?.*room=rt2/);
+  await page.goto('/hostel/h1/preview?campus=allen-talwandi&room=rt2');
+  await page.getByRole('link',{name:'See full details',exact:true}).click();
+  await expect(page.locator('.detail-page')).toBeVisible();
+  await expect(page).not.toHaveURL(/login/);
+});
+
+test('preview protects unpublished hostels, rejects unsafe returns and handles cover failure', async ({ page }) => {
+  await page.goto('/hostel/h5/preview');
+  await expect(page.getByRole('heading',{name:'This stay isn’t on the map.'})).toBeVisible();
+  await page.route('**/images/room-shared.webp',route=>route.fulfill({status:404,body:''}));
+  await page.goto('/hostel/h1/preview?returnTo=https%3A%2F%2Fexample.com&room=rt2');
+  await expect(page.getByText('Cover photo unavailable',{exact:true})).toBeVisible();
+  await expect(page.getByRole('link',{name:'Back to nearby stays',exact:true})).toHaveAttribute('href',/^\/explore\?/);
+  await expect(page.locator('.hostel-preview-price')).toContainText('₹5,500');
+  await expect(page.getByRole('link',{name:'See full details',exact:true})).toBeVisible();
 });

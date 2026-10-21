@@ -1,3 +1,4 @@
+import { safeAppPath, hostelPreviewHref, hostelLoginHref } from '../src/lib/hostel-navigation';
 import { describe, expect, it } from 'vitest';
 import { MOCK_HOSTELS } from '../src/data/mockData';
 import { CAMPUSES } from '../src/data/campuses';
@@ -46,5 +47,21 @@ describe('campus and sample distance', () => {
   it('formats metres and kilometres without claiming walking time', () => {
     expect(formatDistance(.452)).toBe('450 m');
     expect(formatDistance(2.14)).toBe('2.1 km');
+  });
+});
+
+describe('hostel preview and login navigation', () => {
+  it('keeps return paths inside the app, rejecting protocol-relative, external and control-character URLs', () => {
+    for(const path of ['https://example.com','//example.com','/\\example.com','/\n/evil']) expect(safeAppPath(path,'/map')).toBe('/map');
+    expect(safeAppPath('/map?sharing=double&hostel=h1')).toBe('/map?sharing=double&hostel=h1');
+  });
+  it('preserves room and campus context through preview and signup links', () => {
+    const preview=new URL(hostelPreviewHref('h1','allen-talwandi','rt2','/map?type=satellite'),'https://staykota.invalid');
+    expect(preview.pathname).toBe('/hostel/h1/preview');
+    expect(preview.searchParams.get('room')).toBe('rt2');
+    expect(preview.searchParams.get('returnTo')).toBe('/map?type=satellite');
+    const login=new URL(hostelLoginHref('/hostel/h1?campus=allen-talwandi&room=rt2',true),'https://staykota.invalid');
+    expect(login.searchParams.get('mode')).toBe('signup');
+    expect(login.searchParams.get('redirect')).toBe('/hostel/h1?campus=allen-talwandi&room=rt2');
   });
 });

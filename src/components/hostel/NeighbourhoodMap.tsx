@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowUpRight, MapPin, LocateFixed } from 'lucide-react';
 import type { Hostel, RoomType } from '../../types';
 import type { Campus } from '../../data/campuses';
-import { distanceKm, formatDistance, monthlyTotal } from '../../lib/discovery';
+import { hostelPreviewHref } from '../../lib/hostel-navigation';
 import { validCoordinates, type MapTarget } from '../../lib/maps';
 import { MapLayerToggle } from '../maps/MapLayerToggle';
 import type { MapBasemap } from '../../lib/satellite-map';
-import { locationLabel } from '../../lib/location-status';
 import { KotaMap } from '../maps/KotaMap';
 export interface MappedHostel {
   hostel: Hostel;
@@ -17,11 +16,12 @@ interface Props {
   campus: Campus;
   items: MappedHostel[];
   activeHostelId?: string | null;
-  onActivate: (id: string) => void;
   onCampusChange?: (id: string) => void;
   focusRevision?: number;
 }
-export function NeighbourhoodMap({ campus, items, activeHostelId, onActivate, onCampusChange, focusRevision = 0 }: Props) {
+export function NeighbourhoodMap({ campus, items, activeHostelId, onCampusChange, focusRevision = 0 }: Props) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [basemap, setBasemap] = useState<MapBasemap>('street');
   const selected = items.find(({ hostel }) => hostel.id === activeHostelId);
   const [campusView, setCampusView] = useState(false);
@@ -49,29 +49,13 @@ export function NeighbourhoodMap({ campus, items, activeHostelId, onActivate, on
           campus={campus}
           items={items}
           selectedHostelId={activeHostelId}
-          onSelect={id => { setCampusView(false); onActivate(id); }}
+          onSelect={id => { const found = items.find(value => value.hostel.id === id); if (found) navigate(hostelPreviewHref(id,campus.id,found.room.id,location.pathname + location.search)); }}
           activeCampusId={campus.id}
           onCampusSelect={onCampusChange}
           target={target}
           basemap={basemap}
         />
       </div>
-      {selected && (
-        <Link
-          className="student-map-panel__summary"
-          to={`/hostel/${selected.hostel.id}?campus=${campus.id}&room=${selected.room.id}`}
-        >
-          <img src={selected.hostel.coverImage} alt="" />
-          <span>
-            <strong>{selected.hostel.name}</strong>
-            <small>
-              {formatDistance(distanceKm(selected.hostel, campus))} · straight-line · {locationLabel(selected.hostel)}
-            </small>
-          </span>
-          <b>₹{monthlyTotal(selected.room).toLocaleString('en-IN')}</b>
-          <ArrowUpRight size={15} />
-        </Link>
-      )}
       <p className="student-map-panel__note">
         <strong>OpenStreetMap · OpenFreeMap.</strong> StayKota hostel and campus locations are sample
         data. Distances are straight-line estimates, not walking routes.
