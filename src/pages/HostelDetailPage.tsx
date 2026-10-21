@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { CurvedPhotoGallery, GalleryImage } from '../components/hostel/CurvedPhotoGallery';
+import { CustomSelect } from '../components/ui/CustomSelect';
 import { HostelProximityMap } from '../components/hostel/HostelProximityMap';
 import { RoomShowcase } from '../components/hostel/RoomShowcase';
 import { CAMPUSES } from '../data/campuses';
@@ -254,7 +255,7 @@ export function HostelDetailPage() {
           <span aria-hidden="true">/</span><span>{hostel.name}</span>
         </nav>
 
-        <div className="detail-context-bar"><label><BookOpen size={16}/><span className="sr-only">Choose coaching campus</span><select aria-label="Choose coaching campus" value={campus.id} onChange={event => { const params = new URLSearchParams(searchParams); params.set('campus', event.target.value); setSearchParams(params, { replace: true }); }}>{CAMPUSES.map(item => <option key={item.id} value={item.id}>{item.institute} · {item.name}</option>)}</select></label><Link to={`/explore?campus=${campus.id}`}>Browse nearby stays <ArrowUpRight size={14}/></Link></div>
+        <div className="detail-context-bar"><div className="detail-context-select"><span className="sr-only">Choose coaching campus</span><CustomSelect variant="ghost" ariaLabel="Choose coaching campus" icon={<BookOpen size={16}/>} value={campus.id} searchPlaceholder="Search coaching campus…" options={CAMPUSES.map(item => ({ value: item.id, label: `${item.institute} · ${item.name}` }))} onChange={next => { const params = new URLSearchParams(searchParams); params.set('campus', next); setSearchParams(params, { replace: true }); }} /></div><Link to={`/explore?campus=${campus.id}`}>Browse nearby stays <ArrowUpRight size={14}/></Link></div>
         <CurvedPhotoGallery key={hostel.id} photos={galleryPhotos} name={hostel.name} illustrative={illustrative} onOpen={index => { setGalleryIndex(index); setGalleryOpen(true); }}/>
 
         <header className="detail-heading">
@@ -373,7 +374,7 @@ export function HostelDetailPage() {
       </DetailDialog>
 
       <DetailDialog open={reportOpen} onClose={() => setReportOpen(false)} title="Help keep the details accurate">
-        {reportSaved ? <div className="detail-receipt"><CheckCircle2 size={40} /><h3>Report saved on this device.</h3><p>Thanks for helping improve the sample listing. This demo does not send reports to a moderation team.</p><button type="button" className="detail-primary" onClick={() => setReportOpen(false)}>Back to the hostel</button></div> : <form className="detail-visit-form" onSubmit={saveReport}><p className="detail-form-intro">What should be checked on {hostel.name}?</p><div className="detail-form-field"><label htmlFor="report-reason">Reason</label><select id="report-reason" value={reportReason} onChange={event => setReportReason(event.target.value)}><option>Incorrect price or availability</option><option>Photos or address do not match</option><option>Unclear or unexpected charges</option><option>Other listing information</option></select></div><p className="detail-form-demo"><Info size={15} /> Reports are saved locally in this frontend demo.</p>{reportError && <p role="alert" className="detail-form-error">{reportError}</p>}<button className="detail-primary detail-primary--full" type="submit">Save report <Flag size={16} /></button></form>}
+        {reportSaved ? <div className="detail-receipt"><CheckCircle2 size={40} /><h3>Report saved on this device.</h3><p>Thanks for helping improve the sample listing. This demo does not send reports to a moderation team.</p><button type="button" className="detail-primary" onClick={() => setReportOpen(false)}>Back to the hostel</button></div> : <form className="detail-visit-form" onSubmit={saveReport}><p className="detail-form-intro">What should be checked on {hostel.name}?</p><div className="detail-form-field"><label htmlFor="report-reason">Reason</label><CustomSelect id="report-reason" ariaLabel="Reason" value={reportReason} options={['Incorrect price or availability', 'Photos or address do not match', 'Unclear or unexpected charges', 'Other listing information'].map(option => ({ value: option, label: option }))} onChange={next => setReportReason(next)} /></div><p className="detail-form-demo"><Info size={15} /> Reports are saved locally in this frontend demo.</p>{reportError && <p role="alert" className="detail-form-error">{reportError}</p>}<button className="detail-primary detail-primary--full" type="submit">Save report <Flag size={16} /></button></form>}
       </DetailDialog>
     </div>
   );

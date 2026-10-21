@@ -10,6 +10,7 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
+import { CustomSelect } from '../components/ui/CustomSelect';
 import { monthlyTotal } from '../lib/discovery';
 import '../styles/workspaces.css';
 import type { Hostel, ListingStatus } from '../types';
@@ -291,14 +292,20 @@ export function AdminPage() {
                       <input value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} aria-label="Search all listings" placeholder="Search…"
                         className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-sm" />
                     </div>
-                    <select aria-label="Filter listing status" value={statusFilter} onChange={e => { setStatusFilter(e.target.value as ListingStatus | ''); setPage(1); }}
-                      className="px-3 py-2 rounded-xl border border-slate-200 text-sm">
-                      <option value="">All statuses</option>
-                      <option value="pending">Pending</option>
-                      <option value="approved">Live</option>
-                      <option value="draft">Draft</option>
-                      <option value="rejected">Rejected</option>
-                    </select>
+                    <div className="min-w-[185px]">
+                      <CustomSelect
+                        ariaLabel="Filter listing status"
+                        value={statusFilter}
+                        options={[
+                          { value: '', label: 'All statuses' },
+                          { value: 'pending', label: 'Pending' },
+                          { value: 'approved', label: 'Live' },
+                          { value: 'draft', label: 'Draft' },
+                          { value: 'rejected', label: 'Rejected' },
+                        ]}
+                        onChange={nextValue => { setStatusFilter(nextValue as ListingStatus | ''); setPage(1); }}
+                      />
+                    </div>
                   </div>
                 )}
 

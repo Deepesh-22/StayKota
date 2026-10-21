@@ -100,6 +100,31 @@ export function HostelPreviewPage() {
     .filter(Boolean)
     .join(' ');
 
+  const handleVisualMove = (event: React.PointerEvent<HTMLElement>) => {
+    if (
+      isPortalFlying ||
+      event.pointerType !== 'mouse' ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      return;
+    }
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const px = (event.clientX - rect.left) / rect.width;
+    const py = (event.clientY - rect.top) / rect.height;
+    event.currentTarget.style.setProperty('--sk-tilt-rx', `${((0.5 - py) * 6).toFixed(2)}deg`);
+    event.currentTarget.style.setProperty('--sk-tilt-ry', `${((px - 0.5) * 7.5).toFixed(2)}deg`);
+    event.currentTarget.style.setProperty('--sk-glare-x', `${(px * 100).toFixed(1)}%`);
+    event.currentTarget.style.setProperty('--sk-glare-y', `${(py * 100).toFixed(1)}%`);
+    event.currentTarget.style.setProperty('--sk-glare-opacity', '1');
+  };
+
+  const handleVisualLeave = (event: React.PointerEvent<HTMLElement>) => {
+    event.currentTarget.style.setProperty('--sk-tilt-rx', '0deg');
+    event.currentTarget.style.setProperty('--sk-tilt-ry', '0deg');
+    event.currentTarget.style.setProperty('--sk-glare-opacity', '0');
+  };
+
   return (
     <div className={pageClassName}>
       <div className="hostel-preview-shell">
@@ -125,14 +150,16 @@ export function HostelPreviewPage() {
 
         <header className="hostel-preview-intro">
           <span className="hostel-preview-eyebrow">A LITTLE CLOSER TO CLASS</span>
-          <p>Found on the map. Worth a closer look.</p>
+          <p className="hostel-preview-subtitle">Found on the map. Worth a closer look.</p>
         </header>
 
         <div className="hostel-preview-layout">
           <section
             ref={visualRef}
-            className="hostel-preview-visual"
+            className={`hostel-preview-visual${!isPortalFlying ? ' sk-tilt-3d' : ''}`}
             aria-label="Hostel cover photo"
+            onPointerMove={handleVisualMove}
+            onPointerLeave={handleVisualLeave}
           >
             {hostel.coverImage && !imageFailed ? (
               <img

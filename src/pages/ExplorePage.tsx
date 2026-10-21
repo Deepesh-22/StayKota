@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, GraduationCap, Heart, LayoutGrid, Map, MapPin, RotateCcw, Scale, Search, SlidersHorizontal, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUpRight, Check, GraduationCap, Heart, LayoutGrid, Map, MapPin, RotateCcw, Scale, Search, SlidersHorizontal, Sparkles, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useCompare } from '../context/CompareContext';
 import { CAMPUSES } from '../data/campuses';
 import { distanceKm, getCampus, getMatchingRooms, monthlyTotal } from '../lib/discovery';
 import { HostelCard } from '../components/hostel/HostelCard';
 import { NeighbourhoodMap } from '../components/hostel/NeighbourhoodMap';
+import { CustomSelect } from '../components/ui/CustomSelect';
 import '../styles/discovery.css';
 
 const PAGE_SIZE = 6;
@@ -132,9 +133,54 @@ export function ExplorePage() {
       </section>
       <div className="discovery-shell">
         <form className="discovery-search" onSubmit={applySearch}>
-          <label className="discovery-search-field discovery-search-campus"><span>YOUR COACHING CAMPUS</span><div><GraduationCap size={19} aria-hidden="true" /><select value={draft.campus} onChange={event => setDraft(value => ({ ...value, campus: event.target.value }))} aria-label="Your coaching campus">{CAMPUSES.map(option => <option key={option.id} value={option.id}>{option.institute} · {option.name}</option>)}</select><ChevronDown size={15} aria-hidden="true" /></div></label>
-          <label className="discovery-search-field"><span>MONTHLY FIXED BUDGET</span><div><span className="discovery-rupee" aria-hidden="true">₹</span><select value={budgetValue} onChange={event => { if (event.target.value !== 'custom') setDraft(value => ({ ...value, minBudget: 0, maxBudget: event.target.value ? Number(event.target.value) : undefined })); }} aria-label="Monthly fixed budget"><option value="">Any budget</option><option value="5000">Up to ₹5,000</option><option value="8000">Up to ₹8,000</option><option value="10000">Up to ₹10,000</option><option value="12000">Up to ₹12,000</option><option value="15000">Up to ₹15,000</option>{budgetValue === 'custom' && <option value="custom">₹{draft.minBudget.toLocaleString('en-IN')}–{draft.maxBudget?.toLocaleString('en-IN') || 'any'}</option>}</select><ChevronDown size={15} aria-hidden="true" /></div></label>
-          <label className="discovery-search-field"><span>YOUR ROOM, YOUR WAY</span><div><Heart size={17} aria-hidden="true" /><select value={draft.sharing} onChange={event => setDraft(value => ({ ...value, sharing: event.target.value }))} aria-label="Room sharing type">{SHARING_OPTIONS.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select><ChevronDown size={15} aria-hidden="true" /></div></label>
+          <div className="discovery-search-field discovery-search-campus">
+            <span>YOUR COACHING CAMPUS</span>
+            <CustomSelect
+              variant="ghost"
+              ariaLabel="Your coaching campus"
+              value={draft.campus}
+              icon={<GraduationCap size={19} />}
+              searchPlaceholder="Search coaching institute or campus…"
+              options={CAMPUSES.map(option => ({ value: option.id, label: `${option.institute} · ${option.name}` }))}
+              onChange={next => setDraft(value => ({ ...value, campus: next }))}
+            />
+          </div>
+          <div className="discovery-search-field">
+            <span>MONTHLY FIXED BUDGET</span>
+            <CustomSelect
+              variant="ghost"
+              ariaLabel="Monthly fixed budget"
+              value={budgetValue}
+              icon={<span className="discovery-rupee">₹</span>}
+              options={[
+                { value: '', label: 'Any budget' },
+                { value: '5000', label: 'Up to ₹5,000' },
+                { value: '8000', label: 'Up to ₹8,000' },
+                { value: '10000', label: 'Up to ₹10,000' },
+                { value: '12000', label: 'Up to ₹12,000' },
+                { value: '15000', label: 'Up to ₹15,000' },
+                ...(budgetValue === 'custom'
+                  ? [{ value: 'custom', label: `₹${draft.minBudget.toLocaleString('en-IN')}–${draft.maxBudget?.toLocaleString('en-IN') || 'any'}` }]
+                  : []),
+              ]}
+              onChange={next => {
+                if (next !== 'custom') {
+                  setDraft(value => ({ ...value, minBudget: 0, maxBudget: next ? Number(next) : undefined }));
+                }
+              }}
+            />
+          </div>
+          <div className="discovery-search-field">
+            <span>YOUR ROOM, YOUR WAY</span>
+            <CustomSelect
+              variant="ghost"
+              ariaLabel="Room sharing type"
+              value={draft.sharing}
+              icon={<Heart size={17} />}
+              options={SHARING_OPTIONS.map(option => ({ value: option.id, label: option.label }))}
+              onChange={next => setDraft(value => ({ ...value, sharing: next }))}
+            />
+          </div>
           <button className="discovery-search-button" type="submit"><Search size={18} aria-hidden="true" />Find my stay<ArrowUpRight size={18} aria-hidden="true" /></button>
         </form>
         <div className="discovery-filter-row">
@@ -145,7 +191,21 @@ export function ExplorePage() {
         <div className="discovery-confidence" role="note"><MapPin size={18} /><div><strong>Explore the neighbourhood. Check the exact address.</strong><span>Demo pins are illustrative. Distances are straight-line estimates; confirm the entrance and walking route before visiting.</span></div><Link to="/map">Whole Kota <ArrowUpRight size={15} /></Link></div>
         <div className="discovery-results-heading">
           <div><span className="discovery-eyebrow discovery-eyebrow--small"><MapPin size={13} aria-hidden="true" />YOUR CAMPUS NEIGHBOURHOOD</span><h2>Rooms near <em>{campus.institute} {campus.name}</em></h2><p aria-live="polite">{results.length} sample {results.length === 1 ? 'stay' : 'stays'} with rooms that match{applied.sharing ? ` · ${SHARING_OPTIONS.find(option => option.id === applied.sharing)?.label.toLowerCase()}` : ''}.</p></div>
-          <label className="discovery-sort"><span>Sort by</span><select aria-label="Sort hostels" value={applied.sort} onChange={event => updateFilters({ sort: event.target.value as Sort })}><option value="distance">Nearest campus</option><option value="price-asc">Monthly cost: low to high</option><option value="price-desc">Monthly cost: high to low</option><option value="name">Name: A to Z</option></select><ChevronDown size={14} aria-hidden="true" /></label>
+          <div className="discovery-sort">
+            <span>Sort by</span>
+            <CustomSelect
+              variant="compact"
+              ariaLabel="Sort hostels"
+              value={applied.sort}
+              options={[
+                { value: 'distance', label: 'Nearest campus' },
+                { value: 'price-asc', label: 'Monthly cost: low to high' },
+                { value: 'price-desc', label: 'Monthly cost: high to low' },
+                { value: 'name', label: 'Name: A to Z' },
+              ]}
+              onChange={next => updateFilters({ sort: next as Sort })}
+            />
+          </div>
         </div>
         <div className={`discovery-view-toggle${selectedHostels.length ? ' discovery-view-toggle--raised' : ''}`} aria-label="Results view"><button type="button" className={view === 'list' ? 'is-active' : ''} onClick={() => setView('list')} aria-pressed={view === 'list'}><LayoutGrid size={16} aria-hidden="true" />List view</button><button type="button" className={view === 'map' ? 'is-active' : ''} onClick={() => setView('map')} aria-pressed={view === 'map'}><Map size={16} aria-hidden="true" />Map view</button></div>
         <div className={`discovery-results-layout discovery-results-layout--${view}`}>

@@ -28,6 +28,7 @@ import { useApp } from '../context/AppContext';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
+import { CustomSelect } from '../components/ui/CustomSelect';
 import type { Hostel, ListingStatus } from '../types';
 import { monthlyTotal } from '../lib/discovery';
 import { validCoordinates } from '../lib/coordinates';
@@ -662,19 +663,19 @@ export function OwnerDashboard() {
                     onChange={(event) => setSearch(event.target.value)}
                   />
                 </label>
-                <select
-                  aria-label="Filter listing status"
+                <CustomSelect
+                  ariaLabel="Filter listing status"
                   value={status}
-                  onChange={(event) =>
-                    setStatus(event.target.value as ListingStatus | '')
-                  }
-                >
-                  <option value="">All statuses ({myHostels.length})</option>
-                  <option value="approved">Published ({published.length})</option>
-                  <option value="pending">Pending review</option>
-                  <option value="draft">Draft</option>
-                  <option value="rejected">Hidden / rejected</option>
-                </select>
+                  className="owner-status-select"
+                  options={[
+                    { value: '', label: `All statuses (${myHostels.length})` },
+                    { value: 'approved', label: `Published (${published.length})` },
+                    { value: 'pending', label: 'Pending review' },
+                    { value: 'draft', label: 'Draft' },
+                    { value: 'rejected', label: 'Hidden / rejected' },
+                  ]}
+                  onChange={(nextValue) => setStatus(nextValue as ListingStatus | '')}
+                />
               </div>
               {filtered.length ? (
                 <div className="owner-listings">{filtered.map(listingCard)}</div>

@@ -1,0 +1,1007 @@
+/* ==========================================================================
+   StayKota Full-Site UI, Typography, Color, Scrollbar & 3D Motion System
+   1. Prefixing with `html:not(:has(.home-page))` guarantees 0% change on `/`
+      (Landing Page / Homepage stays 100.00% untouched).
+   2. Raises specificity cleanly above lazy-loaded page stylesheets regardless
+      of dynamic route chunk loading order.
+   ========================================================================== */
+
+html:not(:has(.home-page)) {
+  --font-sans: "Manrope Variable", "Manrope", system-ui, -apple-system, sans-serif;
+  --font-serif-editorial: "Fraunces Variable", "Fraunces", Georgia, serif;
+  --sk-ink: #133931;
+  --sk-ink-soft: #35584e;
+  --sk-muted: #587266;
+  --sk-emerald: #0f766e;
+  --sk-emerald-deep: #0b5d56;
+  --sk-emerald-soft: #e6f3ec;
+  --sk-cream-bg: #f8f7f1;
+  --sk-surface: #ffffff;
+  --sk-border: #d8e2d7;
+  scrollbar-width: thin;
+  scrollbar-color: #b4c9bc #f2f4ec;
+}
+
+html:not(:has(.home-page)) body {
+  font-family: "Manrope Variable", "Manrope", system-ui, -apple-system, sans-serif;
+  color: #133931;
+  background-color: #f8f7f1;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Custom sleek scrollbars across all non-home pages, drawers & tables */
+html:not(:has(.home-page)) ::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+html:not(:has(.home-page)) ::-webkit-scrollbar-track {
+  background: #f2f4ec;
+}
+
+html:not(:has(.home-page)) ::-webkit-scrollbar-thumb {
+  background: #b8ccbe;
+  border-radius: 999px;
+}
+
+html:not(:has(.home-page)) ::-webkit-scrollbar-thumb:hover {
+  background: #0f766e;
+}
+
+/* Editorial Display Italic Pairing (Fraunces Variable optical size) */
+html:not(:has(.home-page)) .discovery-intro-heading h1 em,
+html:not(:has(.home-page)) .discovery-results-heading h2 em,
+html:not(:has(.home-page)) .compare-intro h1 em,
+html:not(:has(.home-page)) .hostel-preview-subtitle,
+html:not(:has(.home-page)) .help-heading h1 span {
+  font-family: "Fraunces Variable", "Fraunces", Georgia, serif !important;
+  font-style: italic;
+  font-variation-settings: "SOFT" 50, "WONK" 0;
+}
+
+/* ==========================================================================
+   Reusable 3D Perspective Tilt + Specular Glare + Floating Depth Planes
+   ========================================================================== */
+
+html:not(:has(.home-page)) .sk-tilt-3d {
+  --sk-tilt-rx: 0deg;
+  --sk-tilt-ry: 0deg;
+  --sk-glare-x: 50%;
+  --sk-glare-y: 50%;
+  --sk-glare-opacity: 0;
+  position: relative;
+  transform: perspective(1100px) rotateX(var(--sk-tilt-rx)) rotateY(var(--sk-tilt-ry));
+  transform-style: preserve-3d;
+  transition:
+    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.25s ease;
+  will-change: transform;
+}
+
+html:not(:has(.home-page)) .sk-tilt-3d__glare {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 5;
+  opacity: var(--sk-glare-opacity);
+  transition: opacity 0.35s ease;
+  background: radial-gradient(
+    circle 260px at var(--sk-glare-x) var(--sk-glare-y),
+    rgba(255, 255, 255, 0.42) 0%,
+    rgba(255, 255, 255, 0.08) 45%,
+    transparent 72%
+  );
+  mix-blend-mode: soft-light;
+}
+
+/* ==========================================================================
+   Explore Page (/explore) — Typography, Color, 3D Hostel Cards & Controls
+   ========================================================================== */
+
+html:not(:has(.home-page)) .discovery-page {
+  background: linear-gradient(180deg, #edf4ec 0%, #f8f7f1 340px, #f8f7f1 100%);
+  color: #133931;
+}
+
+html:not(:has(.home-page)) .discovery-breadcrumb {
+  font-size: 13px;
+  color: #547063;
+}
+
+html:not(:has(.home-page)) .discovery-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  color: #266454;
+}
+
+html:not(:has(.home-page)) .discovery-intro-heading h1 {
+  font-size: clamp(38px, 4.6vw, 60px);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.07;
+  color: #12372f;
+}
+
+html:not(:has(.home-page)) .discovery-intro-heading h1 em {
+  font-weight: 500;
+  color: #0f766e;
+}
+
+html:not(:has(.home-page)) .discovery-intro-heading p {
+  font-size: 15px;
+  line-height: 1.75;
+  color: #466458;
+}
+
+html:not(:has(.home-page)) .discovery-search {
+  background: #ffffff;
+  border: 1px solid #cfe0d2;
+  border-radius: 20px;
+  padding: 13px 14px 13px 22px;
+  box-shadow:
+    0 18px 46px -14px rgba(17, 54, 45, 0.12),
+    0 2px 6px rgba(17, 54, 45, 0.04);
+}
+
+html:not(:has(.home-page)) .discovery-search-field {
+  border-right-color: #e2ebe3;
+  padding-right: 18px;
+}
+
+html:not(:has(.home-page)) .discovery-search-field > span {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  color: #4b6c5e;
+  margin-bottom: 5px;
+}
+
+html:not(:has(.home-page)) .discovery-search-button {
+  background: linear-gradient(135deg, #0f766e 0%, #0b5d56 100%);
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 650;
+  box-shadow: 0 10px 24px -6px rgba(15, 118, 110, 0.4);
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+html:not(:has(.home-page)) .discovery-search-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px -6px rgba(15, 118, 110, 0.52);
+  filter: brightness(1.04);
+}
+
+html:not(:has(.home-page)) .discovery-filter-all,
+html:not(:has(.home-page)) .discovery-quick-filters button {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 15px;
+  border-color: #cddcd0;
+  background: #ffffff;
+  color: #295046;
+  transition: all 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html:not(:has(.home-page)) .discovery-filter-all:hover,
+html:not(:has(.home-page)) .discovery-quick-filters button:hover {
+  border-color: #0f766e;
+  background: #f2f9f4;
+  color: #0d544c;
+  transform: translateY(-1px);
+}
+
+html:not(:has(.home-page)) .discovery-filter-all.is-active,
+html:not(:has(.home-page)) .discovery-quick-filters button.is-active {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #ffffff;
+  box-shadow: 0 6px 16px rgba(15, 118, 110, 0.24);
+}
+
+html:not(:has(.home-page)) .discovery-confidence {
+  background: linear-gradient(90deg, #e8f3eb 0%, #f1f5ec 100%);
+  border: 1px solid #d1e2d4;
+  border-radius: 16px;
+  padding: 15px 20px;
+  box-shadow: 0 4px 16px rgba(18, 55, 45, 0.04);
+}
+
+html:not(:has(.home-page)) .discovery-confidence strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: #153e35;
+}
+
+html:not(:has(.home-page)) .discovery-confidence span {
+  font-size: 12.5px;
+  color: #4f6d60;
+}
+
+html:not(:has(.home-page)) .discovery-confidence > a {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f766e;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid #c9dcd0;
+  transition: all 0.2s ease;
+}
+
+html:not(:has(.home-page)) .discovery-confidence > a:hover {
+  background: #0f766e;
+  color: #ffffff;
+  border-color: #0f766e;
+}
+
+html:not(:has(.home-page)) .discovery-results-heading h2 {
+  font-size: clamp(26px, 2.8vw, 35px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #133931;
+}
+
+html:not(:has(.home-page)) .discovery-results-heading h2 em {
+  color: #0f766e;
+  font-weight: 500;
+}
+
+html:not(:has(.home-page)) .discovery-results-heading p {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #526e61;
+  margin-top: 6px;
+}
+
+html:not(:has(.home-page)) .discovery-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 6px 5px 14px;
+  border-radius: 14px;
+  border: 1px solid #d3e0d4;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(18, 55, 45, 0.04);
+}
+
+html:not(:has(.home-page)) .discovery-sort > span {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #527062;
+  white-space: nowrap;
+}
+
+html:not(:has(.home-page)) .discovery-sort .sk-select {
+  min-width: 196px;
+}
+
+/* Interactive 3D Hostel Cards on Non-Home Routes (/explore, /dashboard, /favourites) */
+html:not(:has(.home-page)) .discovery-grid {
+  perspective: 1400px;
+  gap: 28px;
+}
+
+html:not(:has(.home-page)) .discovery-card {
+  --card-rx: 0deg;
+  --card-ry: 0deg;
+  --sheen-x: 50%;
+  --sheen-y: 30%;
+  --sheen-o: 0;
+  position: relative;
+  border-radius: 22px;
+  padding: 9px;
+  border: 1px solid #d5e2d6;
+  background: #ffffff;
+  box-shadow:
+    0 8px 26px -8px rgba(17, 54, 45, 0.08),
+    0 2px 6px rgba(17, 54, 45, 0.03);
+  transform: perspective(1200px) rotateX(var(--card-rx)) rotateY(var(--card-ry));
+  transform-style: preserve-3d;
+  transition:
+    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.24s ease;
+  animation: sk-card-rise 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+html:not(:has(.home-page)) .discovery-card:nth-child(2) { animation-delay: 0.04s; }
+html:not(:has(.home-page)) .discovery-card:nth-child(3) { animation-delay: 0.08s; }
+html:not(:has(.home-page)) .discovery-card:nth-child(4) { animation-delay: 0.12s; }
+html:not(:has(.home-page)) .discovery-card:nth-child(5) { animation-delay: 0.16s; }
+html:not(:has(.home-page)) .discovery-card:nth-child(6) { animation-delay: 0.2s; }
+
+@keyframes sk-card-rise {
+  from {
+    opacity: 0;
+    transform: perspective(1200px) translate3d(0, 20px, -24px) rotateX(4deg);
+  }
+  to {
+    opacity: 1;
+    transform: perspective(1200px) rotateX(var(--card-rx)) rotateY(var(--card-ry));
+  }
+}
+
+html:not(:has(.home-page)) .discovery-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: var(--sheen-o);
+  transition: opacity 0.3s ease;
+  background: radial-gradient(
+    circle 250px at var(--sheen-x) var(--sheen-y),
+    rgba(255, 255, 255, 0.5) 0%,
+    rgba(15, 118, 110, 0.05) 45%,
+    transparent 72%
+  );
+  z-index: 6;
+}
+
+html:not(:has(.home-page)) .discovery-card:hover {
+  border-color: #a4c7b5;
+  box-shadow:
+    0 24px 50px -14px rgba(15, 62, 50, 0.16),
+    0 6px 16px rgba(15, 62, 50, 0.06);
+}
+
+html:not(:has(.home-page)) .discovery-card .discovery-card-content {
+  padding: 16px 14px 12px;
+}
+
+html:not(:has(.home-page)) .discovery-card-heading h3 a {
+  font-size: 18px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: #12372f;
+}
+
+html:not(:has(.home-page)) .discovery-card-heading h3 a:hover {
+  color: #0f766e;
+}
+
+html:not(:has(.home-page)) .discovery-card-locality {
+  font-size: 13px;
+  font-weight: 500;
+  color: #4f6b5e;
+}
+
+html:not(:has(.home-page)) .discovery-card-campus {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #36594c;
+}
+
+html:not(:has(.home-page)) .discovery-card-distance strong {
+  font-size: 14px;
+  font-weight: 750;
+  color: #0e695c;
+}
+
+html:not(:has(.home-page)) .discovery-card-distance span {
+  font-size: 10.5px;
+  color: #627c6e;
+}
+
+html:not(:has(.home-page)) .discovery-room-tag {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #e8f4ed;
+  color: #14594c;
+}
+
+html:not(:has(.home-page)) .discovery-sample-tag {
+  font-size: 11px;
+  color: #607a6c;
+}
+
+html:not(:has(.home-page)) .discovery-card-price {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #113830;
+}
+
+html:not(:has(.home-page)) .discovery-card-price span,
+html:not(:has(.home-page)) .discovery-card-price-note {
+  font-size: 12px;
+  color: #557063;
+}
+
+html:not(:has(.home-page)) .discovery-card-deposit span {
+  font-size: 11px;
+  color: #627c6e;
+}
+
+html:not(:has(.home-page)) .discovery-card-deposit strong {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #21483e;
+}
+
+html:not(:has(.home-page)) .discovery-card-features span {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: #f2f6f0;
+  color: #35574b;
+}
+
+html:not(:has(.home-page)) .discovery-card .discovery-card-category {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #16493e;
+  background: rgba(255, 255, 252, 0.94);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 12px rgba(17, 52, 43, 0.1);
+  transform: translateZ(18px);
+}
+
+html:not(:has(.home-page)) .discovery-compare-control {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: #35584c;
+  transition: all 0.18s ease;
+}
+
+html:not(:has(.home-page)) .discovery-compare-control:hover:not(:disabled) {
+  border-color: #0f766e;
+  color: #0f766e;
+  background: #eff7f2;
+}
+
+html:not(:has(.home-page)) .discovery-card-cta {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f766e;
+  padding: 8px 13px;
+  border-radius: 999px;
+  background: #eaf5ef;
+  transition: all 0.18s ease;
+}
+
+html:not(:has(.home-page)) .discovery-card-cta:hover {
+  background: #0f766e;
+  color: #ffffff;
+  transform: translateX(2px);
+}
+
+/* Enhanced 3D Isometric Cutaway Stage on Non-Home Cards */
+html:not(:has(.home-page)) .room-card-stage {
+  background: radial-gradient(ellipse at 50% 34%, #ffffff 0%, #f1f6f1 58%, #e4eee6 100%);
+}
+
+html:not(:has(.home-page)) .room-card-platform {
+  background: radial-gradient(ellipse at center, rgba(15, 118, 110, 0.22) 0%, rgba(180, 204, 188, 0.18) 65%, transparent 100%);
+  opacity: 0.85;
+  transition: transform 0.35s ease, opacity 0.35s ease;
+}
+
+html:not(:has(.home-page)) .discovery-card:hover .room-card-platform {
+  transform: scale(1.06);
+  opacity: 1;
+}
+
+html:not(:has(.home-page)) .room-card-model {
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), filter 0.28s ease;
+  filter: drop-shadow(0 16px 14px rgba(17, 54, 45, 0.14));
+}
+
+html:not(:has(.home-page)) .discovery-card:hover .room-card-echo--left {
+  transform: perspective(440px) rotateY(24deg) rotateZ(-5deg) translateX(-3px);
+  opacity: 0.45;
+  transition: transform 0.35s ease, opacity 0.35s ease;
+}
+
+html:not(:has(.home-page)) .discovery-card:hover .room-card-echo--right {
+  transform: perspective(440px) rotateY(-24deg) rotateZ(5deg) translateX(3px);
+  opacity: 0.45;
+  transition: transform 0.35s ease, opacity 0.35s ease;
+}
+
+html:not(:has(.home-page)) .room-card-sharing {
+  font-size: 11px;
+  font-weight: 700;
+  color: #195649;
+  background: #ffffff;
+  border-color: #cde0d3;
+  box-shadow: 0 4px 12px rgba(17, 54, 45, 0.08);
+}
+
+html:not(:has(.home-page)) .room-card-views button {
+  font-size: 11.5px;
+  font-weight: 650;
+  color: #4f6d60;
+}
+
+html:not(:has(.home-page)) .room-card-views button[aria-pressed='true'] {
+  background: #0f766e;
+  color: #ffffff;
+}
+
+html:not(:has(.home-page)) .room-card-stage-kicker {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #2c6758;
+}
+
+html:not(:has(.home-page)) .room-card-disclaimer {
+  font-size: 11px;
+  color: #647d70;
+}
+
+html:not(:has(.home-page)) .discovery-compare-tray {
+  background: rgba(15, 45, 39, 0.94);
+  backdrop-filter: blur(18px);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 -14px 40px rgba(10, 32, 27, 0.24);
+  animation: sk-tray-up 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes sk-tray-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ==========================================================================
+   Compare Page (/compare) — Crisp Typography, 3D Cards & Highlighted Value
+   ========================================================================== */
+
+html:not(:has(.home-page)) .compare-page {
+  background: linear-gradient(180deg, #eff4ed 0%, #f8f7f1 280px, #f8f7f1 100%);
+  color: #133931;
+}
+
+html:not(:has(.home-page)) .compare-back {
+  font-size: 13px;
+  font-weight: 600;
+  color: #3b6154;
+}
+
+html:not(:has(.home-page)) .compare-back:hover {
+  color: #0f766e;
+}
+
+html:not(:has(.home-page)) .compare-intro p {
+  font-size: 15px;
+  color: #4c685b;
+}
+
+html:not(:has(.home-page)) .compare-intro > button {
+  font-size: 13px;
+  font-weight: 650;
+  border-radius: 12px;
+  border-color: #cbddd0;
+  background: #ffffff;
+  color: #17433a;
+  box-shadow: 0 3px 10px rgba(17, 54, 45, 0.05);
+}
+
+html:not(:has(.home-page)) .compare-campus {
+  background: #ffffff;
+  border: 1px solid #d1e0d3;
+  border-radius: 16px;
+  padding: 16px 20px;
+  box-shadow: 0 8px 24px -8px rgba(17, 54, 45, 0.07);
+}
+
+html:not(:has(.home-page)) .compare-campus > label {
+  font-size: 13px;
+  font-weight: 650;
+  color: #3f6054;
+  white-space: nowrap;
+}
+
+html:not(:has(.home-page)) .compare-campus .sk-select {
+  max-width: 390px;
+}
+
+html:not(:has(.home-page)) .compare-campus > span {
+  font-size: 12px;
+  color: #617b6d;
+}
+
+html:not(:has(.home-page)) .compare-hint {
+  font-size: 13.5px;
+  color: #4f6c5e;
+}
+
+html:not(:has(.home-page)) .compare-table-scroll {
+  border-radius: 20px;
+  border-color: #d3e1d5;
+  background: #ffffff;
+  box-shadow: 0 18px 46px -14px rgba(17, 54, 45, 0.1);
+}
+
+html:not(:has(.home-page)) .compare-property {
+  transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html:not(:has(.home-page)) .compare-property:hover {
+  transform: translateY(-3px);
+}
+
+html:not(:has(.home-page)) .compare-property > img {
+  height: 164px;
+  border-radius: 14px;
+  box-shadow: 0 8px 20px rgba(17, 54, 45, 0.1);
+}
+
+html:not(:has(.home-page)) .compare-property > a {
+  font-size: 17px;
+  font-weight: 750;
+  color: #133931;
+}
+
+html:not(:has(.home-page)) .compare-property > a:hover {
+  color: #0f766e;
+}
+
+html:not(:has(.home-page)) .compare-property > span {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #587366;
+}
+
+html:not(:has(.home-page)) .compare-room-field {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+html:not(:has(.home-page)) .compare-room-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #517062;
+}
+
+html:not(:has(.home-page)) .compare-table tbody th {
+  font-size: 13px;
+  font-weight: 700;
+  color: #2a4f44;
+  background: #f6f9f5;
+}
+
+html:not(:has(.home-page)) .compare-table td {
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: #27483e;
+}
+
+html:not(:has(.home-page)) .compare-table tbody tr:first-child td {
+  font-size: 23px;
+  font-weight: 800;
+  color: #0d6e63;
+  background: linear-gradient(90deg, #eaf5ee 0%, #f1f7f1 100%);
+}
+
+/* ==========================================================================
+   Hostel Preview (/hostel/:id/preview) & Hostel Detail (/hostel/:id)
+   ========================================================================== */
+
+html:not(:has(.home-page)) .hostel-preview-visual.sk-tilt-3d {
+  box-shadow:
+    0 28px 65px -16px rgba(15, 52, 43, 0.22),
+    0 8px 24px rgba(15, 52, 43, 0.08);
+}
+
+html:not(:has(.home-page)) .hostel-preview-photo-caption {
+  transform: translateZ(20px);
+}
+
+html:not(:has(.home-page)) .detail-page {
+  --detail-ink: #133931;
+  --detail-muted: #506c5f;
+  background: #f8f7f1;
+}
+
+html:not(:has(.home-page)) .detail-breadcrumb {
+  font-size: 13px;
+  color: #577265;
+}
+
+html:not(:has(.home-page)) .detail-breadcrumb a {
+  font-weight: 650;
+  color: #1f5448;
+}
+
+html:not(:has(.home-page)) .detail-context-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  background: #ffffff !important;
+  border: 1px solid #d2e0d4 !important;
+  border-radius: 16px !important;
+  padding: 10px 16px !important;
+  margin-bottom: 20px;
+  box-shadow: 0 6px 20px rgba(17, 54, 45, 0.05);
+}
+
+html:not(:has(.home-page)) .detail-context-select {
+  min-width: 260px;
+  max-width: 420px;
+  flex: 1;
+}
+
+html:not(:has(.home-page)) .detail-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.13em;
+  color: #2c6858;
+}
+
+html:not(:has(.home-page)) .detail-category {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #e8f3ec;
+  border-color: #cbe0d2;
+  color: #145448;
+}
+
+html:not(:has(.home-page)) .detail-heading p {
+  font-size: 14px;
+  color: #4b685b;
+}
+
+html:not(:has(.home-page)) .detail-about {
+  color: #2d4e44;
+  font-size: 14.5px;
+  line-height: 1.85;
+}
+
+html:not(:has(.home-page)) .detail-section__intro {
+  font-size: 14px;
+  color: #4d695c;
+}
+
+html:not(:has(.home-page)) .detail-amenities p {
+  color: #24473d;
+  font-size: 13px;
+  font-weight: 550;
+}
+
+html:not(:has(.home-page)) .detail-amenities > div > span {
+  width: 38px;
+  height: 38px;
+  background: #e8f3ec;
+  color: #0f766e;
+}
+
+html:not(:has(.home-page)) .detail-rules li {
+  color: #2d4f45;
+  font-size: 13.5px;
+}
+
+html:not(:has(.home-page)) .detail-room-option {
+  padding: 18px 16px 16px;
+  border-radius: 14px;
+  background: #ffffff;
+  border-color: #d4e2d6;
+  box-shadow: 0 6px 18px rgba(17, 54, 45, 0.04);
+}
+
+html:not(:has(.home-page)) .detail-room-option:hover:not(:disabled) {
+  transform: translateY(-6px) rotateY(0deg) scale(1.015);
+  border-color: #0f766e;
+  box-shadow: 0 18px 34px -10px rgba(15, 118, 110, 0.18);
+}
+
+html:not(:has(.home-page)) .detail-room-option.is-selected {
+  background: linear-gradient(180deg, #eaf5ee 0%, #ffffff 100%);
+  border-color: #0f766e;
+  box-shadow: 0 14px 30px -10px rgba(15, 118, 110, 0.22);
+}
+
+html:not(:has(.home-page)) .detail-room-option__name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #163d34;
+}
+
+html:not(:has(.home-page)) .detail-room-option strong {
+  font-size: 21px;
+  font-weight: 800;
+  color: #0f685d;
+}
+
+html:not(:has(.home-page)) .detail-room-option strong small,
+html:not(:has(.home-page)) .detail-room-option__availability {
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+html:not(:has(.home-page)) .detail-room-facts > div {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #35574c;
+  background: #ffffff;
+  border: 1px solid #dce6dd;
+  padding: 6px 11px;
+  border-radius: 999px;
+}
+
+html:not(:has(.home-page)) .detail-price dl > div {
+  font-size: 13.5px;
+}
+
+html:not(:has(.home-page)) .detail-price dt {
+  color: #49665a;
+}
+
+html:not(:has(.home-page)) .detail-price dd {
+  color: #163c33;
+  font-weight: 650;
+}
+
+/* ==========================================================================
+   How It Works (/how-it-works) & Login (/login) — 3D Floating Isometric Scenes
+   ========================================================================== */
+
+html:not(:has(.home-page)) .help-step.sk-tilt-3d {
+  background: #ffffff;
+  border: 1px solid #d6e3d7;
+  border-radius: 22px;
+  padding: 24px 24px 26px;
+  box-shadow:
+    0 12px 32px -12px rgba(17, 54, 45, 0.09),
+    0 2px 6px rgba(17, 54, 45, 0.03);
+}
+
+html:not(:has(.home-page)) .help-step.sk-tilt-3d:hover {
+  border-color: #9ec3b2;
+  box-shadow:
+    0 24px 50px -14px rgba(15, 68, 56, 0.16),
+    0 6px 16px rgba(15, 68, 56, 0.06);
+}
+
+html:not(:has(.home-page)) .help-step__stage {
+  background: radial-gradient(ellipse at 50% 52%, #f1f7f2 0%, #fafaf5 70%);
+  border-radius: 16px;
+  padding: 14px 10px 6px;
+  margin-bottom: 16px;
+  transform: translateZ(24px);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html:not(:has(.home-page)) .help-step.sk-tilt-3d:hover .help-step__stage {
+  transform: translateZ(34px) translateY(-4px);
+}
+
+html:not(:has(.home-page)) .help-step__stage svg {
+  filter: drop-shadow(0 12px 16px rgba(19, 61, 51, 0.09));
+}
+
+html:not(:has(.home-page)) .help-step p {
+  font-size: 14px;
+  color: #4a6659;
+  line-height: 1.75;
+}
+
+html:not(:has(.home-page)) .help-faq summary {
+  font-size: 15.5px;
+  color: #153b33;
+  transition: color 0.18s ease;
+}
+
+html:not(:has(.home-page)) .help-faq summary:hover {
+  color: #0f766e;
+}
+
+html:not(:has(.home-page)) .help-faq details p {
+  font-size: 14px;
+  color: #486457;
+}
+
+/* 3D Floating Campus Scene on /login */
+html:not(:has(.home-page)) .login-scene {
+  perspective: 900px;
+}
+
+html:not(:has(.home-page)) .login-scene svg {
+  animation: sk-float-scene 5.6s ease-in-out infinite;
+  filter: drop-shadow(0 16px 24px rgba(15, 62, 50, 0.12));
+}
+
+@keyframes sk-float-scene {
+  0%, 100% {
+    transform: translateY(0px) rotateX(0deg);
+  }
+  50% {
+    transform: translateY(-6px) rotateX(2deg);
+  }
+}
+
+html:not(:has(.home-page)) .login-benefits span {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 12px;
+  background: #ffffff;
+  border-color: #c8dacb;
+  color: #1b4f43;
+}
+
+/* ==========================================================================
+   Kota Map Page (/map) & Student / Owner / Admin Workspaces Polish
+   ========================================================================== */
+
+html:not(:has(.home-page)) .city-campus {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px !important;
+  background: #ffffff !important;
+  border-radius: 14px !important;
+}
+
+html:not(:has(.home-page)) .city-radius > span,
+html:not(:has(.home-page)) .city-room-filters > div > span {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #3f6053;
+  margin-bottom: 5px;
+}
+
+html:not(:has(.home-page)) .workspace-campus .sk-select {
+  min-width: 240px;
+}
+
+html:not(:has(.home-page)) .owner-status-select {
+  max-width: 250px;
+}
+
+html:not(:has(.home-page)) .wizard-sub-label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: #26483e;
+  margin-bottom: 6px;
+}
+
+@media (max-width: 720px) {
+  html:not(:has(.home-page)) .discovery-sort {
+    width: 100%;
+    justify-content: space-between;
+  }
+  html:not(:has(.home-page)) .discovery-sort .sk-select {
+    min-width: 0;
+    flex: 1;
+  }
+  html:not(:has(.home-page)) .workspace-campus .sk-select,
+  html:not(:has(.home-page)) .detail-context-select,
+  html:not(:has(.home-page)) .owner-status-select {
+    min-width: 0;
+    max-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not(:has(.home-page)) .sk-tilt-3d,
+  html:not(:has(.home-page)) .discovery-card,
+  html:not(:has(.home-page)) .discovery-compare-tray,
+  html:not(:has(.home-page)) .login-scene svg {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}

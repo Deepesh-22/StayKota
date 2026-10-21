@@ -9,6 +9,7 @@ import { HostelCard } from '../components/hostel/HostelCard';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
+import { CustomSelect } from '../components/ui/CustomSelect';
 import type { VisitRequest } from '../types';
 import '../styles/workspaces.css';
 
@@ -117,7 +118,7 @@ export function StudentDashboard() {
   return <div className="workspace-shell student-workspace">
     <div className="workspace-heading">
       <div><p className="workspace-eyebrow">A place for your next chapter</p><h1>Hi, {user.name.split(' ')[0]}<span className="workspace-wave" aria-hidden="true"> ✳</span></h1><p>Keep exploring, compare your favourites, and plan your visits.</p></div>
-      <label className="workspace-campus"><MapPin size={17} /><span><small>Your coaching campus</small><select aria-label="Your coaching campus" value={campus.id} onChange={e => { const next = new URLSearchParams(params); next.set('campus', e.target.value); setParams(next); }}>{CAMPUSES.map(c => <option key={c.id} value={c.id}>{c.institute} · {c.name}</option>)}</select></span></label>
+      <div className="workspace-campus"><MapPin size={17} /><span><small>Your coaching campus</small><CustomSelect variant="ghost" ariaLabel="Your coaching campus" value={campus.id} searchPlaceholder="Search coaching campus…" options={CAMPUSES.map(c => ({ value: c.id, label: `${c.institute} · ${c.name}` }))} onChange={nextVal => { const next = new URLSearchParams(params); next.set('campus', nextVal); setParams(next); }} /></span></div>
     </div>
     <div className="workspace-grid">
       <aside className="workspace-sidebar"><nav aria-label="Student dashboard">{sections.map(({ id, label, icon: Icon }) => <button key={id} type="button" aria-current={section === id ? 'page' : undefined} onClick={() => setSection(id)}><Icon size={18} /><span>{label}</span>{id === 'visits' && upcoming.length > 0 && <small>{upcoming.length}</small>}</button>)}</nav><div className="workspace-sidebar-note"><ArrowUpRight aria-hidden="true" /><p>Same goals.<br />A place to grow.</p><Link to="/how-it-works">A little help along the way</Link></div></aside>

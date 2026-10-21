@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowUpRight,
-  ChevronDown,
   GraduationCap,
   List,
   Map as MapIcon,
@@ -17,6 +16,7 @@ import {
 import { useLiveLocation } from '../hooks/useLiveLocation';
 import { useApp } from '../context/AppContext';
 import { useHostelTransition } from '../context/HostelTransitionContext';
+import { CustomSelect } from '../components/ui/CustomSelect';
 import type { MarkerActivationOrigin } from '../components/maps/HoverMapPin';
 import { CAMPUSES } from '../data/campuses';
 import { formatDistance, getCampus, getMatchingRooms, monthlyTotal } from '../lib/discovery';
@@ -412,75 +412,83 @@ export function KotaMapPage() {
             </button>
           </div>
           <div className="city-campus">
-            <GraduationCap size={16} />
             <label className="sr-only" htmlFor="city-campus">
               Centre map on a coaching campus
             </label>
-            <select
+            <CustomSelect
               id="city-campus"
+              variant="ghost"
+              ariaLabel="Centre map on a coaching campus"
               value={params.get('campus') || ''}
-              onChange={(e) => selectCampus(e.target.value)}
-            >
-              <option value="">All coaching institutes (Kota)</option>
-              {CAMPUSES.map((c) => (
-                <option value={c.id} key={c.id}>
-                  {c.institute} · {c.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={14} />
+              icon={<GraduationCap size={16} />}
+              searchPlaceholder="Search coaching campus…"
+              options={[
+                { value: '', label: 'All coaching institutes (Kota)' },
+                ...CAMPUSES.map((c) => ({
+                  value: c.id,
+                  label: `${c.institute} · ${c.name}`,
+                })),
+              ]}
+              onChange={(next) => selectCampus(next)}
+            />
           </div>
-          <label className="city-radius">
-            {location ? 'Distance from your location' : 'Distance from coaching'}
-            <select
-              aria-label={location ? 'Distance from your location' : 'Distance from coaching'}
+          <div className="city-radius">
+            <span>{location ? 'Distance from your location' : 'Distance from coaching'}</span>
+            <CustomSelect
+              variant="compact"
+              ariaLabel={location ? 'Distance from your location' : 'Distance from coaching'}
               disabled={!origin}
-              value={radius || ''}
-              onChange={e => update({ radius: e.target.value || null, hostel: null })}
-            >
-              <option value="">All distances</option>
-              <option value="1">Within 1 km</option>
-              <option value="3">Within 3 km</option>
-              <option value="5">Within 5 km</option>
-            </select>
+              value={radius ? String(radius) : ''}
+              options={[
+                { value: '', label: 'All distances' },
+                { value: '1', label: 'Within 1 km' },
+                { value: '3', label: 'Within 3 km' },
+                { value: '5', label: 'Within 5 km' },
+              ]}
+              onChange={(next) => update({ radius: next || null, hostel: null })}
+            />
             <small>
               {origin
                 ? 'Sorted nearest first · straight-line estimate'
                 : 'Select a coaching institute or enable live location to filter by distance.'}
             </small>
-          </label>
+          </div>
           <div className="city-room-filters">
-            <label>
-              Room type
-              <select
-                aria-label="Map room sharing"
+            <div>
+              <span>Room type</span>
+              <CustomSelect
+                variant="compact"
+                ariaLabel="Map room sharing"
                 value={sharing}
-                onChange={(e) => update({ sharing: e.target.value, hostel: null })}
-              >
-                <option value="">Any sharing</option>
-                <option value="single">Single room</option>
-                <option value="double">Double sharing</option>
-                <option value="triple">Triple sharing</option>
-                <option value="four">Four sharing</option>
-              </select>
-            </label>
-            <label>
-              Fixed monthly budget
-              <select
-                aria-label="Map monthly budget"
-                value={budget || ''}
-                onChange={(e) => update({ budget: e.target.value, hostel: null })}
-              >
-                <option value="">Any budget</option>
-                <option value="5000">Up to ₹5,000</option>
-                <option value="8000">Up to ₹8,000</option>
-                <option value="12000">Up to ₹12,000</option>
-                <option value="15000">Up to ₹15,000</option>
-                {budget && ![5000, 8000, 12000, 15000].includes(budget) && (
-                  <option value={budget}>Up to ₹{budget.toLocaleString('en-IN')}</option>
-                )}
-              </select>
-            </label>
+                options={[
+                  { value: '', label: 'Any sharing' },
+                  { value: 'single', label: 'Single room' },
+                  { value: 'double', label: 'Double sharing' },
+                  { value: 'triple', label: 'Triple sharing' },
+                  { value: 'four', label: 'Four sharing' },
+                ]}
+                onChange={(next) => update({ sharing: next, hostel: null })}
+              />
+            </div>
+            <div>
+              <span>Fixed monthly budget</span>
+              <CustomSelect
+                variant="compact"
+                ariaLabel="Map monthly budget"
+                value={budget ? String(budget) : ''}
+                options={[
+                  { value: '', label: 'Any budget' },
+                  { value: '5000', label: 'Up to ₹5,000' },
+                  { value: '8000', label: 'Up to ₹8,000' },
+                  { value: '12000', label: 'Up to ₹12,000' },
+                  { value: '15000', label: 'Up to ₹15,000' },
+                  ...(budget && ![5000, 8000, 12000, 15000].includes(budget)
+                    ? [{ value: String(budget), label: `Up to ₹${budget.toLocaleString('en-IN')}` }]
+                    : []),
+                ]}
+                onChange={(next) => update({ budget: next, hostel: null })}
+              />
+            </div>
           </div>
           <div className="city-category" aria-label="Map hostel category">
             {[

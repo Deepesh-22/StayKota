@@ -55,12 +55,43 @@ export function HostelCard({ hostel, room, campus, onHover, compact = false, act
     else navigate(`/login?role=student&redirect=${encodeURIComponent(location.pathname + location.search)}`);
   };
 
+  const handleCardPointerMove = (event: React.PointerEvent<HTMLElement>) => {
+    if (
+      event.pointerType !== 'mouse' ||
+      event.currentTarget.closest('.home-page') ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      return;
+    }
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const px = (event.clientX - rect.left) / rect.width;
+    const py = (event.clientY - rect.top) / rect.height;
+    event.currentTarget.style.setProperty('--card-rx', `${((0.5 - py) * 6.5).toFixed(2)}deg`);
+    event.currentTarget.style.setProperty('--card-ry', `${((px - 0.5) * 8.5).toFixed(2)}deg`);
+    event.currentTarget.style.setProperty('--sheen-x', `${(px * 100).toFixed(1)}%`);
+    event.currentTarget.style.setProperty('--sheen-y', `${(py * 100).toFixed(1)}%`);
+    event.currentTarget.style.setProperty('--sheen-o', '1');
+  };
+
+  const resetCardTilt = (target: HTMLElement) => {
+    if (target.closest('.home-page')) return;
+    target.style.setProperty('--card-rx', '0deg');
+    target.style.setProperty('--card-ry', '0deg');
+    target.style.setProperty('--sheen-o', '0');
+  };
+
   return (
     <article
       data-hostel-id={hostel.id}
       className={`discovery-card${active ? ' discovery-card--active' : ''}${compact ? ' discovery-card--compact' : ''}${compared ? ' discovery-card--compared' : ''}`}
       onMouseEnter={() => onHover?.(hostel.id)}
-      onMouseLeave={() => onHover?.(null)}
+      onMouseLeave={(event) => {
+        resetCardTilt(event.currentTarget);
+        onHover?.(null);
+      }}
+      onPointerMove={handleCardPointerMove}
+      onPointerLeave={(event) => resetCardTilt(event.currentTarget)}
       onFocus={() => onHover?.(hostel.id)}
       onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onHover?.(null); }}
     >

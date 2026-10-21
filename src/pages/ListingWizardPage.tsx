@@ -23,6 +23,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { LOCALITIES, AMENITIES } from '../data/mockData';
 import { Button } from '../components/ui/Button';
+import { CustomSelect } from '../components/ui/CustomSelect';
 import type { Hostel, RoomType, SharingType, ListingStatus } from '../types';
 import { monthlyTotal } from '../lib/discovery';
 import {
@@ -648,37 +649,36 @@ export function ListingWizardPage() {
                   <div className="wizard-two-col">
                     <div className="wizard-field">
                       <label htmlFor="hostel-category">Student category *</label>
-                      <select
+                      <CustomSelect
                         id="hostel-category"
+                        ariaLabel="Student category"
                         value={category}
-                        onChange={(e) => {
-                          setCategory(e.target.value as typeof category);
+                        options={[
+                          { value: 'boys', label: 'Boys hostel / PG' },
+                          { value: 'girls', label: 'Girls hostel / PG' },
+                          { value: 'co-ed', label: 'Co-ed stay (separate floors/wings)' },
+                        ]}
+                        onChange={(nextValue) => {
+                          setCategory(nextValue as typeof category);
                           markDirty();
                         }}
-                      >
-                        <option value="boys">Boys hostel / PG</option>
-                        <option value="girls">Girls hostel / PG</option>
-                        <option value="co-ed">Co-ed stay (separate floors/wings)</option>
-                      </select>
+                      />
                     </div>
 
                     <div className="wizard-field">
                       <label htmlFor="hostel-locality">Kota locality *</label>
-                      <select
+                      <CustomSelect
                         id="hostel-locality"
+                        ariaLabel="Kota locality"
                         value={locality}
-                        onChange={(e) => {
-                          setLocality(e.target.value);
+                        hasError={Boolean(errors.locality)}
+                        searchPlaceholder="Search Kota locality…"
+                        options={LOCALITIES.map((l) => ({ value: l, label: l }))}
+                        onChange={(nextValue) => {
+                          setLocality(nextValue);
                           markDirty();
                         }}
-                        className={errors.locality ? 'has-error' : undefined}
-                      >
-                        {LOCALITIES.map((l) => (
-                          <option key={l} value={l}>
-                            {l}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </div>
                   </div>
 
@@ -970,51 +970,55 @@ export function ListingWizardPage() {
                         </div>
 
                         <div className="wizard-room-fields">
-                          <label htmlFor={'room-sharing-' + idx}>
-                            Sharing capacity
-                            <select
+                          <div>
+                            <span className="wizard-sub-label">Sharing capacity</span>
+                            <CustomSelect
                               id={'room-sharing-' + idx}
+                              ariaLabel={`Sharing capacity for room ${idx + 1}`}
                               value={r.sharingType}
-                              onChange={(e) => {
-                                const v = e.target.value as SharingType;
+                              options={[
+                                { value: 'single', label: 'Single occupancy (1 student)' },
+                                { value: 'double', label: 'Double sharing (2 students)' },
+                                { value: 'triple', label: 'Triple sharing (3 students)' },
+                                { value: 'four', label: 'Four sharing (4 students)' },
+                              ]}
+                              onChange={(nextValue) => {
+                                const v = nextValue as SharingType;
                                 updateRoom(idx, {
                                   sharingType: v,
                                   capacity:
                                     v === 'single' ? 1 : v === 'double' ? 2 : v === 'triple' ? 3 : 4,
                                 });
                               }}
-                            >
-                              <option value="single">Single occupancy (1 student)</option>
-                              <option value="double">Double sharing (2 students)</option>
-                              <option value="triple">Triple sharing (3 students)</option>
-                              <option value="four">Four sharing (4 students)</option>
-                            </select>
-                          </label>
+                            />
+                          </div>
 
-                          <label htmlFor={'room-bathroom-' + idx}>
-                            Washroom type
-                            <select
+                          <div>
+                            <span className="wizard-sub-label">Washroom type</span>
+                            <CustomSelect
                               id={'room-bathroom-' + idx}
+                              ariaLabel={`Washroom type for room ${idx + 1}`}
                               value={
                                 r.features.some((feature) => /attached/i.test(feature))
                                   ? 'attached'
                                   : 'shared'
                               }
-                              onChange={(e) =>
+                              options={[
+                                { value: 'attached', label: 'Attached washroom' },
+                                { value: 'shared', label: 'Common / shared washroom' },
+                              ]}
+                              onChange={(nextValue) =>
                                 updateRoom(idx, {
                                   features: [
                                     ...r.features.filter((feature) => !/bath|toilet/i.test(feature)),
-                                    e.target.value === 'attached'
+                                    nextValue === 'attached'
                                       ? 'Attached bathroom'
                                       : 'Shared bathroom',
                                   ],
                                 })
                               }
-                            >
-                              <option value="attached">Attached washroom</option>
-                              <option value="shared">Common / shared washroom</option>
-                            </select>
-                          </label>
+                            />
+                          </div>
 
                           <label htmlFor={'room-rent-' + idx}>
                             Monthly room rent (₹) *
@@ -1075,32 +1079,34 @@ export function ListingWizardPage() {
                             />
                           </label>
 
-                          <label htmlFor={'room-ac-' + idx}>
-                            Cooling / AC
-                            <select
+                          <div>
+                            <span className="wizard-sub-label">Cooling / AC</span>
+                            <CustomSelect
                               id={'room-ac-' + idx}
+                              ariaLabel={`Cooling / AC for room ${idx + 1}`}
                               value={
                                 r.features.includes('AC') || r.included.includes('AC')
                                   ? 'yes'
                                   : 'no'
                               }
-                              onChange={(e) =>
+                              options={[
+                                { value: 'no', label: 'Non-AC / Air cooled' },
+                                { value: 'yes', label: 'Air Conditioned (AC)' },
+                              ]}
+                              onChange={(nextValue) =>
                                 updateRoom(idx, {
                                   features: [
                                     ...r.features.filter((feature) => feature !== 'AC'),
-                                    ...(e.target.value === 'yes' ? ['AC'] : []),
+                                    ...(nextValue === 'yes' ? ['AC'] : []),
                                   ],
                                   included:
-                                    e.target.value === 'no'
+                                    nextValue === 'no'
                                       ? r.included.filter((item) => item !== 'AC')
                                       : r.included,
                                 })
                               }
-                            >
-                              <option value="no">Non-AC / Air cooled</option>
-                              <option value="yes">Air Conditioned (AC)</option>
-                            </select>
-                          </label>
+                            />
+                          </div>
                         </div>
 
                         <div className="wizard-inclusions">
