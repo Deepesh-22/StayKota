@@ -1,192 +1,156 @@
-import React, { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, MapPin, IndianRupee, Users, FileText, Phone, GraduationCap, ArrowRight, Check } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, BedDouble, Check, ChevronDown, GraduationCap, MapPin, Search, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { HostelCard } from '../components/hostel/HostelCard';
-import { LOCALITIES } from '../data/mockData';
+import { KotaNeighbourhood } from '../components/home/KotaNeighbourhood';
+import { CAMPUSES, DEFAULT_CAMPUS_ID } from '../data/campuses';
+import { distanceKm, getCampus, getMatchingRooms } from '../lib/discovery';
 import type { SharingType } from '../types';
+import '../styles/home.css';
 
-const QUICK = [
-  { label: 'Girls hostels', params: { category: 'girls' } },
-  { label: 'Under ₹6k', params: { maxBudget: '6000' } },
-  { label: 'With mess', params: { amenities: 'Meals' } },
-  { label: 'Double sharing', params: { sharing: 'double' } },
+const STEPS = [
+  { number: '01', title: 'Your campus. Your corner.', description: 'Choose your coaching campus, then find a neighbourhood that fits your day.', icon: GraduationCap },
+  { number: '02', title: 'A little less guesswork.', description: 'See the room, compare the monthly costs, and save the stays you like.', icon: BedDouble },
+  { number: '03', title: 'Come over. Look around.', description: 'Request a visit and speak to the owner. Choose your place after you have seen it.', icon: MapPin },
 ];
 
 export function HomePage() {
   const { hostels } = useApp();
   const navigate = useNavigate();
-  const [locality, setLocality] = useState('');
+  const [campusId, setCampusId] = useState(DEFAULT_CAMPUS_ID);
   const [maxBudget, setMaxBudget] = useState('');
   const [sharing, setSharing] = useState<SharingType | ''>('');
+  const [category, setCategory] = useState('');
+  const [activeCard, setActiveCard] = useState(0);
+  const [deckPosition, setDeckPosition] = useState({ atStart: true, atEnd: false });
+  const deckRef = useRef<HTMLDivElement>(null);
+  const campus = getCampus(campusId);
 
-  const approved = hostels.filter(h => h.status === 'approved');
-  const featured = approved.slice(0, 3);
+  const featured = useMemo(() => hostels
+    .filter(hostel => hostel.status === 'approved' && (!category || hostel.category === category))
+    .map(hostel => ({ hostel, rooms: getMatchingRooms(hostel, { sharing, maxBudget: maxBudget ? Number(maxBudget) : undefined }) }))
+    .filter(item => item.rooms.length > 0)
+    .sort((a, b) => (distanceKm(a.hostel, campus) ?? Infinity) - (distanceKm(b.hostel, campus) ?? Infinity))
+    .slice(0, 4), [hostels, campus, sharing, maxBudget, category]);
 
-  const handleSearch = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    const params = new URLSearchParams();
-    if (locality) params.set('locality', locality);
+  useEffect(() => {
+    const deck = deckRef.current;
+    if (!deck) return;
+    const updatePosition = () => setDeckPosition({ atStart: deck.scrollLeft <= 1, atEnd: deck.scrollLeft + deck.clientWidth >= deck.scrollWidth - 2 });
+    updatePosition();
+    const observer = new ResizeObserver(updatePosition);
+    observer.observe(deck);
+    return () => observer.disconnect();
+  }, [featured.length]);
+
+  const searchParams = () => {
+    const params = new URLSearchParams({ campus: campusId });
     if (maxBudget) params.set('maxBudget', maxBudget);
     if (sharing) params.set('sharing', sharing);
-    navigate(`/explore?${params.toString()}`);
+    if (category) params.set('category', category);
+    return params.toString();
   };
 
-  const applyQuick = (params: Record<string, string>) => {
-    navigate(`/explore?${new URLSearchParams(params).toString()}`);
+  const handleSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    navigate(`/explore?${searchParams()}`);
   };
+
+  const resetDeck = () => {
+    setActiveCard(0);
+    setDeckPosition({ atStart: true, atEnd: featured.length <= 1 });
+    deckRef.current?.scrollTo({ left: 0, behavior: 'instant' });
+  };
+
+  const changeCampus = (id: string) => {
+    setCampusId(id);
+    resetDeck();
+  };
+
+  const scrollDeck = (direction: number) => {
+    const deck = deckRef.current;
+    if (!deck) return;
+    const firstCard = deck.querySelector<HTMLElement>('.home-deck-item');
+    const gap = Number.parseFloat(window.getComputedStyle(deck).columnGap) || 24;
+    const cardWidth = (firstCard?.offsetWidth ?? 340) + gap;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    deck.scrollBy({ left: direction * cardWidth, behavior: reduceMotion ? 'instant' : 'smooth' });
+  };
+
+  const selectedItem = featured[Math.min(activeCard, Math.max(0, featured.length - 1))];
 
   return (
-    <div className="animate-fade-in">
-      <section className="relative bg-[#faf8f5] overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-12 lg:pt-12 lg:pb-16">
-          <div className="grid lg:grid-cols-2 gap-6 lg:gap-8 items-stretch">
-            <div className="relative bg-slate-900 rounded-3xl p-6 sm:p-8 lg:p-10 text-white overflow-hidden animate-slide-up">
-              <div className="absolute inset-0 bg-gradient-to-br from-teal-900/40 to-transparent pointer-events-none" />
-              <div className="relative z-10">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/20 text-teal-300 text-xs font-medium mb-5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-teal-400" aria-hidden />
-                  Kota · Hostel & PG discovery
-                </div>
-                <h1 className="text-3xl sm:text-4xl lg:text-[2.75rem] font-bold leading-tight tracking-tight">
-                  Find a hostel in Kota<br className="hidden sm:block" /> that feels like home
-                </h1>
-                <p className="mt-4 text-slate-300 text-sm sm:text-base max-w-md leading-relaxed">
-                  Search by locality, budget and sharing type. See real rooms and clear pricing before you visit.
-                </p>
-                <form onSubmit={handleSearch} className="mt-7 bg-white rounded-2xl p-2.5 shadow-xl">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" aria-hidden />
-                      <label className="sr-only" htmlFor="home-locality">Locality</label>
-                      <select id="home-locality" value={locality} onChange={e => setLocality(e.target.value)}
-                        className="w-full pl-9 pr-3 py-3 rounded-xl text-sm text-slate-800 bg-slate-50 border-0 focus:outline-none focus:ring-2 focus:ring-teal-500 appearance-none">
-                        <option value="">Locality / near coaching</option>
-                        {LOCALITIES.map(l => <option key={l} value={l}>{l}</option>)}
-                      </select>
-                    </div>
-                    <div className="relative">
-                      <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" aria-hidden />
-                      <label className="sr-only" htmlFor="home-budget">Budget</label>
-                      <select id="home-budget" value={maxBudget} onChange={e => setMaxBudget(e.target.value)}
-                        className="w-full pl-9 pr-3 py-3 rounded-xl text-sm text-slate-800 bg-slate-50 border-0 focus:outline-none focus:ring-2 focus:ring-teal-500 appearance-none">
-                        <option value="">Monthly budget</option>
-                        <option value="5000">Under ₹5,000</option>
-                        <option value="8000">Under ₹8,000</option>
-                        <option value="12000">Under ₹12,000</option>
-                      </select>
-                    </div>
-                    <div className="relative flex gap-1.5">
-                      <div className="relative flex-1">
-                        <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" aria-hidden />
-                        <label className="sr-only" htmlFor="home-sharing">Sharing</label>
-                        <select id="home-sharing" value={sharing} onChange={e => setSharing(e.target.value as SharingType | '')}
-                          className="w-full pl-9 pr-3 py-3 rounded-xl text-sm text-slate-800 bg-slate-50 border-0 focus:outline-none focus:ring-2 focus:ring-teal-500 appearance-none">
-                          <option value="">Sharing</option>
-                          <option value="single">Single</option>
-                          <option value="double">Double</option>
-                          <option value="triple">Triple</option>
-                        </select>
-                      </div>
-                      <button type="submit" className="flex-shrink-0 px-5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-medium text-sm flex items-center gap-2 transition-colors">
-                        <Search className="w-4 h-4" /><span className="hidden sm:inline">Search</span>
-                      </button>
-                    </div>
-                  </div>
-                </form>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {QUICK.map(q => (
-                    <button key={q.label} type="button" onClick={() => applyQuick(q.params)}
-                      className="px-3 py-1.5 rounded-full text-xs font-medium bg-white/10 text-slate-200 hover:bg-white/20 border border-white/10 transition-colors">
-                      {q.label}
-                    </button>
-                  ))}
-                </div>
+    <div className="home-page">
+      <section className="home-hero" aria-labelledby="home-heading">
+        <div className="home-hero-inner home-container">
+          <div className="home-hero-copy">
+            <div className="home-eyebrow"><span className="home-status-dot" /> A new city. A place of your own.</div>
+            <h1 id="home-heading">Your Kota{' '}<br />starts <span className="home-heading-here">here.<svg viewBox="0 0 260 25" aria-hidden="true"><path d="M6 17C67 4 159 3 251 11M54 23C116 12 179 12 221 16" /></svg></span></h1>
+            <p className="home-hero-description">Big dreams need a little space.<br className="home-desktop-break" /> Find yours, close to your coaching.</p>
+            <div className="home-hero-detail"><span><Check size={14} /> Clear room costs</span><span><Check size={14} /> Your campus, nearby</span></div>
+          </div>
+
+          <div className="home-hero-art">
+            <KotaNeighbourhood campus={campus} onCampusChange={changeCampus} hostel={selectedItem?.hostel} room={selectedItem?.rooms[0]} />
+          </div>
+
+          <div className="home-search-wrap">
+            <form className="home-search" onSubmit={handleSearch}>
+              <div className="home-search-field home-campus-field">
+                <GraduationCap className="home-search-icon" size={21} aria-hidden="true" />
+                <div><label htmlFor="home-campus">My coaching campus</label><div className="home-select-wrap"><select id="home-campus" value={campusId} onChange={event => changeCampus(event.target.value)}>{CAMPUSES.map(item => <option key={item.id} value={item.id}>{item.institute} · {item.name}</option>)}</select><ChevronDown size={14} aria-hidden="true" /></div></div>
               </div>
-            </div>
-            <div className="relative rounded-3xl overflow-hidden min-h-[280px] animate-slide-up" style={{ animationDelay: '0.1s' }}>
-              <img
-                src="https://images.unsplash.com/photo-1562774053-701939374585?w=900&q=80"
-                alt="Student hostel room near Kota coaching campuses"
-                className="absolute inset-0 w-full h-full object-cover"
-                loading="eager"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-              <div className="absolute bottom-5 left-5">
-                <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/95 shadow-lg text-sm">
-                  <span className="w-2 h-2 rounded-full bg-teal-500" aria-hidden />
-                  <span className="font-medium text-slate-800">Demo listings for Kota students</span>
-                </div>
+              <div className="home-search-field">
+                <span className="home-rupee" aria-hidden="true">₹</span>
+                <div><label htmlFor="home-budget">Monthly budget</label><div className="home-select-wrap"><select id="home-budget" value={maxBudget} onChange={event => { setMaxBudget(event.target.value); resetDeck(); }}><option value="">A little flexible</option><option value="5000">Up to ₹5,000</option><option value="8000">Up to ₹8,000</option><option value="12000">Up to ₹12,000</option><option value="15000">Up to ₹15,000</option></select><ChevronDown size={14} aria-hidden="true" /></div></div>
               </div>
-            </div>
+              <div className="home-search-field">
+                <BedDouble className="home-search-icon" size={20} aria-hidden="true" />
+                <div><label htmlFor="home-sharing">My kind of room</label><div className="home-select-wrap"><select id="home-sharing" value={sharing} onChange={event => { setSharing(event.target.value as SharingType | ''); resetDeck(); }}><option value="">Any sharing</option><option value="single">A room to myself</option><option value="double">Double sharing</option><option value="triple">Triple sharing</option><option value="four">Four sharing</option></select><ChevronDown size={14} aria-hidden="true" /></div></div>
+              </div>
+              <button className="home-search-submit" type="submit"><Search size={19} aria-hidden="true" /><span>Find my stay</span><ArrowUpRight size={18} className="home-search-arrow" aria-hidden="true" /></button>
+            </form>
+            <div className="home-category-choice" role="group" aria-label="Hostel preference"><span>A stay for</span>{[{value:'', label:'Everyone'}, {value:'boys', label:'Boys'}, {value:'girls', label:'Girls'}, {value:'co-ed', label:'Co-ed'}].map(option => <button key={option.value} type="button" aria-pressed={category === option.value} onClick={() => { setCategory(option.value); resetDeck(); }}>{option.label}</button>)}</div>
+            <div className="home-search-caption"><span><span className="home-caption-dot" /> Explore first. No sign-up needed.</span><span>Demo experience · sample stays & locations</span></div>
           </div>
         </div>
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6" aria-label="Popular localities">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium text-slate-500 mr-1">Popular:</span>
-          {LOCALITIES.slice(0, 6).map((l, i) => (
-            <Link key={l} to={`/explore?locality=${encodeURIComponent(l)}`}
-              className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                i === 0 ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:border-teal-300'
-              }`}>{l}</Link>
-          ))}
+      <section className="home-campus-section home-container" aria-label="Choose a coaching campus">
+        <div className="home-campus-intro"><span>Closer to class.</span><span>More room for life.</span></div>
+        <div className="home-campus-chips">{CAMPUSES.slice(0, 4).map(item => <button key={item.id} type="button" className={`home-campus-chip ${item.id === campusId ? 'is-active' : ''}`} aria-pressed={item.id === campusId} onClick={() => changeCampus(item.id)}><span className="home-campus-chip-icon"><GraduationCap size={17} /></span><span><strong>{item.institute}</strong><small>{item.area}</small></span><ArrowUpRight size={15} className="home-campus-chip-arrow" aria-hidden="true" /></button>)}</div>
+      </section>
+
+      <section className="home-featured-section" aria-labelledby="home-featured-heading">
+        <div className="home-container">
+          <div className="home-section-topline"><span className="home-section-kicker"><span /> SPACES FOR YOUR NEXT CHAPTER</span><span className="home-section-note">Sample collection</span></div>
+          <div className="home-section-heading"><div><h2 id="home-featured-heading">A place to settle.<br /><span>A little closer to you.</span></h2><p>Room to study, switch off, and feel at home near {campus.institute}’s {campus.name}.</p></div><Link to={`/explore?${searchParams()}`} className="home-text-link">Explore all stays <ArrowUpRight size={19} /></Link></div>
+
+          {featured.length > 0 ? <>
+            <div className="home-featured-deck" ref={deckRef} role="region" aria-roledescription="carousel" aria-label="Featured demo hostels" onScroll={() => {
+              const deck = deckRef.current;
+              const card = deck?.querySelector<HTMLElement>('.home-deck-item');
+              if (deck && card) {
+                const gap = Number.parseFloat(window.getComputedStyle(deck).columnGap) || 24;
+                setActiveCard(Math.min(featured.length - 1, Math.round(deck.scrollLeft / (card.offsetWidth + gap))));
+                setDeckPosition({ atStart: deck.scrollLeft <= 1, atEnd: deck.scrollLeft + deck.clientWidth >= deck.scrollWidth - 2 });
+              }
+            }}>{featured.map(({ hostel, rooms }, index) => <div key={hostel.id} className={`home-deck-item ${activeCard === index ? 'is-focused' : ''}`} role="group" aria-roledescription="slide" aria-label={`${index + 1} of ${featured.length}`} onMouseEnter={() => setActiveCard(index)} onFocus={() => setActiveCard(index)}><HostelCard hostel={hostel} room={rooms[0]} campus={campus} /></div>)}</div>
+            <div className="home-deck-footer"><div className="home-deck-progress" aria-hidden="true">{featured.map(item => <span key={item.hostel.id} className={item.hostel.id === selectedItem?.hostel.id ? 'is-active' : ''} />)}</div><p><span>0{Math.min(activeCard + 1, featured.length)}</span> / 0{featured.length}</p><div className="home-deck-controls"><button type="button" aria-label="Previous featured hostel" onClick={() => scrollDeck(-1)} disabled={deckPosition.atStart}><ArrowLeft size={18} /></button><button type="button" aria-label="Next featured hostel" onClick={() => scrollDeck(1)} disabled={deckPosition.atEnd || featured.length <= 1}><ArrowRight size={18} /></button></div></div>
+          </> : <div className="home-empty"><SlidersHorizontal size={27} /><h3>A little more room in your search?</h3><p>No sample rooms match these preferences. Try another budget or sharing type.</p><button onClick={() => { setMaxBudget(''); setSharing(''); setCategory(''); resetDeck(); }} type="button">Reset room preferences <ArrowRight size={17} /></button></div>}
         </div>
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="flex items-end justify-between mb-6">
-          <div>
-            <p className="text-sm text-teal-600 font-medium mb-1">Demo sample · not live inventory</p>
-            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Featured hostels near coaching hubs</h2>
-          </div>
-          <Link to="/explore" className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-teal-700 hover:underline">
-            View all stays <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {featured.map((h, i) => (
-            <div key={h.id} className="stagger-item" style={{ animationDelay: `${i * 0.08}s` }}>
-              <HostelCard hostel={h} />
-            </div>
-          ))}
-        </div>
+      <section className="home-how-section home-container" aria-labelledby="home-how-heading">
+        <div className="home-how-heading"><span className="home-section-kicker"><span /> SMALL STEPS. A FRESH START.</span><h2 id="home-how-heading">Less searching.<br />More settling in.</h2><Link to="/how-it-works" className="home-text-link">Here’s how it works <ArrowRight size={18} /></Link></div>
+        <div className="home-steps">{STEPS.map(({ number, title, description, icon: Icon }) => <article className="home-step" key={number}><div className="home-step-top"><span className="home-step-icon"><Icon size={23} strokeWidth={1.6} /></span><span className="home-step-number">{number}</span></div><h3>{title}</h3><p>{description}</p></article>)}</div>
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="grid sm:grid-cols-3 gap-5">
-          {[
-            { icon: <FileText className="w-5 h-5" />, title: 'Transparent rent breakup', desc: 'Monthly rent, deposit and extras shown separately. No hidden charges.' },
-            { icon: <Phone className="w-5 h-5" />, title: 'Direct owner contact', desc: 'Request a visit on a date. Owner coordinates the exact time later.' },
-            { icon: <GraduationCap className="w-5 h-5" />, title: 'Built for students', desc: 'Filters for sharing type, mess and coaching distance.' },
-          ].map((item, i) => (
-            <div key={i} className="bg-white rounded-2xl border border-slate-100 p-6 hover:shadow-md transition-shadow">
-              <div className="w-11 h-11 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center mb-4">{item.icon}</div>
-              <h3 className="font-semibold text-slate-900">{item.title}</h3>
-              <p className="mt-1.5 text-sm text-slate-500">{item.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      <section className="home-owner-section home-container" aria-labelledby="home-owner-heading"><div className="home-owner-strip"><div className="home-owner-illustration" aria-hidden="true"><div className="home-tiny-building"><span /><span /><span /><span /><span /><span /></div><div className="home-tiny-plant"><i /><i /><i /></div><Sparkles size={22} /></div><div><span className="home-section-kicker">A GOOD PLACE DESERVES TO BE FOUND</span><h2 id="home-owner-heading">Got room for someone’s next chapter?</h2><p>Bring your hostel to students looking for a place just like yours.</p></div><Link to="/login?role=owner" className="home-owner-link">List your hostel <ArrowUpRight size={20} /></Link></div></section>
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 pb-16">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { num: '01', title: 'Search & compare', desc: 'Filter by budget, locality and sharing.' },
-            { num: '02', title: 'Request a visit', desc: 'Pick a date only — no time slot.' },
-            { num: '03', title: 'Visit the room', desc: 'Check room, mess and washrooms.' },
-            { num: '04', title: 'Move in', desc: 'Agree terms with owner directly.' },
-          ].map(s => (
-            <div key={s.num} className="bg-white rounded-2xl border border-slate-100 p-5 relative overflow-hidden">
-              <span className="absolute top-4 right-4 text-3xl font-bold text-slate-100" aria-hidden>{s.num}</span>
-              <div className="w-9 h-9 rounded-lg bg-slate-50 flex items-center justify-center mb-3 text-slate-600"><Check className="w-4 h-4" /></div>
-              <h3 className="font-semibold text-slate-900 text-sm">{s.title}</h3>
-              <p className="mt-1 text-xs text-slate-500">{s.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      <div className="home-end-note home-container"><span>Kota is a new beginning.</span><span>Let’s find your little corner of it. <ArrowDown size={14} aria-hidden="true" /></span></div>
     </div>
   );
 }
