@@ -30,7 +30,7 @@ export function NeighbourhoodMap({ campus, items, activeHostelId, onCampusChange
   useEffect(() => { setCampusView(false); }, [selectedId, focusRevision]);
   const found = !campusView ? selected?.hostel : undefined;
   const target: MapTarget = found && validCoordinates(found.latitude, found.longitude)
-    ? { lat: found.latitude!, lng: found.longitude!, zoom: 15, id: found.id }
+    ? { lat: found.latitude!, lng: found.longitude!, zoom: 15, id: `${found.id}-${focusRevision}` }
     : { lat: campus.latitude, lng: campus.longitude, zoom: 14, id: `${campus.id}-${centreRevision}` };
   return (
     <section className="student-map-panel" aria-label="Kota hostel and coaching map">

@@ -118,7 +118,9 @@ test('keyless MapLibre map renders real demo pins, attribution and 2D/3D control
   await expect(page.getByRole('heading', { name: 'Explore Kota', exact: true })).toBeVisible();
   await expect(page.locator('.maplibregl-canvas')).toBeVisible();
   expect((await page.getByRole('region', { name: 'Interactive OpenStreetMap of Kota', exact: true }).boundingBox())!.height).toBeGreaterThan(200);
-  await expect(page.locator('.student-pin-group').first()).toBeVisible();
+  await expect(page.locator('.student-pin-group')).toHaveCount(0);
+  await expect(page.locator('.student-hostel-pin')).toHaveCount(7);
+  await expect(page.locator('.student-campus-pin').first()).toBeVisible();
   await expect(page.locator('.maplibregl-ctrl-attrib')).toBeVisible();
   await expect(page.getByRole('button', { name: '3D tilt', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: '3D tilt', exact: true }).click();
@@ -134,17 +136,35 @@ test('keyless MapLibre map renders real demo pins, attribution and 2D/3D control
   expect(googleRequests).toEqual([]);
 });
 
-test('groups expand, hostel pins open previews and coaching selection centres the map', async ({ page }) => {
+test('individual pins open previews directly and panning moves freely from Talwandi to Kunhadi', async ({ page }) => {
   await stubOpenMapStyle(page);
-  await page.goto('/map');
-  await expect(page.locator('.student-pin-group').first()).toBeVisible();
-  const before = await page.locator('.maplibregl-marker').count();
-  await page.locator('.student-pin-group').first().click();
-  await expect.poll(() => page.locator('.maplibregl-marker').count()).toBeGreaterThan(before);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 1280, height: 590 });
+  await page.goto('/map?view=3d');
+  await expect(page.locator('.student-pin-group')).toHaveCount(0);
+  await expect(page.locator('.student-hostel-pin')).toHaveCount(7);
+  await expect(page.locator('.student-campus-pin')).toHaveCount(19);
+  const canvasBox = (await page.locator('.maplibregl-canvas').boundingBox())!;
+  expect(canvasBox.height).toBeGreaterThan(360);
+  const firstCardBox = (await page.locator('.city-stay').first().boundingBox())!;
+  expect(firstCardBox.y).toBeLessThan(590);
+
+  await page.getByRole('group', { name: 'Jump to Kota area' }).getByRole('button', { name: 'Talwandi', exact: true }).click();
+  await expect(page.locator('.student-city-map')).toHaveAttribute('data-target', '25.146,75.852');
+  const startLat = Number((await page.locator('.student-city-map').getAttribute('data-camera-centre'))!.split(',')[0]);
+  await page.mouse.move(canvasBox.x + canvasBox.width * 0.5, canvasBox.y + canvasBox.height * 0.25);
+  await page.mouse.down();
+  await page.mouse.move(canvasBox.x + canvasBox.width * 0.5, canvasBox.y + canvasBox.height * 0.85, { steps: 12 });
+  await page.mouse.up();
+  const pannedLat = Number((await page.locator('.student-city-map').getAttribute('data-camera-centre'))!.split(',')[0]);
+  expect(pannedLat).toBeGreaterThan(startLat + 0.01);
+
+  await page.getByRole('group', { name: 'Jump to Kota area' }).getByRole('button', { name: 'Kunhadi', exact: true }).click();
+  await expect(page.locator('.student-city-map')).toHaveAttribute('data-target', '25.215,75.862');
+  await expect(page.getByRole('button', { name: "Select Scholar's PG on map", exact: true })).toBeVisible();
+
   await page.getByLabel('Centre map on a coaching campus').selectOption('allen-talwandi');
   await expect(page.locator('.student-city-map')).toHaveAttribute('data-target', '25.146,75.852');
-  await page.locator('.maplibregl-ctrl-zoom-in').click();
-  await page.locator('.maplibregl-ctrl-zoom-in').click();
   await page.getByRole('button', { name: 'Select Comfort Stay Hostel on map', exact: true }).click();
   await expect(page).toHaveURL(/hostel\/h1\/preview/);
   await expect(page.getByRole('heading',{name:'Comfort Stay Hostel',exact:true})).toBeVisible();
@@ -365,11 +385,11 @@ test('a satellite outage falls back to streets and retry recovers without droppi
   await page.goto('/map?type=satellite');
   await expect(page.getByRole('alert')).toContainText('Satellite imagery could not load');
   await expect(page.locator('.student-city-map')).toHaveAttribute('data-imagery-state', 'error');
-  await expect(page.locator('.student-pin-group').first()).toBeVisible();
+  await expect(page.locator('.student-hostel-pin').first()).toBeVisible();
   await stubSatellite(page);
   await page.getByRole('button', { name: 'Retry satellite', exact: true }).click();
   await expect(page.locator('.student-city-map')).toHaveAttribute('data-imagery-state', 'ready');
-  await expect(page.locator('.student-pin-group').first()).toBeVisible();
+  await expect(page.locator('.student-hostel-pin').first()).toBeVisible();
 });
 
 test('satellite switching preserves the active location watch and current-location marker', async ({ page }) => {

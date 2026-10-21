@@ -1,24 +1,31 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
 import { useCityMap } from './MapContext';
 import { MapCirclePreview, type MapCirclePreviewProps } from './MapCirclePreview';
 
-/** Preview-only hover/focus state; the original marker button owns selection. */
+/** Preview-only hover/focus state; dragging across pins pans the map cleanly without triggering accidental clicks. */
 export function HoverMapPin({ children, ...preview }: MapCirclePreviewProps & { children: ReactNode }) {
   const map = useCityMap();
   const wrapper = useRef<HTMLDivElement>(null);
+  const dragged = useRef(false);
   const [open, setOpen] = useState(false);
+
   useEffect(() => {
     if (!map) return;
-    const close = () => setOpen(false);
-    map.on('movestart', close);
-    return () => { map.off('movestart', close); };
+    const onMoveStart = () => {
+      dragged.current = true;
+      setOpen(false);
+    };
+    map.on('movestart', onMoveStart);
+    return () => { map.off('movestart', onMoveStart); };
   }, [map]);
+
   useEffect(() => {
     if (!open) return;
     const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); };
     window.addEventListener('keydown', close);
     return () => window.removeEventListener('keydown', close);
   }, [open]);
+
   const show = () => {
     const element = wrapper.current;
     if (element && map) {
@@ -31,8 +38,38 @@ export function HoverMapPin({ children, ...preview }: MapCirclePreviewProps & { 
     }
     setOpen(true);
   };
-  return <div ref={wrapper} className={`student-marker-preview${open ? ' is-open' : ''}`} onMouseEnter={show} onMouseLeave={() => setOpen(false)} onFocus={show} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false); }} onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); setOpen(false); } }}>
-    {children}
-    {open && <span className="student-marker-preview__circle"><MapCirclePreview {...preview}/></span>}
-  </div>;
+
+  const handleMouseEnter = (event: MouseEvent<HTMLDivElement>) => {
+    if (event.buttons !== 0) return;
+    show();
+  };
+
+  const handlePointerDown = (_event: PointerEvent<HTMLDivElement>) => {
+    dragged.current = false;
+  };
+
+  const handleClickCapture = (event: MouseEvent<HTMLDivElement>) => {
+    if (dragged.current) {
+      dragged.current = false;
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  };
+
+  return (
+    <div
+      ref={wrapper}
+      className={`student-marker-preview${open ? ' is-open' : ''}`}
+      onPointerDownCapture={handlePointerDown}
+      onClickCapture={handleClickCapture}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={show}
+      onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false); }}
+      onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); setOpen(false); } }}
+    >
+      {children}
+      {open && <span className="student-marker-preview__circle"><MapCirclePreview {...preview}/></span>}
+    </div>
+  );
 }

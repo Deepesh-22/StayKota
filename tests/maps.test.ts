@@ -1,4 +1,4 @@
-import { inKotaMapArea, constrainedMapCentre, KOTA_CITY_BOUNDS, KOTA_MAP_BOUNDS, KOTA_BUFFER_KM, minimumKotaZoom } from '../src/lib/map-area';
+import { inKotaMapArea, constrainedMapCentre, constrainKotaCamera, KOTA_CITY_BOUNDS, KOTA_MAP_BOUNDS, KOTA_BUFFER_KM, minimumKotaZoom } from '../src/lib/map-area';
 import { directionsLink } from '../src/lib/proximity';
 import { withinKota } from '../src/lib/coordinates';
 import { locationLabel } from '../src/lib/location-status';
@@ -76,25 +76,27 @@ describe('student location proximity', () => {
   });
 });
 
-describe('zoom-aware student map pins', () => {
+describe('individual student map pins', () => {
   const pins: StudentMapPin[] = [
     { id: 'h1', kind: 'hostel', latitude: 25.148, longitude: 75.852 },
     { id: 'allen', kind: 'campus', latitude: 25.146, longitude: 75.852 },
     { id: 'pw', kind: 'campus', latitude: 25.15, longitude: 75.854 },
     { id: 'h2', kind: 'hostel', latitude: 25.216, longitude: 75.855 },
   ];
-  it('groups nearby hostels and coaching pins at city zoom without losing any', () => {
+  it('renders every hostel and coaching pin separately at every zoom without grouping', () => {
     const groups = groupMapPins(pins, 12);
-    expect(groups.some(group => group.pins.some(p => p.kind === 'hostel') && group.pins.some(p => p.kind === 'campus'))).toBe(true);
-    expect(groups.flatMap(group => group.pins.map(p => p.id)).sort()).toEqual(pins.map(p => p.id).sort());
+    expect(groups).toHaveLength(pins.length);
+    expect(groups.every(group => group.pins.length === 1)).toBe(true);
+    expect(groups.flatMap(group => group.pins.map(p => p.id))).toEqual(pins.map(p => p.id).sort());
     expect(groups).toEqual(groupMapPins([...pins].reverse(), 12));
   });
-  it('reveals individual pins on zoom in and keeps a selected hostel separate at every zoom', () => {
+  it('keeps all pins separate across zoom levels from city view to street view', () => {
+    expect(groupMapPins(pins, 10)).toHaveLength(4);
     expect(groupMapPins(pins, 19)).toHaveLength(4);
     const selected = groupMapPins(pins, 10, ['h1']).find(group => group.pins.some(p => p.id === 'h1'))!;
     expect(selected.pins.map(p => p.id)).toEqual(['h1']);
   });
-  it('does not invent pins for invalid coordinates or count duplicates after regrouping', () => {
+  it('does not invent pins for invalid coordinates or count duplicates', () => {
     const invalid = { id: 'missing', kind: 'hostel' as const, latitude: NaN, longitude: 75 };
     expect(groupMapPins([invalid], 12)).toEqual([]);
     expect(groupMapPins(pins, 8).flatMap(group => group.pins)).toHaveLength(pins.length);
@@ -173,5 +175,19 @@ describe('Kota map navigation area', () => {
   it('adapts the effective zoom floor to viewport dimensions instead of imposing a desktop floor on mobile', () => {
     expect(minimumKotaZoom(1600, 800)).toBeGreaterThan(minimumKotaZoom(390, 500));
     expect(Number.isFinite(minimumKotaZoom(0,0))).toBe(true);
+  });
+  it('allows unobstructed panning across Talwandi, Kunhadi and all Kota localities at every zoom and viewport', () => {
+    const talwandi = constrainKotaCamera(25.146, 75.852, 12, 980, 440);
+    const kunhadi = constrainKotaCamera(25.216, 75.855, 12, 980, 440);
+    const vigyanNagar = constrainKotaCamera(25.151, 75.875, 13, 1580, 720);
+    expect(talwandi.latitude).toBeCloseTo(25.146, 6);
+    expect(talwandi.longitude).toBeCloseTo(75.852, 6);
+    expect(kunhadi.latitude).toBeCloseTo(25.216, 6);
+    expect(kunhadi.longitude).toBeCloseTo(75.855, 6);
+    expect(vigyanNagar.latitude).toBeCloseTo(25.151, 6);
+    expect(vigyanNagar.longitude).toBeCloseTo(75.875, 6);
+    const outside = constrainKotaCamera(28.61, 77.2, 8, 980, 440);
+    expect(inKotaMapArea(outside)).toBe(true);
+    expect(outside.zoom).toBeCloseTo(minimumKotaZoom(980, 440), 6);
   });
 });
