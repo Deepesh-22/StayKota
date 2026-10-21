@@ -2,12 +2,13 @@
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { CustomSelect } from '../src/components/ui/CustomSelect';
 import { AppProvider } from '../src/context/AppContext';
 import { CompareProvider } from '../src/context/CompareContext';
 import { HostelTransitionProvider } from '../src/context/HostelTransitionContext';
 import { ExplorePage } from '../src/pages/ExplorePage';
+import { HostelDetailPage } from '../src/pages/HostelDetailPage';
 import { HowItWorksPage } from '../src/pages/HowItWorksPage';
 
 (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
@@ -193,5 +194,43 @@ describe('StayKota Non-Homepage UI/UX, CustomSelect & 3D Interactions', () => {
     const stepCards = document.querySelectorAll('.help-step.sk-tilt-3d');
     expect(stepCards).toHaveLength(3);
     expect(document.querySelectorAll('.help-step__stage')).toHaveLength(3);
+  });
+
+  it('renders redesigned HostelDetailPage below untouched CurvedPhotoGallery with 4-metric overview, 3D room stage, transparent ledger, and concierge sidebar', () => {
+    localStorage.setItem(
+      'staykota_user',
+      JSON.stringify({ id: 'u-student', name: 'Aarav Sharma', email: 'student@demo.local', role: 'student' }),
+    );
+
+    mount(
+      <AppProvider>
+        <CompareProvider>
+          <MemoryRouter initialEntries={['/hostel/h1?campus=allen-talwandi&room=rt2']}>
+            <HostelTransitionProvider>
+              <Routes>
+                <Route path="/hostel/:id" element={<HostelDetailPage />} />
+              </Routes>
+            </HostelTransitionProvider>
+          </MemoryRouter>
+        </CompareProvider>
+      </AppProvider>,
+    );
+
+    // Untouched CurvedPhotoGallery showroom remains mounted at top
+    expect(document.querySelector('.curved-gallery')).not.toBeNull();
+
+    // Redesigned overview card + 4 metric tiles + section anchor bar
+    expect(document.querySelector('.detail-overview-card')).not.toBeNull();
+    expect(document.querySelectorAll('.detail-metric-tile')).toHaveLength(4);
+    expect(document.querySelectorAll('.detail-anchor-nav a')).toHaveLength(5);
+
+    // Interactive 3D room cutaway stage, bento amenity cards, and sticky visit concierge sidebar
+    expect(document.querySelector('.detail-room-scene.sk-tilt-3d')).not.toBeNull();
+    expect(document.querySelectorAll('.detail-amenity-card').length).toBeGreaterThan(0);
+    expect(document.querySelector('.detail-sidebar .detail-enquiry')).not.toBeNull();
+    expect(document.querySelector('#detail-costs .detail-price')).not.toBeNull();
+    expect(document.querySelector('#detail-location .detail-proximity')).not.toBeNull();
+
+    localStorage.clear();
   });
 });
