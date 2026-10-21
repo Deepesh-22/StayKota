@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, Building2, Check, ChevronDown, Info, MapPin } from 'lucide-react';
 import { TiltSurface3D } from '../components/ui/TiltSurface3D';
+import { KotaHorizon3DCanvas } from '../components/three/KotaHorizon3DCanvas';
 import '../styles/public-support.css';
 
 const FAQS = [
@@ -25,11 +26,14 @@ export function HowItWorksPage() {
     { title: 'Request a visit', description: 'Save a date and your questions. In a real enquiry, the owner would coordinate the visit before you make a decision.' },
   ];
   return <div className="public-support help-page">
-    <section className="public-container help-heading">
-      <p className="public-eyebrow"><MapPin size={14}/> A little guidance for your Kota journey</p>
-      <h1>Find your room.<br/><span>Know your next step.</span></h1>
-      <p>One less thing to figure out. Here’s how to explore your options, understand the costs and plan a visit.</p>
-    </section>
+    <div className="sk-horizon-wrap">
+      <KotaHorizon3DCanvas />
+      <section className="public-container help-heading sk-horizon-content">
+        <p className="public-eyebrow"><MapPin size={14}/> A little guidance for your Kota journey</p>
+        <h1>Find your room.<br/><span>Know your next step.</span></h1>
+        <p>One less thing to figure out. Here’s how to explore your options, understand the costs and plan a visit.</p>
+      </section>
+    </div>
     <section className="public-container" aria-label="How to find a hostel">
       <div className="help-steps">{steps.map((step,index)=><TiltSurface3D maxTilt={7} className="help-step" key={step.title}><div className="help-step__stage"><JourneyIllustration step={index+1}/></div><div className="help-step-copy"><span className="help-step-number">0{index+1}</span><div><h2>{step.title}</h2><p>{step.description}</p></div></div></TiltSurface3D>)}</div>
       <aside className="help-notice"><span><Info size={23}/></span><div><h2>A visit request is not a room reservation.</h2><p>No payment is collected here. Check the room, availability and final terms directly before making a commitment. This frontend demo saves requests on your device and does not contact owners.</p></div></aside>

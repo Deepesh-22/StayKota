@@ -9,6 +9,7 @@ import { distanceKm, getCampus, getMatchingRooms, monthlyTotal } from '../lib/di
 import { HostelCard } from '../components/hostel/HostelCard';
 import { NeighbourhoodMap } from '../components/hostel/NeighbourhoodMap';
 import { CustomSelect } from '../components/ui/CustomSelect';
+import { KotaHorizon3DCanvas } from '../components/three/KotaHorizon3DCanvas';
 import '../styles/discovery.css';
 
 const PAGE_SIZE = 6;
@@ -126,11 +127,14 @@ export function ExplorePage() {
 
   return (
     <div className={`discovery-page${selectedHostels.length ? ' discovery-page--comparing' : ''}`}>
-      <section className="discovery-intro discovery-shell">
-        <div className="discovery-breadcrumb"><Link to="/">Home</Link><span>/</span><span>Find your stay</span></div>
-        <div className="discovery-eyebrow"><span />A little closer to your goals</div>
-        <div className="discovery-intro-heading"><h1>Less commute.<br className="discovery-mobile-break" /> More <em>possibility.</em></h1><p>A room you love, near the campus you choose.<br />Find your own corner of Kota.</p></div>
-      </section>
+      <div className="sk-horizon-wrap">
+        <KotaHorizon3DCanvas />
+        <section className="discovery-intro discovery-shell sk-horizon-content">
+          <div className="discovery-breadcrumb"><Link to="/">Home</Link><span>/</span><span>Find your stay</span></div>
+          <div className="discovery-eyebrow"><span />A little closer to your goals</div>
+          <div className="discovery-intro-heading"><h1>Less commute.<br className="discovery-mobile-break" /> More <em>possibility.</em></h1><p>A room you love, near the campus you choose.<br />Find your own corner of Kota.</p></div>
+        </section>
+      </div>
       <div className="discovery-shell">
         <form className="discovery-search" onSubmit={applySearch}>
           <div className="discovery-search-field discovery-search-campus">

@@ -744,6 +744,17 @@
   transform: translateZ(18px);
 }
 
+.detail-room-scene--3d .detail-room-scene__copy {
+  flex: 0 0 36%;
+  transform: none;
+}
+
+.detail-room-scene__canvas {
+  flex: 1 1 0%;
+  min-width: 0;
+  width: 100%;
+}
+
 .detail-room-scene h3 {
   margin: 8px 0 8px;
   color: #123a31;

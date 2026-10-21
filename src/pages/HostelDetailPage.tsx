@@ -10,9 +10,8 @@ import {
 import { useApp } from '../context/AppContext';
 import { CurvedPhotoGallery, GalleryImage } from '../components/hostel/CurvedPhotoGallery';
 import { CustomSelect } from '../components/ui/CustomSelect';
-import { TiltSurface3D } from '../components/ui/TiltSurface3D';
+import { HostelRoom3DCanvas } from '../components/three/HostelRoom3DCanvas';
 import { HostelProximityMap } from '../components/hostel/HostelProximityMap';
-import { RoomShowcase } from '../components/hostel/RoomShowcase';
 import { CAMPUSES } from '../data/campuses';
 import { distanceKm, formatDistance, getCampus, getMatchingRooms, monthlyTotal } from '../lib/discovery';
 import type { RoomType, VisitRequest } from '../types';
@@ -477,19 +476,23 @@ export function HostelDetailPage() {
               </div>
 
               {selectedRoom && (
-                <TiltSurface3D maxTilt={6} className="detail-room-scene" key={'scene-' + selectedRoom.id}>
+                <div className="detail-room-scene detail-room-scene--3d" key={'scene-' + selectedRoom.id}>
                   <div className="detail-room-scene__copy">
-                    <span className="detail-eyebrow">INTERACTIVE 3D CUTAWAY</span>
+                    <span className="detail-eyebrow">THREE.JS 3D CUTAWAY</span>
                     <h3>{selectedRoom.name}</h3>
-                    <p>Move cursor across stage to inspect depth. Concept illustration, not a measured floor plan.</p>
+                    <p>Drag horizontally on the 3D room diorama to inspect bed count, study desk, lighting and space.</p>
                     <span className="detail-room-scene__badge">
                       <Users size={14} /> {selectedRoom.capacity} {selectedRoom.capacity === 1 ? 'Single occupancy' : `Sharing (${selectedRoom.capacity} beds)`}
                     </span>
                   </div>
-                  <div className="detail-room-scene__model-wrap">
-                    <RoomShowcase capacity={selectedRoom.capacity} />
+                  <div className="detail-room-scene__canvas">
+                    <HostelRoom3DCanvas
+                      capacity={selectedRoom.capacity}
+                      roomName={selectedRoom.name}
+                      height={260}
+                    />
                   </div>
-                </TiltSurface3D>
+                </div>
               )}
 
               {selectedRoom ? (

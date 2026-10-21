@@ -4,11 +4,14 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { CustomSelect } from '../src/components/ui/CustomSelect';
+import { HostelRoom3DCanvas } from '../src/components/three/HostelRoom3DCanvas';
+import { KotaHorizon3DCanvas } from '../src/components/three/KotaHorizon3DCanvas';
 import { AppProvider } from '../src/context/AppContext';
 import { CompareProvider } from '../src/context/CompareContext';
 import { HostelTransitionProvider } from '../src/context/HostelTransitionContext';
 import { ExplorePage } from '../src/pages/ExplorePage';
 import { HostelDetailPage } from '../src/pages/HostelDetailPage';
+import { HostelPreviewPage } from '../src/pages/HostelPreviewPage';
 import { HowItWorksPage } from '../src/pages/HowItWorksPage';
 
 (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
@@ -224,13 +227,69 @@ describe('StayKota Non-Homepage UI/UX, CustomSelect & 3D Interactions', () => {
     expect(document.querySelectorAll('.detail-metric-tile')).toHaveLength(4);
     expect(document.querySelectorAll('.detail-anchor-nav a')).toHaveLength(5);
 
-    // Interactive 3D room cutaway stage, bento amenity cards, and sticky visit concierge sidebar
-    expect(document.querySelector('.detail-room-scene.sk-tilt-3d')).not.toBeNull();
+    // Interactive Three.js 3D room cutaway stage, bento amenity cards, and sticky visit concierge sidebar
+    expect(document.querySelector('.detail-room-scene.detail-room-scene--3d')).not.toBeNull();
+    expect(document.querySelector('.detail-room-scene__canvas .sk-room3d__canvas-host')).not.toBeNull();
     expect(document.querySelectorAll('.detail-amenity-card').length).toBeGreaterThan(0);
     expect(document.querySelector('.detail-sidebar .detail-enquiry')).not.toBeNull();
     expect(document.querySelector('#detail-costs .detail-price')).not.toBeNull();
     expect(document.querySelector('#detail-location .detail-proximity')).not.toBeNull();
 
     localStorage.clear();
+  });
+
+  it('renders redesigned HostelPreviewPage with room switcher pills, Three.js 3D room diorama, and full-detail privacy boundary', () => {
+    localStorage.removeItem('staykota_user');
+
+    mount(
+      <AppProvider>
+        <CompareProvider>
+          <MemoryRouter initialEntries={['/hostel/h1/preview?campus=allen-samyak&room=rt2&returnTo=%2Fexplore']}>
+            <HostelTransitionProvider>
+              <Routes>
+                <Route path="/hostel/:id/preview" element={<HostelPreviewPage />} />
+              </Routes>
+            </HostelTransitionProvider>
+          </MemoryRouter>
+        </CompareProvider>
+      </AppProvider>,
+    );
+
+    expect(document.querySelector('#hostel-preview-title')?.textContent).toContain('Comfort Stay Hostel');
+    expect(document.querySelector('.hostel-preview-price')?.textContent).toContain('₹5,500');
+    expect(document.querySelector('.hostel-preview-visual img')).not.toBeNull();
+    expect(document.querySelector('.hostel-preview-3d-card .sk-room3d__canvas-host')).not.toBeNull();
+
+    // Strictly preserves full-detail privacy gate boundaries on /preview
+    expect(document.querySelector('.detail-page')).toBeNull();
+    expect(document.querySelector('.curved-gallery')).toBeNull();
+    expect(document.querySelector('.detail-price')).toBeNull();
+
+    // Room switcher pills update selected preview room and monthly total live
+    const roomPills = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.hostel-preview-room-pills button[aria-pressed]'),
+    );
+    expect(roomPills.length).toBeGreaterThan(1);
+    act(() => {
+      roomPills[0].click();
+    });
+    expect(roomPills[0].getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('mounts HostelRoom3DCanvas and KotaHorizon3DCanvas cleanly with graceful headless fallback when WebGL is unavailable', async () => {
+    mount(
+      <div>
+        <KotaHorizon3DCanvas />
+        <HostelRoom3DCanvas capacity={2} roomName="Double Sharing" height={240} />
+      </div>,
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 60));
+    });
+
+    expect(document.querySelector('.sk-horizon3d')).not.toBeNull();
+    expect(document.querySelector('.sk-room3d__canvas-host')).not.toBeNull();
+    expect(document.body.textContent).toContain('2 Students · 2-Sharing');
   });
 });
