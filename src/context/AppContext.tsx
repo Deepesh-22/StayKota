@@ -12,12 +12,14 @@ interface AppContextType {
   toggleFavourite: (hostelId: string) => void;
   isFavourite: (hostelId: string) => boolean;
   scheduleVisit: (data: VisitInput) => VisitRequest;
+  confirmVisit: (visitId: string) => void;
   cancelVisit: (visitId: string) => void;
   rescheduleVisit: (visitId: string, newDate: string) => void;
   updateProfile: (data: Partial<Pick<User, 'name' | 'phone'>>) => void;
   updateHostelStatus: (hostelId: string, status: ListingStatus) => void;
   addHostel: (hostel: Hostel) => void;
   updateHostel: (hostel: Hostel) => void;
+  deleteHostel: (hostelId: string) => void;
 }
 const AppContext = createContext<AppContextType | null>(null);
 function read<T>(key: string, fallback: T): T {
@@ -96,6 +98,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setVisits(prev => [visit, ...prev]);
     return visit;
   };
+  const confirmVisit = (id: string) => {
+    if (!user || user.role !== 'owner') return;
+    setVisits(prev => prev.map(v => v.id === id && v.status !== 'cancelled' && hostels.some(h => h.id === v.hostelId && h.ownerId === user.id) ? { ...v, status: 'confirmed' } : v));
+  };
   const cancelVisit = (id: string) => {
     if (!user) return;
     setVisits(prev => prev.map(v => v.id === id && ((user.role === 'student' && v.studentId === user.id) || (user.role === 'owner' && hostels.some(h => h.id === v.hostelId && h.ownerId === user.id))) ? { ...v, status: 'cancelled' } : v));
@@ -116,14 +122,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
   const addHostel = (hostel: Hostel) => {
     if (user?.role !== 'owner' || hostel.ownerId !== user.id) throw new Error('Only an owner can add their own listing.');
-    setHostels(prev => [{ ...hostel, status: hostel.status === 'draft' ? 'draft' : 'pending' }, ...prev]);
+    const allowedStatus: ListingStatus = ['draft', 'pending', 'approved'].includes(hostel.status) ? hostel.status : 'approved';
+    setHostels(prev => [{ ...hostel, status: allowedStatus }, ...prev]);
   };
   const updateHostel = (hostel: Hostel) => {
     if (user?.role !== 'owner' || !hostels.some(h => h.id === hostel.id && h.ownerId === user.id) || hostel.ownerId !== user.id) throw new Error('This listing belongs to another owner.');
-    setHostels(prev => prev.map(h => h.id === hostel.id ? { ...hostel, status: hostel.status === 'draft' ? 'draft' : 'pending', updatedAt: localDate() } : h));
+    const allowedStatus: ListingStatus = ['draft', 'pending', 'approved'].includes(hostel.status) ? hostel.status : 'draft';
+    setHostels(prev => prev.map(h => h.id === hostel.id ? { ...hostel, status: allowedStatus, updatedAt: localDate() } : h));
+  };
+  const deleteHostel = (id: string) => {
+    if (user?.role !== 'owner' || !hostels.some(h => h.id === id && h.ownerId === user.id)) return;
+    setHostels(prev => prev.filter(h => h.id !== id));
+    setFavourites(prev => prev.filter(f => f.hostelId !== id));
   };
   return <AppContext.Provider value={{ user, hostels, favourites, visits, storageError, login, logout: () => setUser(null), toggleFavourite,
     isFavourite: id => !!user && favourites.some(f => f.studentId === user.id && f.hostelId === id),
-    scheduleVisit, cancelVisit, rescheduleVisit, updateProfile, updateHostelStatus, addHostel, updateHostel }}>{children}</AppContext.Provider>;
+    scheduleVisit, confirmVisit, cancelVisit, rescheduleVisit, updateProfile, updateHostelStatus, addHostel, updateHostel, deleteHostel }}>{children}</AppContext.Provider>;
 }
 export function useApp() { const ctx = useContext(AppContext); if (!ctx) throw new Error('useApp must be used within AppProvider'); return ctx; }

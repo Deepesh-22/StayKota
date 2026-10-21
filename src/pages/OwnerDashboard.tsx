@@ -1,62 +1,110 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowUpRight,
   BedDouble,
   Building2,
   CalendarDays,
+  CheckCircle2,
   ChevronRight,
   Clock3,
+  ExternalLink,
   FilePenLine,
+  Images,
   LayoutGrid,
+  Loader2,
+  LocateFixed,
   MapPin,
+  Phone,
   Plus,
+  Rocket,
   Search,
   ShieldCheck,
+  Sparkles,
   Trash2,
-} from "lucide-react";
-import { useApp } from "../context/AppContext";
-import { Button } from "../components/ui/Button";
-import { Badge } from "../components/ui/Badge";
-import { Modal } from "../components/ui/Modal";
-import type { Hostel, ListingStatus } from "../types";
-import "../styles/owner-workspace.css";
+  XCircle,
+} from 'lucide-react';
+import { useApp } from '../context/AppContext';
+import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
+import { Modal } from '../components/ui/Modal';
+import type { Hostel, ListingStatus } from '../types';
+import { monthlyTotal } from '../lib/discovery';
+import { validCoordinates } from '../lib/coordinates';
+import { fetchCurrentOwnerPosition } from '../lib/owner-location';
+import { hasRealUploadedPhotos } from '../lib/owner-media';
+import '../styles/owner-workspace.css';
 
-type Section = "overview" | "listings" | "visits";
+type Section = 'overview' | 'listings' | 'visits';
+
 const statusLabels: Record<ListingStatus, string> = {
-  draft: "Draft",
-  pending: "Pending review",
-  approved: "Published",
-  rejected: "Hidden / rejected",
+  draft: 'Draft',
+  pending: 'Pending review',
+  approved: 'Published · Live',
+  rejected: 'Hidden / rejected',
 };
+
+const categoryLabels: Record<Hostel['category'], string> = {
+  boys: 'Boys hostel',
+  girls: 'Girls hostel',
+  'co-ed': 'Co-ed stay',
+};
+
 const dateLabel = (value: string) =>
-  new Date(value + "T12:00:00").toLocaleDateString("en-IN", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
+  new Date(value + 'T12:00:00').toLocaleDateString('en-IN', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
   });
+
 const localToday = () => {
   const now = new Date();
   return [
     now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, "0"),
-    String(now.getDate()).padStart(2, "0"),
-  ].join("-");
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+  ].join('-');
 };
 
 export function OwnerDashboard() {
-  const { user, hostels, visits, updateHostel } = useApp();
-  const [section, setSection] = useState<Section>("overview");
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<ListingStatus | "">("");
-  const [notice, setNotice] = useState("");
-  const [hideId, setHideId] = useState<string | null>(null);
+  const { user, hostels, visits, updateHostel, deleteHostel, confirmVisit, cancelVisit } = useApp();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [section, setSection] = useState<Section>('overview');
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState<ListingStatus | ''>('');
+  const [notice, setNotice] = useState('');
+  const [errorNotice, setErrorNotice] = useState('');
+  const [locatingId, setLocatingId] = useState<string | null>(null);
+  const [publishedBannerHostelId, setPublishedBannerHostelId] = useState<string | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<Hostel | null>(null);
   const [requestId, setRequestId] = useState<string | null>(null);
+
   const today = localToday();
+
   const myHostels = useMemo(
     () => hostels.filter((hostel) => hostel.ownerId === user?.id),
     [hostels, user?.id],
   );
+
+  useEffect(() => {
+    const pub = searchParams.get('published');
+    const submitted = searchParams.get('submitted');
+    if (pub) {
+      setPublishedBannerHostelId(pub);
+      const next = new URLSearchParams(searchParams);
+      next.delete('published');
+      setSearchParams(next, { replace: true });
+    } else if (submitted) {
+      const target = myHostels.find((h) => h.id === submitted);
+      setNotice(
+        `“${target?.name || 'Your hostel'}” was submitted for admin review. You can also click “Publish now” anytime to make it live immediately.`,
+      );
+      const next = new URLSearchParams(searchParams);
+      next.delete('submitted');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams, myHostels]);
+
   const myVisits = useMemo(
     () =>
       visits.filter((visit) =>
@@ -64,182 +112,320 @@ export function OwnerDashboard() {
       ),
     [visits, myHostels],
   );
+
   const filtered = useMemo(
     () =>
       myHostels.filter(
         (hostel) =>
           (!status || hostel.status === status) &&
-          (hostel.name + " " + hostel.locality)
+          (hostel.name + ' ' + hostel.locality + ' ' + hostel.address)
             .toLowerCase()
             .includes(search.toLowerCase().trim()),
       ),
     [myHostels, status, search],
   );
-  const activeVisits = myVisits.filter(
-    (visit) => visit.status !== "cancelled" && visit.visitDate >= today,
-  );
-  const published = myHostels.filter((hostel) => hostel.status === "approved");
-  const pending = myHostels.filter((hostel) => hostel.status === "pending");
 
-  if (!user || user.role !== "owner")
+  const activeVisits = myVisits.filter(
+    (visit) => visit.status !== 'cancelled' && visit.visitDate >= today,
+  );
+  const published = myHostels.filter((hostel) => hostel.status === 'approved');
+  const draftsAndPending = myHostels.filter(
+    (hostel) => hostel.status === 'draft' || hostel.status === 'pending',
+  );
+  const availableRoomTypes = myHostels.reduce(
+    (sum, h) => sum + h.roomTypes.filter((r) => r.available).length,
+    0,
+  );
+
+  if (!user || user.role !== 'owner') {
     return (
       <div className="owner-guard">
-        <Building2 size={34} />
+        <Building2 size={36} />
         <h1>Your hostel, thoughtfully managed.</h1>
         <p>
-          Sign in as an owner to create listings and see your visit requests.
+          Sign in as a hostel owner to list properties, set live GPS entrance
+          coordinates, upload real property photos, and manage student visits.
         </p>
         <Link className="owner-primary" to="/login?role=owner&redirect=/owner">
           Owner sign in <ArrowUpRight size={17} />
         </Link>
       </div>
     );
+  }
 
   function changeStatus(hostel: Hostel, next: ListingStatus) {
     if (hostel.ownerId !== user?.id) return;
+    setErrorNotice('');
     updateHostel({ ...hostel, status: next });
-    setNotice(
-      next === "pending"
-        ? "Submitted for review in this demo. An admin must approve before publication."
-        : "Listing is now a draft and is hidden from public search.",
-    );
+    if (next === 'approved') {
+      setPublishedBannerHostelId(hostel.id);
+      setNotice(`“${hostel.name}” is now live on Explore Hostels and Explore Kota Map.`);
+    } else if (next === 'pending') {
+      setNotice(`“${hostel.name}” sent to the moderation queue.`);
+    } else {
+      setPublishedBannerHostelId(null);
+      setNotice(`“${hostel.name}” moved to Draft and hidden from public search.`);
+    }
   }
-  const listingCard = (hostel: Hostel) => (
-    <article className="owner-listing" key={hostel.id}>
-      <img
-        src={hostel.coverImage}
-        alt={hostel.name + " sample accommodation"}
-        onError={(event) => {
-          event.currentTarget.onerror = null;
-          event.currentTarget.src = "/images/room-shared.webp";
-        }}
-      />
-      <div className="owner-listing-main">
-        <div className="owner-listing-title">
-          <h3>{hostel.name}</h3>
-          <span className={"owner-status owner-status-" + hostel.status}>
-            {statusLabels[hostel.status]}
+
+  async function handleQuickCurrentLocation(hostel: Hostel) {
+    if (locatingId) return;
+    setLocatingId(hostel.id);
+    setErrorNotice('');
+    setNotice('');
+    try {
+      const pos = await fetchCurrentOwnerPosition();
+      updateHostel({
+        ...hostel,
+        latitude: pos.latitude,
+        longitude: pos.longitude,
+        locality: pos.nearestLocality || hostel.locality,
+        location: { status: 'owner-provided' },
+      });
+      setNotice(
+        `Saved current GPS location for “${hostel.name}”: ${pos.latitude.toFixed(6)}, ${pos.longitude.toFixed(6)}${
+          pos.accuracy ? ` (±${pos.accuracy} m)` : ''
+        }${pos.nearestLocality ? ` · ${pos.nearestLocality}` : ''}.`,
+      );
+    } catch (err) {
+      setErrorNotice(
+        err instanceof Error
+          ? err.message
+          : 'Could not read current location. Please check browser location permissions.',
+      );
+    } finally {
+      setLocatingId(null);
+    }
+  }
+
+  const publishedBannerHostel = publishedBannerHostelId
+    ? myHostels.find((h) => h.id === publishedBannerHostelId && h.status === 'approved')
+    : null;
+
+  const startingPrice = (hostel: Hostel) => {
+    const totals = hostel.roomTypes.filter((r) => r.available).map(monthlyTotal);
+    if (!totals.length) return null;
+    return Math.min(...totals);
+  };
+
+  const listingCard = (hostel: Hostel) => {
+    const hasCoords = validCoordinates(hostel.latitude, hostel.longitude);
+    const minPrice = startingPrice(hostel);
+    const realPhotos = hasRealUploadedPhotos(hostel.images);
+    const photoCount = Math.max(1, hostel.images.length);
+    const isLocating = locatingId === hostel.id;
+
+    return (
+      <article className="owner-listing" key={hostel.id}>
+        <div className="owner-listing-media">
+          <img
+            src={hostel.coverImage}
+            alt={hostel.name + ' accommodation'}
+            onError={(event) => {
+              event.currentTarget.onerror = null;
+              event.currentTarget.src = '/images/room-shared.webp';
+            }}
+          />
+          <span className="owner-photo-badge">
+            <Images size={12} /> {photoCount} {realPhotos ? 'real' : 'sample'}
           </span>
         </div>
-        <p>
-          <MapPin size={13} /> {hostel.locality}, Kota
-        </p>
-        <span className="owner-room-count">
-          <BedDouble size={14} />
-          {hostel.roomTypes.filter((room) => room.available).length} of{" "}
-          {hostel.roomTypes.length} room types available
-        </span>
-      </div>
-      <div className="owner-listing-actions">
-        {hostel.status === "approved" && (
+
+        <div className="owner-listing-main">
+          <div className="owner-listing-title">
+            <h3>{hostel.name}</h3>
+            <span className={'owner-status owner-status-' + hostel.status}>
+              {statusLabels[hostel.status]}
+            </span>
+            <span className="owner-category-chip">{categoryLabels[hostel.category]}</span>
+          </div>
+
+          <p className="owner-listing-meta">
+            <span>
+              <MapPin size={14} /> {hostel.locality}, Kota
+              {hostel.address ? ` · ${hostel.address}` : ''}
+            </span>
+          </p>
+
+          <div className="owner-listing-pills">
+            <span className="owner-room-count">
+              <BedDouble size={14} />
+              {hostel.roomTypes.filter((room) => room.available).length} of{' '}
+              {hostel.roomTypes.length} room types open
+            </span>
+            {minPrice !== null && (
+              <span className="owner-price-pill">
+                From ₹{minPrice.toLocaleString('en-IN')}/mo
+              </span>
+            )}
+            {hasCoords ? (
+              <a
+                className="owner-coord-pill is-set"
+                href={`https://www.openstreetmap.org/?mlat=${hostel.latitude}&mlon=${hostel.longitude}#map=17/${hostel.latitude}/${hostel.longitude}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Verify saved coordinates on OpenStreetMap"
+              >
+                <LocateFixed size={12} />
+                {hostel.latitude!.toFixed(5)}, {hostel.longitude!.toFixed(5)} ↗
+              </a>
+            ) : (
+              <span className="owner-coord-pill is-missing">
+                <MapPin size={12} /> GPS pin not set
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="owner-listing-actions">
+          <button
+            type="button"
+            className="owner-loc-btn"
+            disabled={Boolean(locatingId)}
+            onClick={() => void handleQuickCurrentLocation(hostel)}
+            title="Fetch your current latitude & longitude automatically"
+          >
+            {isLocating ? (
+              <>
+                <Loader2 size={14} className="animate-spin" /> Locating…
+              </>
+            ) : (
+              <>
+                <LocateFixed size={14} />{' '}
+                {hasCoords ? 'Update GPS' : 'Use current location'}
+              </>
+            )}
+          </button>
+
           <Link
-            to={"/hostel/" + hostel.id}
-            aria-label={"View " + hostel.name}
-            className="owner-icon-link"
+            className="owner-secondary"
+            to={'/owner/listing/' + hostel.id + '/edit'}
           >
-            <ArrowUpRight size={18} />
+            <FilePenLine size={14} /> Edit
           </Link>
-        )}
-        <Link
-          className="owner-secondary"
-          to={"/owner/listing/" + hostel.id + "/edit"}
-        >
-          <FilePenLine size={14} /> Edit
-        </Link>
-        {hostel.status === "draft" && (
+
+          {hostel.status !== 'approved' ? (
+            <button
+              type="button"
+              className="owner-publish-btn"
+              onClick={() => changeStatus(hostel, 'approved')}
+            >
+              <Rocket size={14} /> Publish now
+            </button>
+          ) : (
+            <>
+              <Link
+                to={'/hostel/' + hostel.id}
+                aria-label={'View ' + hostel.name}
+                className="owner-secondary"
+              >
+                Live page <ArrowUpRight size={14} />
+              </Link>
+              <button
+                type="button"
+                className="owner-text-action"
+                onClick={() => changeStatus(hostel, 'draft')}
+              >
+                Unpublish
+              </button>
+            </>
+          )}
+
           <button
             type="button"
-            className="owner-text-action"
-            onClick={() => changeStatus(hostel, "pending")}
+            className="owner-icon-link owner-remove"
+            aria-label={'Hide ' + hostel.name}
+            title="Unpublish or delete listing"
+            onClick={() => setRemoveTarget(hostel)}
           >
-            Submit for review
+            <Trash2 size={15} />
           </button>
-        )}
-        {hostel.status === "approved" && (
-          <button
-            type="button"
-            className="owner-text-action"
-            onClick={() => changeStatus(hostel, "draft")}
-          >
-            Unpublish
-          </button>
-        )}
-        <button
-          type="button"
-          className="owner-icon-link owner-remove"
-          aria-label={"Hide " + hostel.name}
-          onClick={() => setHideId(hostel.id)}
-        >
-          <Trash2 size={15} />
-        </button>
-      </div>
-    </article>
-  );
-  const visitCards = (limit?: number) => {
-    const items = (section === "overview" ? activeVisits : myVisits).slice(
-      0,
-      limit,
+        </div>
+      </article>
     );
+  };
+
+  const visitCards = (limit?: number) => {
+    const items = (section === 'overview' ? activeVisits : myVisits).slice(0, limit);
     return items.length ? (
       <div className="owner-visits">
         {items.map((visit) => (
           <article className="owner-visit" key={visit.id}>
             <div className="owner-student-avatar">
-              {visit.studentName.charAt(0)}
+              {visit.studentName.charAt(0).toUpperCase()}
             </div>
             <div className="owner-visit-content">
-              <h3>{visit.studentName}</h3>
+              <div className="owner-visit-header">
+                <h3>{visit.studentName}</h3>
+                {visit.studentPhone && (
+                  <a href={`tel:${visit.studentPhone.replace(/[^+\d]/g, '')}`} className="owner-phone-pill">
+                    <Phone size={12} /> {visit.studentPhone}
+                  </a>
+                )}
+              </div>
               <p>
                 {visit.hostelName}
-                {visit.roomTypeName ? " · " + visit.roomTypeName : ""}
+                {visit.roomTypeName ? ' · ' + visit.roomTypeName : ''}
               </p>
               <span>
-                <CalendarDays size={13} /> {dateLabel(visit.visitDate)}
+                <CalendarDays size={13} /> Preferred visit: {dateLabel(visit.visitDate)}
               </span>
               {visit.message && <blockquote>{visit.message}</blockquote>}
-              <p className="owner-small-note">
-                Private local demo request. No notification was sent.
-              </p>
             </div>
             <div className="owner-visit-actions">
               <Badge
                 variant={
-                  visit.status === "cancelled"
-                    ? "default"
-                    : visit.status === "confirmed"
-                      ? "success"
-                      : "warning"
+                  visit.status === 'cancelled'
+                    ? 'default'
+                    : visit.status === 'confirmed'
+                      ? 'success'
+                      : 'warning'
                 }
               >
-                {visit.status === "cancelled"
-                  ? "Cancelled"
-                  : visit.status === "confirmed"
-                    ? "Confirmed"
-                    : "Coordination pending"}
+                {visit.status === 'cancelled'
+                  ? 'Cancelled'
+                  : visit.status === 'confirmed'
+                    ? 'Confirmed'
+                    : 'Coordination pending'}
               </Badge>
-              <button type="button" onClick={() => setRequestId(visit.id)}>
-                View request <ChevronRight size={12} />
-              </button>
+              <div className="owner-visit-btn-row">
+                {visit.status === 'requested' && (
+                  <button
+                    type="button"
+                    className="owner-confirm-btn"
+                    onClick={() => {
+                      confirmVisit(visit.id);
+                      setNotice(`Marked ${visit.studentName}’s visit on ${dateLabel(visit.visitDate)} as confirmed.`);
+                    }}
+                  >
+                    <CheckCircle2 size={13} /> Confirm
+                  </button>
+                )}
+                <button type="button" onClick={() => setRequestId(visit.id)}>
+                  Details <ChevronRight size={13} />
+                </button>
+              </div>
             </div>
           </article>
         ))}
       </div>
     ) : (
       <div className="owner-empty">
-        <CalendarDays size={29} />
+        <CalendarDays size={30} />
         <h3>No visit requests yet</h3>
         <p>
-          Requests for your hostels will appear here. Keep your room
-          availability and prices up to date.
+          When students book a visit on your published hostel pages, their
+          preferred date and contact number will show right here.
         </p>
       </div>
     );
   };
+
   return (
     <div className="owner-workspace">
       <div className="owner-layout">
         <aside className="owner-sidebar">
-          <p className="owner-eyebrow">OWNER WORKSPACE</p>
+          <p className="owner-eyebrow">OWNER STUDIO</p>
           <h2>
             Good stays.
             <br />
@@ -248,9 +434,9 @@ export function OwnerDashboard() {
           <nav aria-label="Owner workspace">
             {(
               [
-                { id: "overview", label: "Overview", icon: LayoutGrid },
-                { id: "listings", label: "My listings", icon: Building2 },
-                { id: "visits", label: "Visit requests", icon: CalendarDays },
+                { id: 'overview', label: 'Overview', icon: LayoutGrid, badge: 0 },
+                { id: 'listings', label: 'My hostels', icon: Building2, badge: myHostels.length },
+                { id: 'visits', label: 'Visit requests', icon: CalendarDays, badge: activeVisits.length },
               ] as const
             ).map((item) => (
               <button
@@ -258,156 +444,220 @@ export function OwnerDashboard() {
                 key={item.id}
                 onClick={() => {
                   setSection(item.id);
-                  setNotice("");
+                  setErrorNotice('');
                 }}
-                aria-current={section === item.id ? "page" : undefined}
+                aria-current={section === item.id ? 'page' : undefined}
               >
                 <item.icon size={18} />
                 <span>{item.label}</span>
-                {item.id === "visits" && activeVisits.length > 0 && (
-                  <small>{activeVisits.length}</small>
-                )}
+                {item.badge > 0 && <small>{item.badge}</small>}
               </button>
             ))}
           </nav>
+
+          <Link className="owner-sidebar-cta" to="/owner/listing/new">
+            <Plus size={16} /> List a new hostel
+          </Link>
+
           <div className="owner-sidebar-note">
-            <ShieldCheck size={21} />
-            <strong>A little care goes a long way.</strong>
+            <ShieldCheck size={20} />
+            <strong>Built for Kota hostel owners</strong>
             <p>
-              Clear photos, current availability and honest charges help
-              students make a confident choice.
+              Capture exact entrance GPS with one click, upload real room photos,
+              and publish transparent pricing directly to students.
             </p>
-            <span>Frontend demo · saved on this device</span>
           </div>
         </aside>
+
         <div className="owner-main">
           <header className="owner-page-header">
             <div>
-              <p className="owner-eyebrow">YOUR HOSTELS, IN ONE PLACE</p>
+              <p className="owner-eyebrow">HOSTEL OWNER DASHBOARD</p>
               <h1>
-                {section === "visits"
-                  ? "Make room for a visit."
-                  : section === "listings"
-                    ? "Manage your hostels."
-                    : "Hello, " + user.name.split(" ")[0] + "."}
+                {section === 'visits'
+                  ? 'Student visit requests'
+                  : section === 'listings'
+                    ? 'Manage your hostels'
+                    : 'Welcome back, ' + user.name.split(' ')[0]}
               </h1>
               <p>
-                {section === "visits"
-                  ? "Help students take their next step. Coordinate a date before a visit."
-                  : "Create a welcoming first impression, then keep the details fresh."}
+                {section === 'visits'
+                  ? 'Coordinate visit dates directly with students and parents.'
+                  : 'Add real room photos, auto-detect your GPS entrance pin in one click, and publish straight to Explore & Kota Map.'}
               </p>
             </div>
-            <Link className="owner-primary" to="/owner/listing/new">
-              <Plus size={18} /> Add listing
-            </Link>
+            <div className="owner-header-actions">
+              <Link className="owner-secondary" to="/map">
+                <MapPin size={15} /> Kota Map
+              </Link>
+              <Link className="owner-primary" to="/owner/listing/new">
+                <Plus size={17} /> Add new hostel
+              </Link>
+            </div>
           </header>
+
+          {publishedBannerHostel && (
+            <div className="owner-published-banner" role="status">
+              <Sparkles size={20} />
+              <div>
+                <strong>“{publishedBannerHostel.name}” is live!</strong>
+                <p>
+                  Students can now discover this hostel across Explore Hostels and
+                  on the interactive Kota Map.
+                </p>
+              </div>
+              <div className="owner-published-links">
+                <Link to={`/hostel/${publishedBannerHostel.id}`}>
+                  Open live page <ExternalLink size={13} />
+                </Link>
+                <Link to={`/map?hostel=${publishedBannerHostel.id}`}>
+                  View on Map <MapPin size={13} />
+                </Link>
+                <button
+                  type="button"
+                  aria-label="Dismiss published banner"
+                  onClick={() => setPublishedBannerHostelId(null)}
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          )}
+
           {notice && (
             <div className="owner-notice" role="status">
-              <ShieldCheck size={18} />
+              <CheckCircle2 size={18} />
               <span>{notice}</span>
               <button
                 type="button"
-                onClick={() => setNotice("")}
+                onClick={() => setNotice('')}
                 aria-label="Dismiss message"
               >
                 ×
               </button>
             </div>
           )}
-          {section === "overview" && (
+
+          {errorNotice && (
+            <div className="owner-notice owner-notice-error" role="alert">
+              <XCircle size={18} />
+              <span>{errorNotice}</span>
+              <button
+                type="button"
+                onClick={() => setErrorNotice('')}
+                aria-label="Dismiss error"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {section === 'overview' && (
             <>
               <div className="owner-stats">
                 {[
                   {
                     icon: Building2,
-                    label: "Published hostels",
+                    label: 'Published hostels',
                     value: published.length,
-                    note: "Visible in student search",
+                    note: 'Live on Explore & Map',
                   },
                   {
                     icon: Clock3,
-                    label: "Pending review",
-                    value: pending.length,
-                    note: "Waiting for admin review",
+                    label: 'Drafts & pending',
+                    value: draftsAndPending.length,
+                    note: 'Ready to publish anytime',
+                  },
+                  {
+                    icon: BedDouble,
+                    label: 'Open room types',
+                    value: availableRoomTypes,
+                    note: 'Accepting student enquiries',
                   },
                   {
                     icon: CalendarDays,
-                    label: "Upcoming requests",
+                    label: 'Upcoming visits',
                     value: activeVisits.length,
-                    note: "Exact time to be coordinated",
+                    note: 'Scheduled student visits',
                   },
                 ].map((item) => (
                   <article key={item.label}>
-                    <item.icon size={20} />
+                    <span className="owner-stat-icon">
+                      <item.icon size={19} />
+                    </span>
                     <strong>{item.value}</strong>
                     <span>{item.label}</span>
                     <small>{item.note}</small>
                   </article>
                 ))}
               </div>
+
               <section className="owner-section">
                 <div className="owner-section-header">
                   <div>
-                    <p className="owner-eyebrow">A PLACE TO CALL HOME</p>
-                    <h2>Your listings</h2>
+                    <p className="owner-eyebrow">YOUR PROPERTIES</p>
+                    <h2>Hostel listings ({myHostels.length})</h2>
                   </div>
-                  <button type="button" onClick={() => setSection("listings")}>
-                    Manage all <ChevronRight size={16} />
+                  <button type="button" onClick={() => setSection('listings')}>
+                    View all listings <ChevronRight size={16} />
                   </button>
                 </div>
                 {myHostels.length ? (
                   <div className="owner-listings">
-                    {myHostels.slice(0, 3).map(listingCard)}
+                    {myHostels.slice(0, 4).map(listingCard)}
                   </div>
                 ) : (
                   <div className="owner-empty">
-                    <Building2 size={32} />
-                    <h3>Your first listing starts here</h3>
+                    <Building2 size={34} />
+                    <h3>Your first hostel listing starts here</h3>
                     <p>
-                      Add your hostel, room choices and transparent pricing.
-                      Submit it when you are ready for review.
+                      Add your rooms, use current GPS location in one click,
+                      upload real hostel photos, and publish instantly.
                     </p>
                     <Link className="owner-primary" to="/owner/listing/new">
-                      Create a listing <ArrowUpRight size={16} />
+                      <Plus size={16} /> Create your first listing
                     </Link>
                   </div>
                 )}
               </section>
+
               <section className="owner-section">
                 <div className="owner-section-header">
                   <div>
-                    <p className="owner-eyebrow">THE NEXT HELLO</p>
+                    <p className="owner-eyebrow">STUDENT ENQUIRIES</p>
                     <h2>Recent visit requests</h2>
                   </div>
-                  <button type="button" onClick={() => setSection("visits")}>
-                    View all <ChevronRight size={16} />
+                  <button type="button" onClick={() => setSection('visits')}>
+                    View all requests <ChevronRight size={16} />
                   </button>
                 </div>
                 {visitCards(3)}
               </section>
+
               <div className="owner-help-strip">
-                <ShieldCheck size={25} />
+                <LocateFixed size={24} />
                 <div>
-                  <strong>Details change. Your listing should too.</strong>
+                  <strong>Standing at your hostel gate right now?</strong>
                   <p>
-                    Update availability and charges whenever a room changes.
-                    Material edits return to review.
+                    Click <b>Use current location</b> on any hostel card above (or inside
+                    the listing editor) to fetch your exact latitude &amp; longitude automatically.
                   </p>
                 </div>
-                <Link to="/how-it-works">
-                  How it works <ArrowUpRight size={16} />
+                <Link to="/owner/listing/new">
+                  New listing <ArrowUpRight size={16} />
                 </Link>
               </div>
             </>
           )}
-          {section === "listings" && (
+
+          {section === 'listings' && (
             <section className="owner-section">
               <div className="owner-filter-bar">
                 <label>
                   <Search size={17} />
                   <input
                     aria-label="Search your listings"
-                    placeholder="Search hostel or locality"
+                    placeholder="Search hostel name, locality, or street…"
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                   />
@@ -416,31 +666,29 @@ export function OwnerDashboard() {
                   aria-label="Filter listing status"
                   value={status}
                   onChange={(event) =>
-                    setStatus(event.target.value as ListingStatus | "")
+                    setStatus(event.target.value as ListingStatus | '')
                   }
                 >
-                  <option value="">All statuses</option>
-                  <option value="approved">Published</option>
+                  <option value="">All statuses ({myHostels.length})</option>
+                  <option value="approved">Published ({published.length})</option>
                   <option value="pending">Pending review</option>
                   <option value="draft">Draft</option>
                   <option value="rejected">Hidden / rejected</option>
                 </select>
               </div>
               {filtered.length ? (
-                <div className="owner-listings">
-                  {filtered.map(listingCard)}
-                </div>
+                <div className="owner-listings">{filtered.map(listingCard)}</div>
               ) : (
                 <div className="owner-empty">
                   <Search size={28} />
                   <h3>No matching listings</h3>
-                  <p>Try another name or clear the status filter.</p>
+                  <p>Try a different search term or reset the status filter.</p>
                   <button
                     type="button"
                     className="owner-secondary"
                     onClick={() => {
-                      setSearch("");
-                      setStatus("");
+                      setSearch('');
+                      setStatus('');
                     }}
                   >
                     Clear filters
@@ -449,43 +697,60 @@ export function OwnerDashboard() {
               )}
             </section>
           )}
-          {section === "visits" && (
+
+          {section === 'visits' && (
             <section className="owner-section">
               <p className="owner-explainer">
-                A visit request expresses interest. It does not reserve a room
-                or confirm a visit time.
+                Confirm preferred dates with students or parents directly by
+                phone. Confirming here updates their student dashboard status immediately.
               </p>
               {visitCards()}
             </section>
           )}
         </div>
       </div>
+
       <Modal
-        open={Boolean(hideId)}
-        onClose={() => setHideId(null)}
-        title="Hide this listing?"
+        open={Boolean(removeTarget)}
+        onClose={() => setRemoveTarget(null)}
+        title={removeTarget ? `Manage “${removeTarget.name}”` : 'Manage listing'}
       >
         <p className="owner-dialog-copy">
-          This moves the listing to draft and removes it from public search. You
-          can edit it and submit it for review again.
+          You can unpublish this hostel to keep it as a private draft for later,
+          or permanently delete it from your workspace.
         </p>
         <div className="owner-dialog-actions">
-          <Button variant="outline" onClick={() => setHideId(null)}>
-            Keep listing
+          <Button variant="outline" onClick={() => setRemoveTarget(null)}>
+            Cancel
           </Button>
+          {removeTarget && removeTarget.status !== 'draft' && (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                updateHostel({ ...removeTarget, status: 'draft' });
+                setRemoveTarget(null);
+                setNotice(`“${removeTarget.name}” moved to Draft.`);
+              }}
+            >
+              Move to draft
+            </Button>
+          )}
           <Button
             variant="danger"
             onClick={() => {
-              const hostel = myHostels.find((item) => item.id === hideId);
-              if (hostel) updateHostel({ ...hostel, status: "draft" });
-              setHideId(null);
-              setNotice("Listing hidden from public search.");
+              if (removeTarget) {
+                const deletedName = removeTarget.name;
+                deleteHostel(removeTarget.id);
+                setRemoveTarget(null);
+                setNotice(`Deleted “${deletedName}”.`);
+              }
             }}
           >
-            Hide listing
+            Delete permanently
           </Button>
         </div>
       </Modal>
+
       <Modal
         open={Boolean(requestId)}
         onClose={() => setRequestId(null)}
@@ -497,33 +762,61 @@ export function OwnerDashboard() {
             <div className="owner-request-detail">
               <Badge
                 variant={
-                  request.status === "cancelled"
-                    ? "default"
-                    : request.status === "confirmed"
-                      ? "success"
-                      : "warning"
+                  request.status === 'cancelled'
+                    ? 'default'
+                    : request.status === 'confirmed'
+                      ? 'success'
+                      : 'warning'
                 }
               >
-                {request.status === "cancelled"
-                  ? "Cancelled"
-                  : request.status === "confirmed"
-                    ? "Confirmed"
-                    : "Coordination pending"}
+                {request.status === 'cancelled'
+                  ? 'Cancelled'
+                  : request.status === 'confirmed'
+                    ? 'Confirmed'
+                    : 'Coordination pending'}
               </Badge>
               <h3>{request.studentName}</h3>
               <p>{request.hostelName}</p>
-              <p>{request.roomTypeName || "Room preference not specified"}</p>
+              <p>{request.roomTypeName || 'Room preference not specified'}</p>
               <p>
                 <CalendarDays size={15} /> {dateLabel(request.visitDate)}
               </p>
+              {request.studentPhone && (
+                <p>
+                  <Phone size={15} />{' '}
+                  <a href={`tel:${request.studentPhone.replace(/[^+\d]/g, '')}`}>
+                    {request.studentPhone}
+                  </a>
+                </p>
+              )}
               {request.message && <blockquote>{request.message}</blockquote>}
-              <div className="owner-explainer">
-                This is a local prototype request. Contact and notification
-                delivery will be connected with the backend. A requested date is
-                not a confirmed visit time.
-              </div>
               <div className="owner-dialog-actions">
-                <Button onClick={() => setRequestId(null)}>Done</Button>
+                {request.status !== 'cancelled' && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      cancelVisit(request.id);
+                      setRequestId(null);
+                      setNotice('Visit request cancelled.');
+                    }}
+                  >
+                    Cancel request
+                  </Button>
+                )}
+                {request.status === 'requested' && (
+                  <Button
+                    onClick={() => {
+                      confirmVisit(request.id);
+                      setRequestId(null);
+                      setNotice(`Confirmed visit for ${request.studentName}.`);
+                    }}
+                  >
+                    Confirm visit
+                  </Button>
+                )}
+                <Button variant="secondary" onClick={() => setRequestId(null)}>
+                  Done
+                </Button>
               </div>
             </div>
           ) : null;

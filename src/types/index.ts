@@ -35,6 +35,7 @@ export interface Hostel {
   description: string;
   locality: string;
   address: string;
+  landmark?: string;
   category: 'boys' | 'girls' | 'co-ed';
   status: ListingStatus;
   amenities: string[];

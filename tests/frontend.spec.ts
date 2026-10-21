@@ -525,6 +525,46 @@ test('owner coordinates reject swaps and can be saved and cleared without restor
   await expect(page.getByLabel('Hostel longitude')).toHaveValue('');
 });
 
+test('owner can auto-fetch current GPS location, upload real photos alongside sample suggestions, and publish live', async ({ context, page }) => {
+  await context.grantPermissions(['geolocation']);
+  await context.setGeolocation({ latitude: 25.149876, longitude: 75.85321 });
+
+  await page.goto('/login?role=owner');
+  await page.getByRole('button', { name: 'Use sample owner account' }).click();
+  await page.goto('/owner/listing/new');
+
+  await page.getByLabel('Hostel / PG name *').fill('Sunrise Scholars Stay');
+  await page.getByLabel('Full street address *').fill('44, Sector B, Talwandi');
+  await page.getByRole('button', { name: /Use my current location/i }).click();
+  await expect(page.getByLabel('Hostel latitude')).toHaveValue('25.149876');
+  await expect(page.getByLabel('Hostel longitude')).toHaveValue('75.85321');
+
+  await page.getByRole('button', { name: /Continue/ }).click();
+  await page.getByRole('button', { name: /Continue/ }).click();
+  await page.getByRole('button', { name: /Continue/ }).click();
+
+  // Upload a real 1x1 PNG file and also add a suggested demo photo
+  const onePixelPng = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    'base64',
+  );
+  await page.locator('#hostel-photo-upload').setInputFiles({
+    name: 'front-room.png',
+    mimeType: 'image/png',
+    buffer: onePixelPng,
+  });
+  await expect(page.getByText(/Your hostel gallery \(1\)/)).toBeVisible();
+  await page.getByRole('button', { name: /Shared room/i }).click();
+  await expect(page.getByText(/Your hostel gallery \(2\)/)).toBeVisible();
+
+  await page.getByRole('button', { name: /Continue/ }).click();
+  await page.getByRole('button', { name: /Publish hostel now/i }).click();
+  await expect(page).toHaveURL(/\/owner$/);
+
+  await page.goto('/explore?q=Sunrise');
+  await expect(page.getByText('Sunrise Scholars Stay')).toBeVisible();
+});
+
 test('curved showroom navigates real photo indices with arrows, keyboard, drag and trackpad', async ({ page }) => {
   await sampleStudent(page);
   await page.goto('/hostel/h1?room=rt2&campus=allen-talwandi');
