@@ -267,7 +267,7 @@ export function KotaMapPage() {
           </span>
           <div>
             <h1>Explore Kota</h1>
-            <p>The whole city. Your next neighbourhood.</p>
+            <p>Find hostels near your coaching or live GPS</p>
           </div>
         </div>
         <form className="city-search" onSubmit={submitSearch}>
@@ -277,7 +277,7 @@ export function KotaMapPage() {
           </label>
           <input
             id="city-search"
-            placeholder="Search a hostel, coaching or locality"
+            placeholder="Search hostel, ALLEN / PW / Motion, or locality…"
             value={search}
             maxLength={180}
             onChange={(e) => setSearch(e.target.value)}
@@ -328,7 +328,12 @@ export function KotaMapPage() {
       </div>
 
       <div className="city-location-bar">
-        <button type="button" onClick={locate} disabled={live.pending}>
+        <button
+          type="button"
+          className={live.tracking ? 'is-live-on' : undefined}
+          onClick={locate}
+          disabled={live.pending}
+        >
           <LocateFixed size={14} />{' '}
           {live.pending
             ? 'Locating…'
@@ -338,7 +343,11 @@ export function KotaMapPage() {
                 : 'Show Kota map'
               : 'Use my location'}
         </button>
-        {live.tracking && <button type="button" onClick={live.stop}>Stop location</button>}
+        {live.tracking && (
+          <button type="button" className="city-stop-btn" onClick={live.stop}>
+            Stop location
+          </button>
+        )}
         <span role="status">
           {location
             ? `Live location on · accuracy about ${Math.round(location.accuracy)} m · ${
@@ -350,7 +359,7 @@ export function KotaMapPage() {
               }`
             : live.pending
               ? 'Waiting for your browser’s location permission…'
-              : 'Drag or scroll freely anywhere across Kota, jump by locality, or use your location.'}
+              : 'Tap “Use my location” to spot nearby hostels around you, or select your coaching institute.'}
         </span>
         {live.error && <p role="alert">{live.error}</p>}
       </div>
@@ -374,8 +383,8 @@ export function KotaMapPage() {
         >
           <div className="city-sidebar-top">
             <div>
-              <span className="sk-eyebrow">MAKE KOTA YOUR OWN</span>
-              <h2>A place to start.</h2>
+              <span className="sk-eyebrow">STUDENT FINDER</span>
+              <h2>Hostels &amp; coaching nearby</h2>
             </div>
             <button
               className="city-close-stays"
@@ -396,7 +405,7 @@ export function KotaMapPage() {
               value={params.get('campus') || ''}
               onChange={(e) => selectCampus(e.target.value)}
             >
-              <option value="">All of Kota</option>
+              <option value="">All coaching institutes (Kota)</option>
               {CAMPUSES.map((c) => (
                 <option value={c.id} key={c.id}>
                   {c.institute} · {c.name}
@@ -420,8 +429,8 @@ export function KotaMapPage() {
             </select>
             <small>
               {origin
-                ? 'Nearest first · straight-line distance, not walking distance'
-                : 'Choose a coaching campus to filter nearby stays.'}
+                ? 'Sorted nearest first · straight-line estimate'
+                : 'Select a coaching institute or enable live location to filter by distance.'}
             </small>
           </label>
           <div className="city-room-filters">
@@ -475,8 +484,8 @@ export function KotaMapPage() {
             ))}
           </div>
           <p className="city-result-count" aria-live="polite">
-            {items.length} matching sample {items.length === 1 ? 'stay' : 'stays'}{' '}
-            <span>Not live inventory</span>
+            {items.length} matching {items.length === 1 ? 'hostel' : 'hostels'}
+            <span>Click any card to focus</span>
           </p>
           <div className="city-stays">
             {items.length ? (
@@ -502,7 +511,7 @@ export function KotaMapPage() {
                           {hostel.locality} · {room.name}
                         </small>
                         {location && (
-                          <small className="city-coaching-distance">
+                          <small className="city-coaching-distance is-gps">
                             {formatDistance(campusDistance(hostel, location))} from your location · straight-line
                           </small>
                         )}
@@ -513,7 +522,7 @@ export function KotaMapPage() {
                         )}
                         <b>
                           ₹{monthlyTotal(room).toLocaleString('en-IN')}
-                          <em> fixed / month</em>
+                          <em> / month</em>
                         </b>
                       </span>
                     </button>
@@ -530,7 +539,7 @@ export function KotaMapPage() {
                 <p>
                   {location
                     ? `No sample hostels match within ${radius} km of your location. Try 5 km, switch to All distances, change room filters or choose a coaching campus. Demo inventory only covers parts of Kota.`
-                    : 'No available sample rooms match these filters.'}
+                    : 'No available hostels match these filters.'}
                 </p>
                 <button
                   type="button"
@@ -541,10 +550,6 @@ export function KotaMapPage() {
               </div>
             )}
           </div>
-          <p className="city-sample-note">
-            OpenFreeMap supplies the OpenStreetMap basemap. StayKota listings and campus locations are illustrative
-            sample data.
-          </p>
         </aside>
 
         <section
@@ -552,6 +557,9 @@ export function KotaMapPage() {
           ref={stage}
           aria-label="Interactive whole-city Kota map"
         >
+          <span className="sr-only" id="city-perspective-help">
+            Switch between flat 2D map view and tilted 3D view.
+          </span>
           <div className="city-map-tools">
             <MapLayerToggle basemap={basemap} onChange={value => update({ type: value === 'satellite' ? 'satellite' : null })} />
             <div className="city-layer-toggle city-perspective-toggle" role="group" aria-label="Map perspective">
@@ -645,14 +653,15 @@ export function KotaMapPage() {
                       ? inKotaMapArea(location)
                         ? 'Centre on your current location'
                         : 'Show Kota map while outside the service area'
-                      : 'Show your current location'
+                      : 'Use live location to find nearby hostels'
                 }
                 aria-pressed={live.tracking}
                 aria-busy={live.pending}
                 disabled={live.pending}
                 onClick={locate}
               >
-                <LocateFixed size={18} className={live.pending ? 'animate-pulse' : undefined} />
+                <LocateFixed size={17} className={live.pending ? 'animate-pulse' : undefined} />
+                <span>{live.pending ? 'Locating…' : live.tracking ? 'Live location' : 'Near me'}</span>
               </button>
               {live.tracking && (
                 <button
@@ -681,9 +690,6 @@ export function KotaMapPage() {
               on3DAvailabilityChange={setSupports3D}
             />
           </div>
-          <p className="city-map-caption" id="city-perspective-help">
-            Explore Kota + 3 km buffer · Hover a hostel/coaching pin for preview, click to open · Drag or scroll to pan and zoom anywhere across Kota · Sample data; straight-line distances.
-          </p>
         </section>
       </div>
     </div>

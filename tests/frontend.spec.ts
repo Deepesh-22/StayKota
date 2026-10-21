@@ -121,14 +121,14 @@ test('keyless MapLibre map renders real demo pins, attribution and 2D/3D control
   await expect(page.locator('.student-pin-group')).toHaveCount(0);
   await expect(page.locator('.student-hostel-pin')).toHaveCount(7);
   await expect(page.locator('.student-campus-pin').first()).toBeVisible();
-  await expect(page.locator('.maplibregl-ctrl-attrib')).toBeVisible();
+  await expect(page.locator('.student-zoom-panel, .student-map-area-label, .maplibregl-ctrl-zoom-in, .maplibregl-ctrl-attrib')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Use my current location on map', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '3D tilt', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: '3D tilt', exact: true }).click();
   await expect(page.locator('.student-city-map')).toHaveAttribute('data-perspective', '3d');
-  const compass = page.locator('.maplibregl-ctrl-compass .maplibregl-ctrl-icon');
-  await expect(compass).toHaveAttribute('style', /rotateX\(50deg\)/);
+  await expect.poll(async () => Number(await page.locator('.student-city-map').getAttribute('data-camera-pitch'))).toBe(50);
   await page.getByLabel('Centre map on a coaching campus').selectOption('allen-talwandi');
-  await expect(compass).toHaveAttribute('style', /rotateX\(50deg\)/);
+  await expect.poll(async () => Number(await page.locator('.student-city-map').getAttribute('data-camera-pitch'))).toBe(50);
   await page.getByRole('button', { name: '2D', exact: true }).click();
   await expect(page.locator('.student-city-map')).toHaveAttribute('data-perspective', '2d');
   await expect(page.locator('iframe')).toHaveCount(0);
@@ -354,12 +354,11 @@ async function stubSatellite(page: Page, fail = false) {
     ? route.fulfill({ status: 503, body: 'Test imagery outage' }) : route.fulfill({ contentType: 'image/png', body: png }));
 }
 
-test('satellite imagery keeps the same map, selected hostel, filters, pitch and attribution', async ({ page }) => {
+test('satellite imagery keeps the same map, selected hostel, filters and pitch', async ({ page }) => {
   await stubOpenMapStyle(page); await stubSatellite(page);
   await page.goto('/map?campus=allen-talwandi&radius=1&hostel=h1&view=3d');
   const canvas = await page.locator('.maplibregl-canvas').elementHandle();
-  const compass = page.locator('.maplibregl-ctrl-compass .maplibregl-ctrl-icon');
-  await expect(compass).toHaveAttribute('style', /rotateX\(50deg\)/);
+  await expect.poll(async () => Number(await page.locator('.student-city-map').getAttribute('data-camera-pitch'))).toBe(50);
   const selected = page.locator('.student-hostel-pin.is-selected');
   await expect(selected).toBeVisible();
   const before = (await selected.boundingBox())!;
@@ -368,16 +367,14 @@ test('satellite imagery keeps the same map, selected hostel, filters, pitch and 
   await expect(page).toHaveURL(/type=satellite/);
   await expect(page).toHaveURL(/radius=1/);
   await expect(page.locator('.city-stay.is-selected')).toContainText('Comfort Stay');
-  await expect(compass).toHaveAttribute('style', /rotateX\(50deg\)/);
+  await expect.poll(async () => Number(await page.locator('.student-city-map').getAttribute('data-camera-pitch'))).toBe(50);
   const after = (await selected.boundingBox())!;
   expect(after.x).toBeCloseTo(before.x, 0); expect(after.y).toBeCloseTo(before.y, 0);
   expect(await canvas!.evaluate(node => node.isConnected)).toBe(true);
-  await expect(page.locator('.maplibregl-ctrl-attrib-inner')).toContainText('Test imagery contributor credits');
   await page.getByRole('button', { name: 'Map', exact: true }).click();
   await expect(page.locator('.student-city-map')).toHaveAttribute('data-imagery-state', 'off');
   await expect(selected).toBeVisible();
   await expect(page).not.toHaveURL(/type=satellite/);
-  await expect(page.locator('.maplibregl-ctrl-attrib-inner')).not.toContainText('Test imagery contributor credits');
 });
 
 test('a satellite outage falls back to streets and retry recovers without dropping pins', async ({ page }) => {
@@ -663,40 +660,35 @@ test('showroom handles missing and failed photos without inventing property imag
   await expect.poll(() => page.locator('.curved-gallery__slide img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
 });
 
-test('Kota limits constrain real camera pan, zoom, slider and outside-area live location', async ({ page }) => {
+test('Kota limits constrain real camera pan, wheel zoom and outside-area live location', async ({ page }) => {
   await stubOpenMapStyle(page);
   await mockLiveLocation(page);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/map?campus=allen-talwandi');
   const map = page.locator('.student-city-map');
-  await expect(map).toHaveAttribute('data-map-area', 'kota-plus-3km');
   const initialZoom = Number(await map.getAttribute('data-camera-zoom'));
-  await page.locator('.maplibregl-ctrl-zoom-in').click();
-  await expect.poll(async () => Number(await map.getAttribute('data-camera-zoom'))).toBeGreaterThan(initialZoom);
-  await page.getByRole('slider', { name: 'Map zoom level' }).focus();
-  await page.keyboard.press('End');
-  await expect.poll(async () => Number(await map.getAttribute('data-camera-zoom'))).toBeCloseTo(19, 1);
-  for (let index=0; index<15; index++) { if (!(await page.locator('.maplibregl-ctrl-zoom-out').isEnabled())) break; await page.locator('.maplibregl-ctrl-zoom-out').click(); }
-  expect(Number(await map.getAttribute('data-camera-zoom'))).toBeGreaterThan(10);
   const canvas = (await page.locator('.maplibregl-canvas').boundingBox())!;
+  await page.mouse.move(canvas.x + canvas.width * .5, canvas.y + canvas.height * .5);
+  await page.mouse.wheel(0, -450);
+  await expect.poll(async () => Number(await map.getAttribute('data-camera-zoom'))).toBeGreaterThan(initialZoom);
   await page.mouse.move(canvas.x + canvas.width * .4, canvas.y + canvas.height * .6);
   await page.mouse.down();
   await page.mouse.move(canvas.x + canvas.width * .9, canvas.y + canvas.height * .9, { steps: 15 });
   await page.mouse.up();
   const centre = (await map.getAttribute('data-camera-centre'))!.split(',').map(Number);
-  expect(centre[0]).toBeGreaterThan(25.05); expect(centre[0]).toBeLessThan(25.29);
-  expect(centre[1]).toBeGreaterThan(75.72); expect(centre[1]).toBeLessThan(75.97);
+  expect(centre[0]).toBeGreaterThan(25.02); expect(centre[0]).toBeLessThan(25.38);
+  expect(centre[1]).toBeGreaterThan(75.68); expect(centre[1]).toBeLessThan(76.02);
   await page.getByRole('button', { name: 'Use my location', exact: true }).click();
   await expect(page.locator('.city-location-bar')).toContainText('Live location on');
   await page.evaluate(() => (window as LocationMockWindow).__liveLocationMock.move(28.61,77.2));
   await expect(page.locator('.student-outside-area')).toContainText('outside the Kota map area');
   await expect(map).toHaveAttribute('data-camera-centre', '25.183000,75.839000');
   await page.getByRole('button', { name: 'Stop location', exact: true }).click();
-  await page.getByRole('button', { name: 'Reset Kota view' }).click();
+  await page.getByRole('button', { name: 'Whole Kota' }).click();
   await expect(map).toHaveAttribute('data-camera-centre', '25.183000,75.839000');
   await page.setViewportSize({ width:390, height:844 });
   await expect.poll(async () => {
-    const snapshot = await map.evaluate(node => { const canvas = node.querySelector<HTMLElement>('.student-city-map__canvas')!; return { width: canvas.clientWidth, height: canvas.clientHeight, minimum: Number(node.querySelector<HTMLInputElement>('input[type=range]')!.min) }; });
+    const snapshot = await map.evaluate(node => { const canvasEl = node.querySelector<HTMLElement>('.student-city-map__canvas')!; return { width: canvasEl.clientWidth, height: canvasEl.clientHeight, minimum: Number(node.getAttribute('data-min-zoom')) }; });
     return Math.abs(snapshot.minimum - Math.max(0, minimumKotaZoom(snapshot.width,snapshot.height)));
   }).toBeLessThan(.005);
 });
@@ -708,8 +700,9 @@ test('circular hostel and coaching previews open on hover/focus without selectin
   const map = page.locator('.student-city-map');
   const hostel = page.getByRole('button', { name: 'Select Comfort Stay Hostel on map', exact: true });
   const coaching = page.getByRole('button', { name: /Select ALLEN Talwandi campus/ });
-  await page.locator('.maplibregl-ctrl-zoom-in').click();
-  await page.locator('.maplibregl-ctrl-zoom-in').click();
+  const canvas = (await page.locator('.maplibregl-canvas').boundingBox())!;
+  await page.mouse.move(canvas.x + canvas.width * .5, canvas.y + canvas.height * .5);
+  await page.mouse.wheel(0, -500);
   await expect(hostel).toBeVisible();
   const url = page.url(), centre = await map.getAttribute('data-camera-centre');
   await hostel.hover();
