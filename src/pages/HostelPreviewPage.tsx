@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUpRight,
-  BedDouble,
   BookOpen,
   Check,
   ImageOff,
@@ -30,12 +29,13 @@ import '../styles/hostel-preview.css';
 
 export function HostelPreviewPage() {
   const { id } = useParams();
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const { hostels, user } = useApp();
   const { portal, arrivedHostelId, registerPreviewVisualTarget } = useHostelTransition();
   const [imageFailed, setImageFailed] = useState(false);
 
   const hostel = hostels.find((value) => value.id === id && value.status === 'approved');
+  const firstPhoto = hostel ? hostel.coverImage || hostel.images[0] || '' : '';
   const campus = getCampus(params.get('campus'));
   const returnTo = safeAppPath(params.get('returnTo'), `/explore?campus=${campus.id}`);
   const backLabel = returnTo.startsWith('/map')
@@ -46,7 +46,7 @@ export function HostelPreviewPage() {
 
   useEffect(() => {
     setImageFailed(false);
-  }, [hostel?.id, hostel?.coverImage]);
+  }, [hostel?.id, firstPhoto]);
 
   const visualRef = useCallback(
     (node: HTMLElement | null) => {
@@ -104,12 +104,6 @@ export function HostelPreviewPage() {
   ]
     .filter(Boolean)
     .join(' ');
-
-  const selectPreviewRoom = (nextRoomId: string) => {
-    const next = new URLSearchParams(params);
-    next.set('room', nextRoomId);
-    setParams(next, { replace: true });
-  };
 
   const handleVisualMove = (event: React.PointerEvent<HTMLElement>) => {
     if (
@@ -183,9 +177,9 @@ export function HostelPreviewPage() {
               onPointerLeave={handleVisualLeave}
               onMouseLeave={handleVisualLeave}
             >
-              {hostel.coverImage && !imageFailed ? (
+              {firstPhoto && !imageFailed ? (
                 <img
-                  src={hostel.coverImage}
+                  src={firstPhoto}
                   alt={`${hostel.photography === 'property' ? 'Cover photo' : 'Illustrative cover photo'} of ${hostel.name}`}
                   fetchPriority="high"
                   decoding="async"
@@ -217,10 +211,6 @@ export function HostelPreviewPage() {
             <div className="hostel-preview-card">
               <div className="hostel-preview-tags">
                 <span className="hostel-preview-tag--primary">{category}</span>
-                <span>
-                  <BedDouble size={13} />
-                  {room?.name || 'Ask about rooms'}
-                </span>
                 <span>{locationLabel(hostel)}</span>
               </div>
 
@@ -232,26 +222,6 @@ export function HostelPreviewPage() {
                 <MapPin size={17} />
                 <span>{hostel.address || `${hostel.locality}, Kota`}</span>
               </p>
-
-              {rooms.length > 1 && (
-                <div className="hostel-preview-room-picker" role="group" aria-label="Preview room options">
-                  <span className="hostel-preview-picker-label">Preview room type</span>
-                  <div className="hostel-preview-room-pills">
-                    {rooms.map((candidate) => (
-                      <button
-                        key={candidate.id}
-                        type="button"
-                        aria-pressed={room?.id === candidate.id}
-                        className={room?.id === candidate.id ? 'is-active' : ''}
-                        onClick={() => selectPreviewRoom(candidate.id)}
-                      >
-                        <span>{candidate.name}</span>
-                        <small>₹{monthlyTotal(candidate).toLocaleString('en-IN')}</small>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               <div className="hostel-preview-price">
                 {room ? (

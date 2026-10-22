@@ -159,6 +159,13 @@ describe('StayKota Non-Homepage UI/UX, CustomSelect & Compare 3D Skyline', () =>
     expect(document.querySelector('.sk-horizon3d')).toBeNull();
     expect(document.body.textContent).not.toContain('3D KOTA COACHING MICRO-CITY');
 
+    // Verify HostelCards show ONLY the 1st photo with NO Room toggle and NO Left/Right photo buttons
+    expect(document.querySelector('.room-card-model')).toBeNull();
+    expect(document.querySelector('.room-card-views')).toBeNull();
+    expect(document.querySelector('.room-card-photo-controls')).toBeNull();
+    const cardPhotos = document.querySelectorAll('.discovery-card .room-card-photo');
+    expect(cardPhotos.length).toBeGreaterThan(0);
+
     const customSelects = document.querySelectorAll('.discovery-page .sk-select');
     expect(customSelects.length).toBe(4);
 
@@ -269,7 +276,7 @@ describe('StayKota Non-Homepage UI/UX, CustomSelect & Compare 3D Skyline', () =>
     localStorage.clear();
   });
 
-  it('renders clean HostelPreviewPage without 3D room box while keeping room switcher pills and full-detail privacy boundary', () => {
+  it('renders clean HostelPreviewPage with only the 1st cover photo, no room switcher, no photo arrows, and full-detail privacy boundary', () => {
     localStorage.removeItem('staykota_user');
 
     mount(
@@ -288,26 +295,18 @@ describe('StayKota Non-Homepage UI/UX, CustomSelect & Compare 3D Skyline', () =>
 
     expect(document.querySelector('#hostel-preview-title')?.textContent).toContain('Comfort Stay Hostel');
     expect(document.querySelector('.hostel-preview-price')?.textContent).toContain('₹5,500');
-    expect(document.querySelector('.hostel-preview-visual img')).not.toBeNull();
+    expect(document.querySelectorAll('.hostel-preview-visual img')).toHaveLength(1);
 
-    // Verify "Explore room scale in 3D" is completely removed
+    // Verify 3D room card, room option pills, and photo navigation buttons are all absent
     expect(document.querySelector('.hostel-preview-3d-card')).toBeNull();
+    expect(document.querySelector('.hostel-preview-room-picker')).toBeNull();
+    expect(document.querySelector('.hostel-preview-room-pills')).toBeNull();
     expect(document.body.textContent).not.toContain('Explore room scale in 3D');
 
     // Strictly preserves full-detail privacy gate boundaries on /preview
     expect(document.querySelector('.detail-page')).toBeNull();
     expect(document.querySelector('.curved-gallery')).toBeNull();
     expect(document.querySelector('.detail-price')).toBeNull();
-
-    // Room switcher pills update selected preview room and monthly total live
-    const roomPills = Array.from(
-      document.querySelectorAll<HTMLButtonElement>('.hostel-preview-room-pills button[aria-pressed]'),
-    );
-    expect(roomPills.length).toBeGreaterThan(1);
-    act(() => {
-      roomPills[0].click();
-    });
-    expect(roomPills[0].getAttribute('aria-pressed')).toBe('true');
   });
 
   it('retains the full Compare 3D Cost & Commute Skyline + winner callout strip on /compare while keeping Homepage & dashboards clean', async () => {
