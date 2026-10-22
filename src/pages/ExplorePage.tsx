@@ -9,8 +9,6 @@ import { distanceKm, getCampus, getMatchingRooms, monthlyTotal } from '../lib/di
 import { HostelCard } from '../components/hostel/HostelCard';
 import { NeighbourhoodMap } from '../components/hostel/NeighbourhoodMap';
 import { CustomSelect } from '../components/ui/CustomSelect';
-import { KotaHorizon3DCanvas } from '../components/three/KotaHorizon3DCanvas';
-import { KotaDistrictMap3DCanvas } from '../components/three/KotaDistrictMap3DCanvas';
 import '../styles/discovery.css';
 
 const PAGE_SIZE = 6;
@@ -128,14 +126,11 @@ export function ExplorePage() {
 
   return (
     <div className={`discovery-page${selectedHostels.length ? ' discovery-page--comparing' : ''}`}>
-      <div className="sk-horizon-wrap">
-        <KotaHorizon3DCanvas />
-        <section className="discovery-intro discovery-shell sk-horizon-content">
-          <div className="discovery-breadcrumb"><Link to="/">Home</Link><span>/</span><span>Find your stay</span></div>
-          <div className="discovery-eyebrow"><span />A little closer to your goals</div>
-          <div className="discovery-intro-heading"><h1>Less commute.<br className="discovery-mobile-break" /> More <em>possibility.</em></h1><p>A room you love, near the campus you choose.<br />Find your own corner of Kota.</p></div>
-        </section>
-      </div>
+      <section className="discovery-intro discovery-shell">
+        <div className="discovery-breadcrumb"><Link to="/">Home</Link><span>/</span><span>Find your stay</span></div>
+        <div className="discovery-eyebrow"><span />A little closer to your goals</div>
+        <div className="discovery-intro-heading"><h1>Less commute.<br className="discovery-mobile-break" /> More <em>possibility.</em></h1><p>A room you love, near the campus you choose.<br />Find your own corner of Kota.</p></div>
+      </section>
       <div className="discovery-shell">
         <form className="discovery-search" onSubmit={applySearch}>
           <div className="discovery-search-field discovery-search-campus">
@@ -193,14 +188,6 @@ export function ExplorePage() {
           <div className="discovery-quick-filters">{QUICK_AMENITIES.map(amenity => <button type="button" key={amenity.id} className={applied.amenities.includes(amenity.id) ? 'is-active' : ''} onClick={() => toggleQuickAmenity(amenity.id)} aria-pressed={applied.amenities.includes(amenity.id)}>{applied.amenities.includes(amenity.id) && <Check size={12} aria-hidden="true" />}{amenity.label}</button>)}</div>
           {filterCount > 0 && <button type="button" className="discovery-clear" onClick={resetFilters}><X size={13} aria-hidden="true" />Clear filters</button>}
         </div>
-        <KotaDistrictMap3DCanvas
-          selectedCampusId={applied.campus}
-          hostels={hostels}
-          onSelectCampus={nextCampus => {
-            setActiveHostel(null);
-            updateFilters({ campus: nextCampus });
-          }}
-        />
         <div className="discovery-confidence" role="note"><MapPin size={18} /><div><strong>Explore the neighbourhood. Check the exact address.</strong><span>Demo pins are illustrative. Distances are straight-line estimates; confirm the entrance and walking route before visiting.</span></div><Link to="/map">Whole Kota <ArrowUpRight size={15} /></Link></div>
         <div className="discovery-results-heading">
           <div><span className="discovery-eyebrow discovery-eyebrow--small"><MapPin size={13} aria-hidden="true" />YOUR CAMPUS NEIGHBOURHOOD</span><h2>Rooms near <em>{campus.institute} {campus.name}</em></h2><p aria-live="polite">{results.length} sample {results.length === 1 ? 'stay' : 'stays'} with rooms that match{applied.sharing ? ` · ${SHARING_OPTIONS.find(option => option.id === applied.sharing)?.label.toLowerCase()}` : ''}.</p></div>

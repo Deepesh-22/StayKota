@@ -17,8 +17,6 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useHostelTransition } from '../context/HostelTransitionContext';
-import { HostelRoom3DCanvas } from '../components/three/HostelRoom3DCanvas';
-import { KotaHorizon3DCanvas } from '../components/three/KotaHorizon3DCanvas';
 import {
   distanceKm,
   formatDistance,
@@ -140,9 +138,8 @@ export function HostelPreviewPage() {
 
   return (
     <div className={pageClassName}>
-      <div className="hostel-preview-hero-band sk-horizon-wrap">
-        <KotaHorizon3DCanvas />
-        <div className="hostel-preview-shell sk-horizon-content">
+      <div className="hostel-preview-hero-band">
+        <div className="hostel-preview-shell">
           <nav className="hostel-preview-nav" aria-label="Preview navigation">
             <Link to={returnTo} className="hostel-preview-back">
               <ArrowLeft size={16} />
@@ -176,7 +173,7 @@ export function HostelPreviewPage() {
 
       <div className="hostel-preview-shell">
         <div className="hostel-preview-layout">
-          {/* Left Column: Hero Photo Frame (La Phase 5 Iris Target) + Live Three.js 3D Room Diorama */}
+          {/* Left Column: Hero Photo Frame (La Phase 5 Iris Target) */}
           <div className="hostel-preview-media-stack">
             <section
               ref={visualRef}
@@ -212,23 +209,6 @@ export function HostelPreviewPage() {
                 </div>
                 <span className="hostel-preview-photo-number">01 / FIRST LOOK</span>
               </div>
-            </section>
-
-            <section className="hostel-preview-3d-card" aria-label="3D architectural room preview">
-              <div className="hostel-preview-3d-head">
-                <div>
-                  <span className="hostel-preview-eyebrow">INTERACTIVE 3D DIORAMA</span>
-                  <h2>Explore room scale in 3D</h2>
-                </div>
-                <span className="hostel-preview-3d-tag">{room?.name || 'Concept room'}</span>
-              </div>
-              <HostelRoom3DCanvas
-                capacity={room?.capacity || 2}
-                roomName={room?.name}
-                features={room?.features}
-                included={room?.included}
-                height={272}
-              />
             </section>
           </div>
 

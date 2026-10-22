@@ -6,9 +6,7 @@ import { useCompare } from '../context/CompareContext';
 import { CAMPUSES } from '../data/campuses';
 import { distanceKm, formatDistance, getCampus, getMatchingRooms, monthlyTotal } from '../lib/discovery';
 import { CustomSelect } from '../components/ui/CustomSelect';
-import { KotaHorizon3DCanvas } from '../components/three/KotaHorizon3DCanvas';
 import { KotaShortlist3DCanvas } from '../components/three/KotaShortlist3DCanvas';
-import { KotaBeacon3DCanvas } from '../components/three/KotaBeacon3DCanvas';
 import type { Hostel, RoomType } from '../types';
 import '../styles/compare.css';
 
@@ -143,9 +141,8 @@ export function ComparePage() {
 
   return (
     <div className="compare-page">
-      <div className="compare-hero-band sk-horizon-wrap">
-        <KotaHorizon3DCanvas />
-        <div className="compare-shell sk-horizon-content">
+      <div className="compare-hero-band">
+        <div className="compare-shell">
           <Link className="compare-back" to={`/explore?campus=${campus.id}`}>
             <ArrowLeft size={15} />
             Back to exploring
@@ -194,10 +191,7 @@ export function ComparePage() {
 
         {selected.length === 0 ? (
           <div className="compare-empty">
-            <div className="compare-empty__scene">
-              <KotaBeacon3DCanvas mode="campus" height={220} label="SHORTLIST IN 3D" compact />
-            </div>
-            <Scale size={32} strokeWidth={1.5} />
+            <Scale size={40} strokeWidth={1.5} />
             <h2>A shortlist starts with a possibility.</h2>
             <p>
               Add up to three hostels while exploring, then compare their rooms, commute distance and fixed monthly costs side by side here.
