@@ -1,5 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Compass, Sparkles } from 'lucide-react';
+import {
+  detectGpuProfile,
+  disposeThreeScene,
+  hasWebGLSupport,
+  loadThree,
+} from '../../lib/gpu-budget';
 import '../../styles/three-scenes.css';
 
 export interface KotaBeacon3DCanvasProps {
@@ -48,33 +54,25 @@ export function KotaBeacon3DCanvas({
     const container = hostRef.current;
     if (!container) return;
 
-    const reducedMotion =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const profile = detectGpuProfile();
+    const reducedMotion = profile.reducedMotion;
 
     (async () => {
       try {
-        const THREE = await import('three');
-        if (cancelled || !hostRef.current) return;
-
-        const probe = document.createElement('canvas');
-        const gl =
-          probe.getContext('webgl2') ||
-          probe.getContext('webgl') ||
-          probe.getContext('experimental-webgl');
-
-        if (!gl) {
+        if (!hasWebGLSupport()) {
           if (!cancelled) setWebglReady(false);
           return;
         }
+        const THREE = await loadThree();
+        if (cancelled || !hostRef.current) return;
 
         const renderer = new THREE.WebGLRenderer({
-          antialias: true,
+          antialias: profile.antialias,
           alpha: true,
           powerPreference: 'high-performance',
         });
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-        renderer.shadowMap.enabled = true;
+        renderer.setPixelRatio(profile.dpr);
+        renderer.shadowMap.enabled = profile.shadows;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.outputColorSpace = THREE.SRGBColorSpace;
 
@@ -381,15 +379,7 @@ export function KotaBeacon3DCanvas({
         if (!cancelled) setWebglReady(true);
 
         cleanupScene = () => {
-          scene.traverse((obj) => {
-            const mesh = obj as import('three').Mesh;
-            if (mesh.geometry) mesh.geometry.dispose();
-            if (mesh.material) {
-              const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-              mats.forEach((m) => m.dispose());
-            }
-          });
-          renderer.dispose();
+          disposeThreeScene(scene, renderer);
         };
       } catch {
         if (!cancelled) setWebglReady(false);

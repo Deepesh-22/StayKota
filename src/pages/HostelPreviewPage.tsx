@@ -225,7 +225,9 @@ export function HostelPreviewPage() {
               <HostelRoom3DCanvas
                 capacity={room?.capacity || 2}
                 roomName={room?.name}
-                height={268}
+                features={room?.features}
+                included={room?.included}
+                height={272}
               />
             </section>
           </div>

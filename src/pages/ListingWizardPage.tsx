@@ -917,7 +917,9 @@ export function ListingWizardPage() {
                   <HostelRoom3DCanvas
                     capacity={rooms[0]?.capacity || 2}
                     roomName={rooms[0]?.name || 'Room option 1'}
-                    height={235}
+                    features={rooms[0]?.features}
+                    included={rooms[0]?.included}
+                    height={248}
                   />
                 </div>
 

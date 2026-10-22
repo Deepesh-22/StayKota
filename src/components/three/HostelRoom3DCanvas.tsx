@@ -1,421 +1,443 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Cuboid, RotateCcw } from 'lucide-react';
+import { Cuboid, Moon, RotateCcw, Sun } from 'lucide-react';
 import { RoomShowcase } from '../hostel/RoomShowcase';
+import {
+  detectGpuProfile,
+  disposeThreeScene,
+  hasWebGLSupport,
+  loadThree,
+} from '../../lib/gpu-budget';
 import '../../styles/three-scenes.css';
+
+export type RoomCameraPreset = 'isometric' | 'desk' | 'plan';
+export type RoomLightingMode = 'day' | 'night';
 
 export interface HostelRoom3DCanvasProps {
   capacity?: number;
   roomName?: string;
+  features?: string[];
+  included?: string[];
   height?: number;
   className?: string;
 }
 
+const CAMERA_PRESETS: Record<
+  RoomCameraPreset,
+  { azimuth: number; polar: number; radius: number; label: string }
+> = {
+  isometric: { azimuth: 0.72, polar: 0.58, radius: 6.35, label: '3D Cutaway' },
+  desk: { azimuth: 0.32, polar: 0.72, radius: 5.15, label: 'Study Desk' },
+  plan: { azimuth: 0.02, polar: 0.14, radius: 7.1, label: 'Floor Plan' },
+};
+
 /**
- * Interactive Three.js WebGL 3D Architectural Student Room Diorama.
- * Dynamically builds 1–4 student beds, study desk + glowing lamp, bookshelf,
- * wardrobe, sunlit Kota window, indoor plant, spinning ceiling fan & light motes.
- * Gracefully falls back to SVG cutaway if WebGL is unavailable (e.g. headless test runners).
+ * 25 Residences + Heron AI Parametric Three.js 3D Student Room & Floorplan Studio:
+ * - Dynamically constructs 1–4 student beds, study desk + glowing lamp, laptop,
+ *   bookshelf, wardrobe, split AC unit (when AC included), attached washroom door,
+ *   sunlit Kota window, indoor plant & ceiling fan from JSON room specs (0 MB GLBs!).
+ * - Live Day / Study Night lighting transition (smooth 60 FPS color & intensity lerp).
+ * - One-click camera presets (`3D Cutaway`, `Study Desk`, `Floor Plan` top-down view)
+ *   + horizontal/vertical drag-to-orbit inertia + clean WebGL disposal + SVG fallback.
  */
 export function HostelRoom3DCanvas({
   capacity = 2,
   roomName,
+  features = [],
+  included = [],
   height = 300,
   className = '',
 }: HostelRoom3DCanvasProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [webglReady, setWebglReady] = useState<boolean | null>(null);
-  const [autoSpin, setAutoSpin] = useState(true);
+  const [lightingMode, setLightingMode] = useState<RoomLightingMode>('day');
+  const [preset, setPreset] = useState<RoomCameraPreset>('isometric');
   const [dragging, setDragging] = useState(false);
 
+  const hasAC = [...features, ...included].some((item) => /\bac\b|air/i.test(item));
+  const hasAttachedBath = features.some((item) => /attached/i.test(item));
+
   const orbitRef = useRef({
-    targetAzimuth: 0.72,
-    azimuth: 0.72,
-    targetPolar: 0.56,
-    polar: 0.56,
+    targetAzimuth: CAMERA_PRESETS.isometric.azimuth,
+    azimuth: CAMERA_PRESETS.isometric.azimuth,
+    targetPolar: CAMERA_PRESETS.isometric.polar,
+    polar: CAMERA_PRESETS.isometric.polar,
+    targetRadius: CAMERA_PRESETS.isometric.radius,
+    radius: CAMERA_PRESETS.isometric.radius,
+    autoSway: true,
     isDragging: false,
     lastX: 0,
     lastY: 0,
   });
 
-  const autoSpinRef = useRef(autoSpin);
-  autoSpinRef.current = autoSpin;
+  const lightingRef = useRef<RoomLightingMode>(lightingMode);
+  lightingRef.current = lightingMode;
+
+  const applyPreset = (nextPreset: RoomCameraPreset) => {
+    setPreset(nextPreset);
+    const cfg = CAMERA_PRESETS[nextPreset];
+    orbitRef.current.targetAzimuth = cfg.azimuth;
+    orbitRef.current.targetPolar = cfg.polar;
+    orbitRef.current.targetRadius = cfg.radius;
+    orbitRef.current.autoSway = nextPreset === 'isometric';
+  };
 
   const resetCamera = () => {
-    orbitRef.current.targetAzimuth = 0.72;
-    orbitRef.current.targetPolar = 0.56;
+    applyPreset('isometric');
+    setLightingMode('day');
   };
 
   useEffect(() => {
     let cancelled = false;
     let rafId = 0;
+    let visible = true;
     let resizeObserver: ResizeObserver | null = null;
+    let intersectionObserver: IntersectionObserver | null = null;
     let cleanupThree: (() => void) | null = null;
 
-    const host = hostRef.current;
-    if (!host) return;
+    const el = hostRef.current;
+    if (!el) return;
 
-    const reducedMotion =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const profile = detectGpuProfile();
 
     (async () => {
       try {
-        const THREE = await import('three');
-        if (cancelled || !hostRef.current) return;
-
-        // Verify WebGL context creation safely before constructing full scene
-        const probeCanvas = document.createElement('canvas');
-        const gl =
-          probeCanvas.getContext('webgl2') ||
-          probeCanvas.getContext('webgl') ||
-          probeCanvas.getContext('experimental-webgl');
-        if (!gl) {
+        if (!hasWebGLSupport()) {
           if (!cancelled) setWebglReady(false);
           return;
         }
 
+        const THREE = await loadThree();
+        if (cancelled || !hostRef.current) return;
+
         const renderer = new THREE.WebGLRenderer({
-          antialias: true,
+          antialias: profile.antialias,
           alpha: true,
           powerPreference: 'high-performance',
         });
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-        renderer.shadowMap.enabled = true;
+        renderer.setPixelRatio(profile.dpr);
+        renderer.shadowMap.enabled = profile.shadows;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.06;
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
 
-        const width = Math.max(host.clientWidth, 280);
-        const initialHeight = Math.max(host.clientHeight, height);
-        renderer.setSize(width, initialHeight);
-        host.innerHTML = '';
-        host.appendChild(renderer.domElement);
+        const target = hostRef.current;
+        target.innerHTML = '';
+        target.appendChild(renderer.domElement);
 
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(34, width / initialHeight, 0.1, 60);
+        const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 50);
 
-        // Warm natural lighting rig
-        const hemi = new THREE.HemisphereLight(0xfffcf6, 0xd8e5db, 1.35);
-        scene.add(hemi);
+        // Dynamic Lighting (smoothly interpolated between Morning Sunlight & Night Study Mode)
+        const hemiLight = new THREE.HemisphereLight(0xf8fcf9, 0xd4e2d6, 1.35);
+        scene.add(hemiLight);
 
-        const sun = new THREE.DirectionalLight(0xfff3dd, 1.45);
-        sun.position.set(4.6, 7.2, 4.4);
-        sun.castShadow = true;
-        sun.shadow.mapSize.set(1024, 1024);
-        sun.shadow.camera.near = 1;
-        sun.shadow.camera.far = 20;
-        sun.shadow.camera.left = -4.5;
-        sun.shadow.camera.right = 4.5;
-        sun.shadow.camera.top = 4.5;
-        sun.shadow.camera.bottom = -4.5;
-        sun.shadow.bias = -0.0008;
-        scene.add(sun);
+        const sunLight = new THREE.DirectionalLight(0xfff4dc, 1.55);
+        sunLight.position.set(4.5, 6.8, 4.2);
+        sunLight.castShadow = profile.shadows;
+        sunLight.shadow.mapSize.set(profile.shadowMapSize, profile.shadowMapSize);
+        scene.add(sunLight);
 
-        const rim = new THREE.DirectionalLight(0xbde6d8, 0.55);
-        rim.position.set(-5, 4, -3);
-        scene.add(rim);
+        const deskLampLight = new THREE.PointLight(0xffb74d, 0.85, 4.6, 1.6);
+        deskLampLight.position.set(-1.18, 1.34, -1.08);
+        scene.add(deskLampLight);
 
-        // Root room diorama group
         const roomGroup = new THREE.Group();
-        roomGroup.position.y = -0.55;
+        roomGroup.position.y = -0.58;
         scene.add(roomGroup);
 
-        // Shared materials palette (StayKota warm architectural theme)
-        const matPlinth = new THREE.MeshStandardMaterial({ color: 0xdbe9df, roughness: 0.72 });
-        const matFloor = new THREE.MeshStandardMaterial({ color: 0xe6cfa8, roughness: 0.62 });
-        const matWall = new THREE.MeshStandardMaterial({ color: 0xfaf8f2, roughness: 0.85 });
-        const matTrim = new THREE.MeshStandardMaterial({ color: 0x0f766e, roughness: 0.45 });
-        const matWoodDark = new THREE.MeshStandardMaterial({ color: 0x9b734c, roughness: 0.58 });
-        const matWoodLight = new THREE.MeshStandardMaterial({ color: 0xc8a378, roughness: 0.55 });
-        const matSheet = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.75 });
-        const matDuvet = new THREE.MeshStandardMaterial({ color: 0x0f766e, roughness: 0.65 });
-        const matDuvetAlt = new THREE.MeshStandardMaterial({ color: 0x2f8f7f, roughness: 0.65 });
-        const matRug = new THREE.MeshStandardMaterial({ color: 0xd4e6da, roughness: 0.9 });
-        const matGlass = new THREE.MeshStandardMaterial({
-          color: 0xd6f0f6,
-          emissive: 0x9bd7e5,
+        // Architectural Shell Materials
+        const matFloor = new THREE.MeshStandardMaterial({ color: 0xe6d7c1, roughness: 0.78 });
+        const matWall = new THREE.MeshStandardMaterial({ color: 0xf7f6ef, roughness: 0.86 });
+        const matTrim = new THREE.MeshStandardMaterial({ color: 0xd0ded2, roughness: 0.7 });
+        const matWood = new THREE.MeshStandardMaterial({ color: 0xc29264, roughness: 0.62 });
+        const matDarkWood = new THREE.MeshStandardMaterial({ color: 0x8d6340, roughness: 0.68 });
+        const matMattress = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55 });
+        const matBlanket = new THREE.MeshStandardMaterial({ color: 0x0f766e, roughness: 0.62 });
+        const matPillow = new THREE.MeshStandardMaterial({ color: 0xe6f4ed, roughness: 0.6 });
+        const matSkyGlass = new THREE.MeshStandardMaterial({
+          color: 0xbae6fd,
+          emissive: 0x7dd3fc,
           emissiveIntensity: 0.35,
           roughness: 0.18,
         });
-        const matMetal = new THREE.MeshStandardMaterial({
-          color: 0x384b45,
-          metalness: 0.45,
-          roughness: 0.38,
-        });
-        const matLampGlow = new THREE.MeshStandardMaterial({
-          color: 0xffe4a8,
-          emissive: 0xffb84d,
-          emissiveIntensity: 1.2,
+        const matLampShade = new THREE.MeshStandardMaterial({
+          color: 0xfef08a,
+          emissive: 0xf59e0b,
+          emissiveIntensity: 0.65,
           roughness: 0.3,
         });
-        const matPlant = new THREE.MeshStandardMaterial({ color: 0x1c7c5c, roughness: 0.65 });
-        const matPot = new THREE.MeshStandardMaterial({ color: 0xc97b53, roughness: 0.7 });
 
-        // Base plinth & hardwood floor
-        const plinth = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.18, 4.1), matPlinth);
-        plinth.position.set(0, -0.1, 0);
-        plinth.receiveShadow = true;
-        roomGroup.add(plinth);
-
-        const trimRing = new THREE.Mesh(new THREE.BoxGeometry(4.54, 0.04, 4.14), matTrim);
-        trimRing.position.set(0, -0.02, 0);
-        roomGroup.add(trimRing);
-
-        const floor = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.1, 3.8), matFloor);
-        floor.position.set(0, 0.04, 0);
+        // Floor Slab + Back & Left Cutaway Walls
+        const floor = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.16, 3.4), matFloor);
+        floor.position.y = -0.08;
         floor.receiveShadow = true;
         roomGroup.add(floor);
 
-        // Woven bedroom rug
-        const rug = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.025, 1.5), matRug);
-        rug.position.set(0.15, 0.1, 0.25);
-        rug.receiveShadow = true;
-        roomGroup.add(rug);
-
-        // Cutaway back & left walls
-        const backWall = new THREE.Mesh(new THREE.BoxGeometry(4.2, 2.25, 0.12), matWall);
-        backWall.position.set(0, 1.18, -1.84);
-        backWall.castShadow = true;
+        const backWall = new THREE.Mesh(new THREE.BoxGeometry(3.8, 2.25, 0.14), matWall);
+        backWall.position.set(0, 1.12, -1.63);
         backWall.receiveShadow = true;
         roomGroup.add(backWall);
 
-        const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.25, 3.8), matWall);
-        leftWall.position.set(-2.04, 1.18, 0);
-        leftWall.castShadow = true;
+        const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.14, 2.25, 3.4), matWall);
+        leftWall.position.set(-1.83, 1.12, 0);
         leftWall.receiveShadow = true;
         roomGroup.add(leftWall);
 
-        // Window on back wall letting in morning light
-        const winFrame = new THREE.Mesh(new THREE.BoxGeometry(1.18, 0.96, 0.16), matWoodDark);
-        winFrame.position.set(0.35, 1.38, -1.83);
+        // Woven Study Rug
+        const rug = new THREE.Mesh(
+          new THREE.BoxGeometry(1.75, 0.025, 1.35),
+          new THREE.MeshStandardMaterial({ color: 0xdbece2, roughness: 0.92 }),
+        );
+        rug.position.set(0.05, 0.015, 0.25);
+        rug.receiveShadow = true;
+        roomGroup.add(rug);
+
+        // Kota Window on Back Wall
+        const winFrame = new THREE.Mesh(new THREE.BoxGeometry(1.18, 1.05, 0.18), matTrim);
+        winFrame.position.set(0.15, 1.32, -1.61);
         roomGroup.add(winFrame);
 
-        const winPane = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.8, 0.18), matGlass);
-        winPane.position.set(0.35, 1.38, -1.83);
+        const winPane = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.88, 0.2), matSkyGlass);
+        winPane.position.set(0.15, 1.32, -1.61);
         roomGroup.add(winPane);
 
-        // Helper to build a stylized bed unit
-        const createBed = (x: number, y: number, z: number, altColor = false) => {
-          const bed = new THREE.Group();
-          const frame = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.16, 1.82), matWoodDark);
-          frame.position.y = 0.16;
-          frame.castShadow = true;
-          frame.receiveShadow = true;
-          bed.add(frame);
-
-          const headboard = new THREE.Mesh(new THREE.BoxGeometry(0.94, 0.52, 0.08), matWoodDark);
-          headboard.position.set(0, 0.34, -0.88);
-          headboard.castShadow = true;
-          bed.add(headboard);
-
-          const mattress = new THREE.Mesh(new THREE.BoxGeometry(0.84, 0.15, 1.72), matSheet);
-          mattress.position.y = 0.3;
-          mattress.castShadow = true;
-          bed.add(mattress);
-
-          const duvet = new THREE.Mesh(
-            new THREE.BoxGeometry(0.86, 0.16, 1.18),
-            altColor ? matDuvetAlt : matDuvet,
+        // Parametric Split AC Unit (Heron AI style — rendered when AC feature present or multi-bed)
+        if (hasAC) {
+          const acBody = new THREE.Mesh(
+            new THREE.BoxGeometry(0.92, 0.24, 0.22),
+            new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.32 }),
           );
-          duvet.position.set(0, 0.31, 0.24);
-          duvet.castShadow = true;
-          bed.add(duvet);
+          acBody.position.set(0.15, 2.02, -1.48);
+          acBody.castShadow = profile.shadows;
+          roomGroup.add(acBody);
 
-          const pillow = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.1, 0.32), matSheet);
-          pillow.position.set(0, 0.41, -0.58);
-          pillow.castShadow = true;
-          bed.add(pillow);
-
-          bed.position.set(x, y, z);
-          return bed;
-        };
-
-        const clampedCap = Math.max(1, Math.min(4, Math.round(capacity)));
-        if (clampedCap === 1) {
-          roomGroup.add(createBed(-1.18, 0.09, -0.55));
-        } else if (clampedCap === 2) {
-          roomGroup.add(createBed(-1.26, 0.09, -0.68, false));
-          roomGroup.add(createBed(-0.12, 0.09, -0.68, true));
-        } else if (clampedCap === 3) {
-          roomGroup.add(createBed(-1.3, 0.09, -0.72, false));
-          roomGroup.add(createBed(-0.22, 0.09, -0.72, true));
-          const sideBed = createBed(-1.28, 0.09, 0.92, false);
-          sideBed.rotation.y = Math.PI / 2;
-          roomGroup.add(sideBed);
-        } else {
-          // Twin 2-tier bunk beds for 4-sharing room
-          roomGroup.add(createBed(-1.26, 0.09, -0.68, false));
-          roomGroup.add(createBed(-1.26, 0.98, -0.68, true));
-          roomGroup.add(createBed(-0.12, 0.09, -0.68, true));
-          roomGroup.add(createBed(-0.12, 0.98, -0.68, false));
-          [-1.7, -0.82, -0.56, 0.32].forEach((px) => {
-            [-1.54, 0.18].forEach((pz) => {
-              const post = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.5, 8), matWoodDark);
-              post.position.set(px, 0.84, pz);
-              roomGroup.add(post);
-            });
-          });
+          const acLed = new THREE.Mesh(
+            new THREE.BoxGeometry(0.08, 0.025, 0.02),
+            new THREE.MeshStandardMaterial({
+              color: 0x34d399,
+              emissive: 0x10b981,
+              emissiveIntensity: 0.9,
+            }),
+          );
+          acLed.position.set(0.48, 1.98, -1.36);
+          roomGroup.add(acLed);
         }
 
-        //Kota Student Study Desk + Chair + Laptop + Glowing Study Lamp
-        const deskTop = new THREE.Mesh(new THREE.BoxGeometry(1.18, 0.06, 0.62), matWoodLight);
-        deskTop.position.set(1.32, 0.76, -1.36);
-        deskTop.castShadow = true;
+        // Parametric Attached Washroom Door on Left Wall
+        if (hasAttachedBath) {
+          const doorFrame = new THREE.Mesh(new THREE.BoxGeometry(0.17, 1.62, 0.76), matTrim);
+          doorFrame.position.set(-1.8, 0.81, 0.95);
+          roomGroup.add(doorFrame);
+
+          const doorPanel = new THREE.Mesh(new THREE.BoxGeometry(0.19, 1.52, 0.66), matWood);
+          doorPanel.position.set(-1.79, 0.78, 0.95);
+          roomGroup.add(doorPanel);
+        }
+
+        // Study Desk + Laptop + Warm Study Lamp + Chair (Back-Left Corner)
+        const deskTop = new THREE.Mesh(new THREE.BoxGeometry(1.12, 0.06, 0.58), matWood);
+        deskTop.position.set(-1.12, 0.74, -1.22);
+        deskTop.castShadow = profile.shadows;
         roomGroup.add(deskTop);
 
-        [
-          [0.8, -1.6],
-          [1.84, -1.6],
-          [0.8, -1.12],
-          [1.84, -1.12],
-        ].forEach(([lx, lz]) => {
-          const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.68, 0.06), matMetal);
-          leg.position.set(lx, 0.42, lz);
-          leg.castShadow = true;
+        for (const [lx, lz] of [
+          [-1.6, -1.45],
+          [-0.64, -1.45],
+          [-1.6, -0.98],
+          [-0.64, -0.98],
+        ]) {
+          const leg = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.74, 0.05), matDarkWood);
+          leg.position.set(lx, 0.37, lz);
           roomGroup.add(leg);
-        });
+        }
 
-        // Laptop on desk
-        const laptopBase = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.02, 0.25), matMetal);
-        laptopBase.position.set(1.24, 0.8, -1.32);
+        // Laptop on study desk
+        const laptopBase = new THREE.Mesh(
+          new THREE.BoxGeometry(0.34, 0.02, 0.24),
+          new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4 }),
+        );
+        laptopBase.position.set(-1.02, 0.78, -1.18);
         roomGroup.add(laptopBase);
 
-        const laptopScreen = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.24, 0.02), matGlass);
-        laptopScreen.position.set(1.24, 0.91, -1.45);
-        laptopScreen.rotation.x = -0.22;
+        const laptopScreen = new THREE.Mesh(
+          new THREE.BoxGeometry(0.34, 0.22, 0.02),
+          new THREE.MeshStandardMaterial({
+            color: 0xe0f2fe,
+            emissive: 0x38bdf8,
+            emissiveIntensity: 0.45,
+          }),
+        );
+        laptopScreen.position.set(-1.02, 0.89, -1.3);
+        laptopScreen.rotation.x = -0.18;
         roomGroup.add(laptopScreen);
 
-        // Warm study desk lamp + point light
-        const lampShade = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.15, 14), matLampGlow);
-        lampShade.position.set(1.68, 1.04, -1.46);
-        roomGroup.add(lampShade);
+        // Study Lamp
+        const lampStem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.04, 0.3, 10), matDarkWood);
+        lampStem.position.set(-1.44, 0.91, -1.32);
+        roomGroup.add(lampStem);
 
-        const deskLight = new THREE.PointLight(0xffb85c, 0.85, 2.6);
-        deskLight.position.set(1.68, 0.96, -1.42);
-        roomGroup.add(deskLight);
+        const lampHead = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.14, 16), matLampShade);
+        lampHead.position.set(-1.38, 1.05, -1.28);
+        lampHead.rotation.z = -0.35;
+        roomGroup.add(lampHead);
 
-        // Ergonomic study chair
-        const chairSeat = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.06, 0.42), matDuvet);
-        chairSeat.position.set(1.26, 0.48, -0.82);
-        chairSeat.castShadow = true;
+        // Desk Chair
+        const chairSeat = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.06, 0.42), matBlanket);
+        chairSeat.position.set(-1.12, 0.46, -0.78);
         roomGroup.add(chairSeat);
 
-        const chairBack = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.06), matDuvet);
-        chairBack.position.set(1.26, 0.7, -0.63);
-        chairBack.castShadow = true;
-        roomGroup.add(chairBack);
-
-        // Wardrobe & indoor potted plant in front-right corner
-        const wardrobe = new THREE.Mesh(new THREE.BoxGeometry(0.55, 1.58, 0.95), matWoodLight);
-        wardrobe.position.set(1.68, 0.88, 0.35);
-        wardrobe.castShadow = true;
-        wardrobe.receiveShadow = true;
+        // Wardrobe (Left Wall)
+        const wardrobe = new THREE.Mesh(new THREE.BoxGeometry(0.48, 1.68, 0.86), matWood);
+        wardrobe.position.set(-1.5, 0.84, -0.12);
+        wardrobe.castShadow = profile.shadows;
         roomGroup.add(wardrobe);
 
-        const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.12, 0.26, 12), matPot);
-        pot.position.set(1.62, 0.22, 1.28);
-        pot.castShadow = true;
+        // Helper to build a single or stacked bunk bed dynamically for capacity 1..4
+        const buildBed = (bx: number, bz: number, by = 0, rotY = 0) => {
+          const bed = new THREE.Group();
+          bed.position.set(bx, by, bz);
+          bed.rotation.y = rotY;
+
+          const frame = new THREE.Mesh(new THREE.BoxGeometry(0.86, 0.18, 1.68), matWood);
+          frame.position.y = 0.22;
+          frame.castShadow = profile.shadows;
+          bed.add(frame);
+
+          const head = new THREE.Mesh(new THREE.BoxGeometry(0.88, 0.56, 0.08), matDarkWood);
+          head.position.set(0, 0.42, -0.82);
+          bed.add(head);
+
+          const mattress = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.14, 1.56), matMattress);
+          mattress.position.y = 0.36;
+          bed.add(mattress);
+
+          const duvet = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.15, 1.02), matBlanket);
+          duvet.position.set(0, 0.37, 0.24);
+          bed.add(duvet);
+
+          const pillow = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.09, 0.3), matPillow);
+          pillow.position.set(0, 0.46, -0.56);
+          bed.add(pillow);
+
+          roomGroup.add(bed);
+        };
+
+        const safeCap = Math.min(4, Math.max(1, Math.round(capacity)));
+        if (safeCap === 1) {
+          buildBed(1.12, -0.45);
+        } else if (safeCap === 2) {
+          buildBed(1.25, -0.52);
+          buildBed(0.18, 0.86, 0, Math.PI / 2);
+        } else if (safeCap === 3) {
+          buildBed(1.25, -0.52, 0);
+          buildBed(1.25, -0.52, 0.88);
+          buildBed(0.15, 0.88, 0, Math.PI / 2);
+        } else {
+          buildBed(1.25, -0.52, 0);
+          buildBed(1.25, -0.52, 0.88);
+          buildBed(0.15, 0.88, 0, Math.PI / 2);
+          buildBed(0.15, 0.88, 0.88, Math.PI / 2);
+        }
+
+        // Potted Plant
+        const pot = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.14, 0.11, 0.22, 14),
+          new THREE.MeshStandardMaterial({ color: 0xc97a53, roughness: 0.7 }),
+        );
+        pot.position.set(1.52, 0.11, 1.25);
         roomGroup.add(pot);
 
-        const foliage = new THREE.Mesh(new THREE.DodecahedronGeometry(0.24, 1), matPlant);
-        foliage.position.set(1.62, 0.52, 1.28);
-        foliage.castShadow = true;
-        roomGroup.add(foliage);
+        const leaves = new THREE.Mesh(
+          new THREE.DodecahedronGeometry(0.24, 1),
+          new THREE.MeshStandardMaterial({ color: 0x2f855a, roughness: 0.72 }),
+        );
+        leaves.position.set(1.52, 0.38, 1.25);
+        roomGroup.add(leaves);
 
-        // Overhead spinning ceiling fan
+        // Spinning Ceiling Fan
         const fanGroup = new THREE.Group();
-        fanGroup.position.set(0.15, 2.02, 0.05);
-        const fanHub = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.08, 16), matMetal);
+        fanGroup.position.set(0.05, 2.08, 0.05);
+        const fanHub = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.1, 0.1, 0.06, 16),
+          matTrim,
+        );
         fanGroup.add(fanHub);
         for (let b = 0; b < 3; b++) {
-          const blade = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.02, 0.12), matWoodDark);
-          const holder = new THREE.Group();
-          blade.position.x = 0.4;
-          holder.add(blade);
-          holder.rotation.y = (b * Math.PI * 2) / 3;
-          fanGroup.add(holder);
+          const blade = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.015, 0.11), matTrim);
+          blade.rotation.y = (b * Math.PI * 2) / 3;
+          blade.translateX(0.38);
+          fanGroup.add(blade);
         }
         roomGroup.add(fanGroup);
 
-        // Subtle floating sunlit dust motes
-        const particleCount = 26;
-        const particlePositions = new Float32Array(particleCount * 3);
-        for (let i = 0; i < particleCount; i++) {
-          particlePositions[i * 3] = (Math.random() - 0.5) * 3.2;
-          particlePositions[i * 3 + 1] = 0.3 + Math.random() * 1.6;
-          particlePositions[i * 3 + 2] = (Math.random() - 0.5) * 3.0;
-        }
-        const particleGeo = new THREE.BufferGeometry();
-        particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
-        const particleMat = new THREE.PointsMaterial({
-          color: 0x0f766e,
-          size: 0.045,
-          transparent: true,
-          opacity: 0.45,
-        });
-        const particles = new THREE.Points(particleGeo, particleMat);
-        roomGroup.add(particles);
+        const syncSize = () => {
+          if (!hostRef.current) return;
+          const w = Math.max(hostRef.current.clientWidth, 180);
+          const h = Math.max(hostRef.current.clientHeight, 150);
+          camera.aspect = w / h;
+          camera.updateProjectionMatrix();
+          renderer.setSize(w, h, false);
+        };
+        syncSize();
 
-        if (!cancelled) setWebglReady(true);
+        resizeObserver = new ResizeObserver(syncSize);
+        resizeObserver.observe(target);
 
+        intersectionObserver = new IntersectionObserver(
+          (entries) => {
+            visible = entries[0]?.isIntersecting ?? true;
+          },
+          { threshold: 0.05 },
+        );
+        intersectionObserver.observe(target);
+
+        const daySky = new THREE.Color(0xbae6fd);
+        const nightSky = new THREE.Color(0x1e293b);
         const clock = new THREE.Clock();
-        const radius = 6.35;
 
-        const renderFrame = () => {
-          const elapsed = clock.getElapsedTime();
+        const animate = () => {
+          rafId = requestAnimationFrame(animate);
+          if (!visible) return;
+
+          const t = clock.getElapsedTime();
           const orbit = orbitRef.current;
 
-          if (!reducedMotion && autoSpinRef.current && !orbit.isDragging) {
-            orbit.targetAzimuth = 0.72 + Math.sin(elapsed * 0.42) * 0.26;
+          if (!orbit.isDragging && orbit.autoSway && !profile.reducedMotion) {
+            orbit.azimuth += (orbit.targetAzimuth + Math.sin(t * 0.45) * 0.13 - orbit.azimuth) * 0.05;
+          } else {
+            orbit.azimuth += (orbit.targetAzimuth - orbit.azimuth) * 0.08;
           }
+          orbit.polar += (orbit.targetPolar - orbit.polar) * 0.08;
+          orbit.radius += (orbit.targetRadius - orbit.radius) * 0.08;
 
-          orbit.azimuth += (orbit.targetAzimuth - orbit.azimuth) * 0.085;
-          orbit.polar += (orbit.targetPolar - orbit.polar) * 0.085;
+          const sinPhi = Math.sin(orbit.polar);
+          camera.position.set(
+            orbit.radius * sinPhi * Math.sin(orbit.azimuth),
+            orbit.radius * Math.cos(orbit.polar),
+            orbit.radius * sinPhi * Math.cos(orbit.azimuth),
+          );
+          camera.lookAt(0, 0.18, 0);
 
-          camera.position.x = Math.sin(orbit.azimuth) * Math.cos(orbit.polar * 0.45) * radius;
-          camera.position.y = 2.65 + (orbit.polar - 0.56) * 2.2;
-          camera.position.z = Math.cos(orbit.azimuth) * Math.cos(orbit.polar * 0.45) * radius;
-          camera.lookAt(0, 0.22, 0);
+          // Smooth Day <-> Night Study lighting lerp (25 Residences style)
+          const isNight = lightingRef.current === 'night';
+          hemiLight.intensity += ((isNight ? 0.42 : 1.35) - hemiLight.intensity) * 0.07;
+          sunLight.intensity += ((isNight ? 0.18 : 1.55) - sunLight.intensity) * 0.07;
+          deskLampLight.intensity += ((isNight ? 2.65 : 0.75) - deskLampLight.intensity) * 0.08;
+          matSkyGlass.color.lerp(isNight ? nightSky : daySky, 0.07);
+          matSkyGlass.emissiveIntensity += ((isNight ? 0.08 : 0.35) - matSkyGlass.emissiveIntensity) * 0.07;
+          matLampShade.emissiveIntensity += ((isNight ? 1.2 : 0.55) - matLampShade.emissiveIntensity) * 0.08;
 
-          if (!reducedMotion) {
-            fanGroup.rotation.y = elapsed * 2.6;
-            particles.rotation.y = elapsed * 0.08;
-            roomGroup.position.y = -0.55 + Math.sin(elapsed * 1.1) * 0.02;
+          if (!profile.reducedMotion) {
+            fanGroup.rotation.y = t * 4.2;
           }
 
           renderer.render(scene, camera);
-          if (!reducedMotion) {
-            rafId = requestAnimationFrame(renderFrame);
-          }
         };
+        animate();
 
-        renderFrame();
-
-        resizeObserver = new ResizeObserver((entries) => {
-          const entry = entries[0];
-          if (!entry) return;
-          const w = Math.max(entry.contentRect.width, 200);
-          const h = Math.max(entry.contentRect.height, 180);
-          camera.aspect = w / h;
-          camera.updateProjectionMatrix();
-          renderer.setSize(w, h);
-          if (reducedMotion) renderFrame();
-        });
-        resizeObserver.observe(host);
+        if (!cancelled) setWebglReady(true);
 
         cleanupThree = () => {
-          cancelAnimationFrame(rafId);
-          resizeObserver?.disconnect();
-          scene.traverse((obj) => {
-            const mesh = obj as unknown as {
-              geometry?: { dispose: () => void };
-              material?: { dispose: () => void } | { dispose: () => void }[];
-            };
-            mesh.geometry?.dispose();
-            if (Array.isArray(mesh.material)) mesh.material.forEach((m) => m.dispose());
-            else mesh.material?.dispose();
-          });
-          renderer.dispose();
+          disposeThreeScene(scene, renderer);
         };
       } catch {
         if (!cancelled) setWebglReady(false);
@@ -426,12 +448,14 @@ export function HostelRoom3DCanvas({
       cancelled = true;
       cancelAnimationFrame(rafId);
       resizeObserver?.disconnect();
+      intersectionObserver?.disconnect();
       cleanupThree?.();
     };
-  }, [capacity, height]);
+  }, [capacity, hasAC, hasAttachedBath]);
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     orbitRef.current.isDragging = true;
+    orbitRef.current.autoSway = false;
     orbitRef.current.lastX = e.clientX;
     orbitRef.current.lastY = e.clientY;
     setDragging(true);
@@ -444,10 +468,13 @@ export function HostelRoom3DCanvas({
     const dy = e.clientY - orbitRef.current.lastY;
     orbitRef.current.lastX = e.clientX;
     orbitRef.current.lastY = e.clientY;
-    orbitRef.current.targetAzimuth -= dx * 0.009;
+    orbitRef.current.targetAzimuth = Math.max(
+      -0.65,
+      Math.min(1.45, orbitRef.current.targetAzimuth - dx * 0.008),
+    );
     orbitRef.current.targetPolar = Math.max(
-      0.22,
-      Math.min(0.95, orbitRef.current.targetPolar + dy * 0.005),
+      0.14,
+      Math.min(1.15, orbitRef.current.targetPolar - dy * 0.006),
     );
   };
 
@@ -461,36 +488,49 @@ export function HostelRoom3DCanvas({
       className={['sk-room3d', dragging ? 'sk-room3d--dragging' : '', className]
         .filter(Boolean)
         .join(' ')}
-      style={{ ['--sk-room3d-height' as string]: `${height}px` }}
-      aria-label={`Interactive 3D room model${roomName ? ` for ${roomName}` : ''}`}
+      style={{ '--sk-room3d-height': `${height}px` } as React.CSSProperties}
+      aria-label={roomName ? `3D model of ${roomName}` : '3D student room model'}
     >
       <div className="sk-room3d__hud-top">
         <span className="sk-room3d__badge">
-          <span className="sk-room3d__dot" />
           <Cuboid size={13} />
-          THREE.JS 3D ROOM VIEW
+          {lightingMode === 'night' ? 'NIGHT STUDY LIGHTING' : '3D ROOM STUDIO'}
         </span>
-        {webglReady && (
-          <div className="sk-room3d__controls">
+
+        <div className="sk-room3d__controls">
+          <button
+            type="button"
+            className={`sk-room3d__btn${lightingMode === 'night' ? ' is-active' : ''}`}
+            onClick={() => setLightingMode((m) => (m === 'day' ? 'night' : 'day'))}
+            aria-pressed={lightingMode === 'night'}
+            title="Switch between morning sunlight and night study lamp lighting"
+          >
+            {lightingMode === 'day' ? <Moon size={11} /> : <Sun size={11} />}
+            {lightingMode === 'day' ? 'Study night' : 'Morning sun'}
+          </button>
+
+          {(['isometric', 'desk', 'plan'] as RoomCameraPreset[]).map((key) => (
             <button
+              key={key}
               type="button"
-              className={`sk-room3d__btn${autoSpin ? ' is-active' : ''}`}
-              onClick={() => setAutoSpin((v) => !v)}
-              aria-pressed={autoSpin}
+              className={`sk-room3d__btn sk-room3d__btn--preset${preset === key ? ' is-active' : ''}`}
+              onClick={() => applyPreset(key)}
+              aria-pressed={preset === key}
             >
-              {autoSpin ? 'Auto-sway' : 'Paused'}
+              {CAMERA_PRESETS[key].label}
             </button>
-            <button
-              type="button"
-              className="sk-room3d__btn"
-              onClick={resetCamera}
-              aria-label="Reset 3D camera angle"
-              title="Reset 3D angle"
-            >
-              <RotateCcw size={12} /> Reset
-            </button>
-          </div>
-        )}
+          ))}
+
+          <button
+            type="button"
+            className="sk-room3d__btn"
+            onClick={resetCamera}
+            aria-label="Reset 3D camera angle"
+            title="Reset 3D camera & lighting"
+          >
+            <RotateCcw size={11} />
+          </button>
+        </div>
       </div>
 
       <div
@@ -510,7 +550,9 @@ export function HostelRoom3DCanvas({
 
       <div className="sk-room3d__hud-bottom">
         <span className="sk-room3d__hint">
-          {webglReady ? 'Drag horizontally to orbit 3D room' : 'Concept cutaway view'}
+          {hasAC ? 'AC · ' : ''}
+          {hasAttachedBath ? 'Attached bath · ' : ''}
+          {webglReady ? 'Drag to orbit' : 'Concept cutaway'}
         </span>
         <span className="sk-room3d__cap-pill">
           {capacity} {capacity === 1 ? 'Student · Single' : `Students · ${capacity}-Sharing`}

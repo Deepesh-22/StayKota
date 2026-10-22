@@ -489,7 +489,9 @@ export function HostelDetailPage() {
                     <HostelRoom3DCanvas
                       capacity={selectedRoom.capacity}
                       roomName={selectedRoom.name}
-                      height={260}
+                      features={selectedRoom.features}
+                      included={selectedRoom.included}
+                      height={272}
                     />
                   </div>
                 </div>

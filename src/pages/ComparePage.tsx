@@ -130,6 +130,17 @@ export function ComparePage() {
     distanceKm: distanceKm(hostel, campus),
   }));
 
+  const bestMonthly = rows
+    .filter((entry): entry is { hostel: Hostel; room: RoomType } => Boolean(entry.room))
+    .sort((a, b) => monthlyTotal(a.room) - monthlyTotal(b.room))[0];
+  const closestStay = rows
+    .map((entry) => ({ ...entry, dist: distanceKm(entry.hostel, campus) }))
+    .filter((entry): entry is typeof entry & { dist: number } => entry.dist !== null)
+    .sort((a, b) => a.dist - b.dist)[0];
+  const lowestDeposit = rows
+    .filter((entry): entry is { hostel: Hostel; room: RoomType } => Boolean(entry.room))
+    .sort((a, b) => a.room.deposit - b.room.deposit)[0];
+
   return (
     <div className="compare-page">
       <div className="compare-hero-band sk-horizon-wrap">
@@ -197,6 +208,32 @@ export function ComparePage() {
           </div>
         ) : (
           <>
+            {selected.length >= 2 && (
+              <div className="compare-insights" aria-label="Quick shortlist highlights">
+                {bestMonthly && (
+                  <div className="compare-insight-pill">
+                    <small>LOWEST FIXED MONTHLY</small>
+                    <strong>{bestMonthly.hostel.name}</strong>
+                    <span>₹{monthlyTotal(bestMonthly.room).toLocaleString('en-IN')}/mo</span>
+                  </div>
+                )}
+                {closestStay && (
+                  <div className="compare-insight-pill">
+                    <small>CLOSEST TO CAMPUS</small>
+                    <strong>{closestStay.hostel.name}</strong>
+                    <span>{formatDistance(closestStay.dist)} straight-line</span>
+                  </div>
+                )}
+                {lowestDeposit && (
+                  <div className="compare-insight-pill">
+                    <small>LOWEST SECURITY DEPOSIT</small>
+                    <strong>{lowestDeposit.hostel.name}</strong>
+                    <span>₹{lowestDeposit.room.deposit.toLocaleString('en-IN')} refundable</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             <KotaShortlist3DCanvas
               items={skylineItems}
               campusName={`${campus.institute} · ${campus.name}`}

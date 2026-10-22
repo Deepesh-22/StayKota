@@ -8,6 +8,7 @@ import { HostelRoom3DCanvas } from '../src/components/three/HostelRoom3DCanvas';
 import { KotaHorizon3DCanvas } from '../src/components/three/KotaHorizon3DCanvas';
 import { KotaBeacon3DCanvas } from '../src/components/three/KotaBeacon3DCanvas';
 import { KotaShortlist3DCanvas } from '../src/components/three/KotaShortlist3DCanvas';
+import { detectGpuProfile } from '../src/lib/gpu-budget';
 import { AppProvider } from '../src/context/AppContext';
 import { CompareProvider } from '../src/context/CompareContext';
 import { HostelTransitionProvider } from '../src/context/HostelTransitionContext';
@@ -384,5 +385,73 @@ describe('StayKota Non-Homepage UI/UX, CustomSelect & 3D Interactions', () => {
     expect(document.querySelector('.workspace-kpis')).not.toBeNull();
 
     localStorage.clear();
+  });
+
+  it('supports 40k-student GPU quality profiling, 3D Kota Coaching Micro-City hub switching on ExplorePage, and 25 Residences Day/Night + Floor Plan room controls', () => {
+    const profile = detectGpuProfile();
+    expect(['high', 'balanced', 'lite']).toContain(profile.tier);
+    expect(profile.dpr).toBeGreaterThan(0);
+
+    mount(
+      <AppProvider>
+        <CompareProvider>
+          <MemoryRouter initialEntries={['/explore']}>
+            <HostelTransitionProvider>
+              <ExplorePage />
+            </HostelTransitionProvider>
+          </MemoryRouter>
+        </CompareProvider>
+      </AppProvider>,
+    );
+
+    const districtSection = document.querySelector('.sk-district3d');
+    expect(districtSection).not.toBeNull();
+    const hubPills = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('.sk-district3d__pills button[aria-pressed]'),
+    );
+    expect(hubPills.length).toBe(6);
+
+    // Click "Talwandi" coaching hub pill and verify ExplorePage updates active coaching campus live
+    const talwandiPill = hubPills.find((btn) => btn.textContent?.includes('Talwandi'))!;
+    expect(talwandiPill).toBeDefined();
+    act(() => {
+      talwandiPill.click();
+    });
+    expect(talwandiPill.getAttribute('aria-pressed')).toBe('true');
+    expect(document.querySelector('.discovery-results-heading h2')?.textContent).toContain('Talwandi');
+
+    // Verify 25 Residences + Heron AI Day/Night & Floor Plan camera presets on HostelRoom3DCanvas
+    act(() => {
+      root?.unmount();
+    });
+    container?.remove();
+
+    mount(
+      <HostelRoom3DCanvas
+        capacity={2}
+        roomName="Double AC Room"
+        features={['AC', 'Attached bathroom']}
+        height={272}
+      />,
+    );
+
+    expect(document.body.textContent).toContain('AC ·');
+    expect(document.body.textContent).toContain('Attached bath ·');
+
+    const nightToggle = Array.from(document.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Study night'),
+    )!;
+    act(() => {
+      nightToggle.click();
+    });
+    expect(document.body.textContent).toContain('NIGHT STUDY LIGHTING');
+
+    const floorPlanBtn = Array.from(document.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Floor Plan',
+    )!;
+    act(() => {
+      floorPlanBtn.click();
+    });
+    expect(floorPlanBtn.getAttribute('aria-pressed')).toBe('true');
   });
 });
