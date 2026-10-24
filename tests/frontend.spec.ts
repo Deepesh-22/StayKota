@@ -1006,3 +1006,71 @@ test('an immediate touch swipe interrupts the opened landing card positioning an
   await expect(deck.locator('article.is-revealed')).toHaveCount(1);
   await context.close();
 });
+
+test('Kota sketch reveals locally, settles on exit and offers a keyboard colour control', async ({ page }) => {
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/');
+  const mask = page.locator('.ks-reveal');
+  const surface = page.locator('.ks-surface');
+  await expect(mask).toHaveCSS('opacity', '0');
+  const box = (await surface.boundingBox())!;
+  await page.mouse.move(box.x + box.width * .6, box.y + box.height * .43);
+  await expect.poll(() => mask.evaluate(node => Number(getComputedStyle(node).opacity))).toBeGreaterThan(.98);
+  await expect.poll(() => page.locator('.ks-lift').evaluateAll(nodes => Math.min(...nodes.map(node => parseFloat((node as SVGElement).style.getPropertyValue('--lift')))))).toBeLessThan(-3);
+  await expect(page.locator('.ks-map-plane')).not.toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)');
+  await page.mouse.move(0, 0);
+  await expect.poll(() => mask.evaluate(node => Number(getComputedStyle(node).opacity))).toBeLessThan(.001);
+  const toggle = page.getByRole('button', { name: 'Bring it to life' });
+  await toggle.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('button', { name: 'Back to sketch' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(mask).toHaveCSS('opacity', '1');
+  await page.keyboard.press('Space');
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  await expect(mask).toHaveCSS('opacity', '0');
+  expect(errors).toEqual([]);
+});
+
+test('Kota sketch campus pins update the preview, search and map without losing room filters', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Monthly budget', { exact: true }).selectOption('8000');
+  await page.getByLabel('My kind of room').selectOption('double');
+  const pin = page.getByRole('button', { name: 'Choose ALLEN Talwandi campus', exact: true });
+  await pin.focus();
+  await page.keyboard.press('Enter');
+  await expect(pin).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByLabel('My coaching campus')).toHaveValue('allen-talwandi');
+  const preview = page.locator('.ks-stay');
+  await expect(preview).toHaveAttribute('href', /campus=allen-talwandi.*room=/);
+  await expect(page.locator('.ks-caption a')).toHaveAttribute('href', '/map?campus=allen-talwandi');
+  await preview.click();
+  await expect(page).toHaveURL(/\/hostel\/.*\/preview\?.*campus=allen-talwandi/);
+  await page.goBack();
+  // Campus choices not drawn in the illustration remain available in the full selector.
+  await page.getByLabel('My coaching campus').selectOption('pw-demo');
+  await page.getByLabel('Monthly budget', { exact: true }).selectOption('8000');
+  await page.getByLabel('My kind of room').selectOption('double');
+  await expect(page.locator('.ks-caption a')).toHaveAttribute('href', '/map?campus=pw-demo');
+  await page.getByRole('button', { name: 'Find my stay', exact: true }).click();
+  await expect(page).toHaveURL(/campus=pw-demo&maxBudget=8000&sharing=double/);
+});
+
+test('touch and reduced-motion users can explore the Kota hero without hover or page overflow', async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Bring it to life' }).tap();
+  await expect(page.locator('.ks-reveal')).toHaveCSS('opacity', '1');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole('button', { name: 'Choose ALLEN Talwandi campus', exact: true }).tap();
+  await expect(page.getByLabel('My coaching campus')).toHaveValue('allen-talwandi');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(page.locator('.ks-colour-toggle')).toBeHidden();
+  await expect(page.locator('.ks-reduced-hint')).toBeVisible();
+  await expect(page.locator('.ks-colour-layer')).toHaveCSS('mask-image', 'none');
+  await expect(page.locator('.ks-map-plane')).toHaveCSS('transform', 'none');
+  await expect(page.locator('.ks-lift').first()).toHaveCSS('transform', 'none');
+  await page.getByRole('button', { name: 'Find my stay', exact: true }).tap();
+  await expect(page).toHaveURL(/campus=allen-talwandi/);
+  await context.close();
+});

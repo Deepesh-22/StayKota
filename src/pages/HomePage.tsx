@@ -4,11 +4,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowDown, ArrowRight, ArrowUpRight, BedDouble, Check, ChevronDown, GraduationCap, MapPin, Search, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { FeaturedHostelDeck } from '../components/home/FeaturedHostelDeck';
-import { KotaNeighbourhood } from '../components/home/KotaNeighbourhood';
+import { KotaSketchHero } from '../components/home/KotaSketchHero';
 import { CAMPUSES, DEFAULT_CAMPUS_ID } from '../data/campuses';
 import { distanceKm, getCampus, getMatchingRooms } from '../lib/discovery';
 import type { SharingType } from '../types';
 import '../styles/home.css';
+import '../styles/kota-sketch-hero.css';
 
 const STEPS = [
   { number: '01', title: 'Your campus. Your corner.', description: 'Choose your coaching campus, then find a neighbourhood that fits your day.', icon: GraduationCap },
@@ -62,14 +63,15 @@ export function HomePage() {
       <section className="home-hero" aria-labelledby="home-heading">
         <div className="home-hero-inner home-container">
           <div className="home-hero-copy">
-            <div className="home-eyebrow"><span className="home-status-dot" /> A new city. A place of your own.</div>
+            <div className="home-eyebrow"><span className="home-status-dot" /> A NEW CITY. YOUR NEXT CHAPTER.</div>
             <h1 id="home-heading">Your Kota{' '}<br />starts <span className="home-heading-here">here.<svg viewBox="0 0 260 25" aria-hidden="true"><path d="M6 17C67 4 159 3 251 11M54 23C116 12 179 12 221 16" /></svg></span></h1>
-            <p className="home-hero-description">Big dreams need a little space.<br className="home-desktop-break" /> Find yours, close to your coaching.</p>
+            <p className="home-hero-description">A room near your coaching. A favourite riverside walk. A little corner of this city to call your own.</p>
             <div className="home-hero-detail"><span><Check size={14} /> Clear room costs</span><span><Check size={14} /> Your campus, nearby</span></div>
+            <Link to={`/map?campus=${campusId}`} className="home-hero-map-link">Get to know Kota <ArrowUpRight size={17} aria-hidden="true" /></Link>
           </div>
 
           <div className="home-hero-art">
-            <KotaNeighbourhood campus={campus} onCampusChange={changeCampus} hostel={selectedItem?.hostel} room={selectedItem?.rooms[0]} />
+            <KotaSketchHero campus={campus} onCampusChange={changeCampus} hostel={selectedItem?.hostel} room={selectedItem?.rooms[0]} />
           </div>
 
           <div className="home-search-wrap">
