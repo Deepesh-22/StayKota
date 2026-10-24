@@ -9,6 +9,7 @@ import '../../styles/discovery.css';
 import { hostelPreviewHref } from '../../lib/hostel-navigation';
 import { locationLabel } from '../../lib/location-status';
 import { RoomCardStage } from './RoomCardStage';
+import { FeaturedHostelStage } from '../home/FeaturedHostelStage';
 
 export interface HostelCardProps {
   hostel: Hostel;
@@ -18,12 +19,13 @@ export interface HostelCardProps {
   compact?: boolean;
   active?: boolean;
   onShowMap?: (id: string) => void;
+  reveal?: { expanded: boolean; onToggle: () => void };
 }
 
 const money = (amount: number) => `₹${amount.toLocaleString('en-IN')}`;
 const sharingLabel = (sharing: string) => ({ single: 'Single room', double: 'Double sharing', triple: 'Triple sharing', four: 'Four sharing' } as Record<string, string>)[sharing] || sharing;
 
-export function HostelCard({ hostel, room, campus, onHover, compact = false, active = false, onShowMap }: HostelCardProps) {
+export function HostelCard({ hostel, room, campus, onHover, compact = false, active = false, onShowMap, reveal }: HostelCardProps) {
   const { user, toggleFavourite, isFavourite } = useApp();
   const { comparisonIds, toggleCompare, isCompared } = useCompare();
   const navigate = useNavigate();
@@ -58,14 +60,14 @@ export function HostelCard({ hostel, room, campus, onHover, compact = false, act
   return (
     <article
       data-hostel-id={hostel.id}
-      className={`discovery-card${active ? ' discovery-card--active' : ''}${compact ? ' discovery-card--compact' : ''}${compared ? ' discovery-card--compared' : ''}`}
+      className={`discovery-card${active ? ' discovery-card--active' : ''}${compact ? ' discovery-card--compact' : ''}${compared ? ' discovery-card--compared' : ''}${reveal ? ' discovery-card--reveal' : ''}${reveal?.expanded ? ' is-revealed' : ''}`}
       onMouseEnter={() => onHover?.(hostel.id)}
       onMouseLeave={() => onHover?.(null)}
       onFocus={() => onHover?.(hostel.id)}
       onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) onHover?.(null); }}
     >
       <div className="discovery-card-photo">
-        <RoomCardStage hostel={hostel} room={selectedRoom} href={href}/>
+        {reveal ? <FeaturedHostelStage hostel={hostel} room={selectedRoom} expanded={reveal.expanded} onToggle={reveal.onToggle} /> : <RoomCardStage hostel={hostel} room={selectedRoom} href={href}/>}
         <span className="discovery-card-category">{hostel.category === 'co-ed' ? 'Co-ed' : hostel.category === 'girls' ? 'For girls' : 'For boys'}</span>
         <button type="button" className={`discovery-save${saved ? ' is-saved' : ''}`} onClick={save} disabled={studentOnly} aria-pressed={saved}
           aria-label={studentOnly ? 'A student account is needed to save hostels' : `${saved ? 'Remove' : 'Save'} ${hostel.name}${saved ? ' from saved hostels' : ' to saved hostels'}`}
@@ -73,12 +75,20 @@ export function HostelCard({ hostel, room, campus, onHover, compact = false, act
           <Heart size={18} fill={saved ? 'currentColor' : 'none'} strokeWidth={1.8} />
         </button>
       </div>
-      <div className="discovery-card-content">
+      {reveal && <div className="featured-card-summary" aria-hidden={reveal.expanded} inert={reveal.expanded}>
+        <button type="button" className="featured-card-summary-open" data-carousel-drag-surface aria-expanded={reveal.expanded} aria-controls={`featured-photos-${hostel.id} featured-info-${hostel.id}`} aria-label={`Open a closer look at ${hostel.name}`} onClick={reveal.onToggle}>
+          <span className="featured-card-name" role="heading" aria-level={3}>{hostel.name}</span>
+          <span className="featured-card-locality"><MapPin size={12} aria-hidden="true" />{hostel.locality}, Kota</span>
+          <span className="featured-card-summary-bottom"><span className="featured-card-starting-price"><strong>{total != null ? money(total) : 'Currently full'}</strong>{total != null && <small>total / month</small>}</span><span className="featured-card-open-cue">Explore <ArrowUpRight size={16} aria-hidden="true" /></span></span>
+        </button>
+      </div>}
+      <div className="discovery-card-content" id={reveal ? `featured-info-${hostel.id}` : undefined} aria-hidden={reveal ? !reveal.expanded : undefined} inert={reveal ? !reveal.expanded : undefined}>
         <div className="discovery-card-heading">
           <div><h3><Link to={href}>{hostel.name}</Link></h3><p className="discovery-card-locality"><MapPin size={12} aria-hidden="true" />{hostel.locality}, Kota</p></div>
           {campus && <div className="discovery-card-distance"><strong>{formatDistance(distance)}</strong><span>{distance == null ? 'distance unavailable' : 'straight-line'}</span></div>}
         </div>
         {campus && <p className="discovery-card-campus"><GraduationCap size={14} aria-hidden="true" />{campus.institute} · {campus.name}</p>}
+        {reveal?.expanded && <div className="featured-reveal-address"><span>A LITTLE CLOSER TO HOME</span><p>{hostel.address}</p></div>}
         {onShowMap && <button type="button" className="discovery-show-map" onClick={() => onShowMap(hostel.id)}><MapPin size={14} />Show on map</button>}
         <div className="discovery-card-roomline"><span className={`discovery-room-tag${selectedRoom ? '' : ' discovery-room-tag--full'}`}>{selectedRoom ? sharingLabel(selectedRoom.sharingType) : 'Currently full'}</span><span className="discovery-sample-tag">{locationLabel(hostel)}</span></div>
         <div className="discovery-card-pricing">
