@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+const geography = JSON.parse(readFileSync(new URL('../src/data/kota-geography.json', import.meta.url), 'utf8'));
 import { minimumKotaZoom } from '../src/lib/map-area';
 import { expect, test, type Page } from '@playwright/test';
 
@@ -1007,70 +1009,99 @@ test('an immediate touch swipe interrupts the opened landing card positioning an
   await context.close();
 });
 
-test('Kota sketch reveals locally, settles on exit and offers a keyboard colour control', async ({ page }) => {
+// These tests exercise the real MapLibre renderer using explicit geographic fixtures.
+// Live OpenFreeMap availability is not implied by a passing test.
+async function stubHeroGeography(page: Page) {
+  await page.route('https://tiles.openfreemap.org/styles/liberty', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({
+    version: 8,
+    sources: { geography: { type: 'geojson', data: geography } },
+    layers: [
+      { id: 'background', type: 'background', paint: { 'background-color': '#f5f2e9' } },
+      { id: 'landcover', type: 'fill', source: 'geography', filter: ['==', ['get', 'layer'], 'urban'] },
+      { id: 'waterway', type: 'line', source: 'geography', filter: ['==', ['get', 'layer'], 'river'], paint: { 'line-width': 5 } },
+      { id: 'roads', type: 'line', source: 'geography', filter: ['==', ['get', 'layer'], 'roads'], paint: { 'line-width': 2 } },
+    ],
+  }) }));
+}
+
+test('geographic hero keeps an honest sourced map when tiles fail and reveals colour by mouse or keyboard', async ({ page }) => {
+  await page.route('https://tiles.openfreemap.org/styles/liberty', route => route.fulfill({ status: 503 }));
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
-  const mask = page.locator('.ks-reveal');
-  const surface = page.locator('.ks-surface');
-  await expect(mask).toHaveCSS('opacity', '0');
-  const box = (await surface.boundingBox())!;
-  await page.mouse.move(box.x + box.width * .6, box.y + box.height * .43);
-  await expect.poll(() => mask.evaluate(node => Number(getComputedStyle(node).opacity))).toBeGreaterThan(.98);
-  await expect.poll(() => page.locator('.ks-lift').evaluateAll(nodes => Math.min(...nodes.map(node => parseFloat((node as SVGElement).style.getPropertyValue('--lift')))))).toBeLessThan(-3);
-  await expect(page.locator('.ks-map-plane')).not.toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)');
+  await expect(page.locator('.kota-atlas')).toHaveAttribute('data-map-state', 'error');
+  await expect(page.locator('.atlas-service-status')).toContainText('generalised geographic overview');
+  await expect(page.locator('.atlas-ink [data-layer="urban"]')).toHaveCount(1);
+  await expect(page.locator('.atlas-ink [data-layer="river"]')).toHaveCount(1);
+  await expect(page.getByRole('link', { name: 'Map data: Natural Earth' })).toBeVisible();
+  const lens = page.locator('.atlas-lens');
+  await expect(lens).toHaveCSS('opacity', '0');
+  const box = (await page.locator('.atlas-svg').boundingBox())!;
+  await page.mouse.move(box.x + box.width * .55, box.y + box.height * .45);
+  await expect.poll(() => lens.evaluate(node => Number(getComputedStyle(node).opacity))).toBeGreaterThan(.98);
   await page.mouse.move(0, 0);
-  await expect.poll(() => mask.evaluate(node => Number(getComputedStyle(node).opacity))).toBeLessThan(.001);
-  const toggle = page.getByRole('button', { name: 'Bring it to life' });
-  await toggle.focus();
+  await expect.poll(() => lens.evaluate(node => Number(getComputedStyle(node).opacity))).toBeLessThan(.001);
+  await page.getByRole('button', { name: 'Show all colours' }).focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('button', { name: 'Back to sketch' })).toHaveAttribute('aria-pressed', 'true');
-  await expect(mask).toHaveCSS('opacity', '1');
+  await expect(page.getByRole('button', { name: 'Show ink sketch' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(lens).toHaveCSS('opacity', '1');
   await page.keyboard.press('Space');
-  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
-  await expect(mask).toHaveCSS('opacity', '0');
+  await expect(lens).toHaveCSS('opacity', '0');
   expect(errors).toEqual([]);
 });
 
-test('Kota sketch campus pins update the preview, search and map without losing room filters', async ({ page }) => {
+test('geographic hero aligns both map treatments and releases the renderer after loading vector data', async ({ page }) => {
+  await stubHeroGeography(page);
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
-  await page.getByLabel('Monthly budget', { exact: true }).selectOption('8000');
-  await page.getByLabel('My kind of room').selectOption('double');
-  const pin = page.getByRole('button', { name: 'Choose ALLEN Talwandi campus', exact: true });
-  await pin.focus();
+  await expect(page.locator('.kota-atlas')).toHaveAttribute('data-map-state', 'ready');
+  const ink = page.locator('.atlas-ink image');
+  await expect(ink).toHaveAttribute('href', /^blob:/);
+  await expect(page.locator('.atlas-colour image')).toHaveAttribute('href', /^blob:/);
+  await expect(page.locator('.atlas-colour image')).not.toHaveAttribute('href', (await ink.getAttribute('href'))!);
+  for (const attribute of ['width', 'height']) await expect(page.locator('.atlas-colour image')).toHaveAttribute(attribute, (await ink.getAttribute(attribute))!);
+  await expect(page.locator('.atlas-ink .atlas-path')).toHaveCount(0);
+  await expect(page.locator('.atlas-renderer canvas')).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'OpenStreetMap contributors', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'OpenFreeMap', exact: false })).toBeVisible();
+  await page.getByRole('button', { name: '03 North Kota' }).focus();
   await page.keyboard.press('Enter');
-  await expect(pin).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByLabel('My coaching campus')).toHaveValue('allen-talwandi');
-  const preview = page.locator('.ks-stay');
-  await expect(preview).toHaveAttribute('href', /campus=allen-talwandi.*room=/);
-  await expect(page.locator('.ks-caption a')).toHaveAttribute('href', '/map?campus=allen-talwandi');
-  await preview.click();
-  await expect(page).toHaveURL(/\/hostel\/.*\/preview\?.*campus=allen-talwandi/);
-  await page.goBack();
-  // Campus choices not drawn in the illustration remain available in the full selector.
+  await expect(page.getByRole('button', { name: '03 North Kota' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.atlas-map-note')).toContainText('north side');
+  await page.getByLabel('My coaching campus').selectOption('allen-talwandi');
+  await expect(page.locator('.atlas-open-map')).toHaveAttribute('href', '/map?campus=allen-talwandi');
+  expect(errors).toEqual([]);
+});
+
+test('geographic hero retries failed map data without resetting a chosen focus area', async ({ page }) => {
+  await page.route('https://tiles.openfreemap.org/styles/liberty', route => route.fulfill({ status: 503 }));
+  await page.goto('/');
+  await expect(page.locator('.kota-atlas')).toHaveAttribute('data-map-state', 'error');
+  await page.getByRole('button', { name: '02 The Chambal' }).click();
+  await stubHeroGeography(page);
+  await page.getByRole('button', { name: 'Retry street detail' }).click();
+  await expect(page.locator('.kota-atlas')).toHaveAttribute('data-map-state', 'ready');
+  await expect(page.getByRole('button', { name: '02 The Chambal' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.atlas-map-note')).toContainText('Follow the river');
+  await expect(page.locator('.atlas-service-status')).toHaveCount(0);
+});
+
+test('geographic hero works on touch and with reduced motion while retaining campus search', async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  await page.route('https://tiles.openfreemap.org/styles/liberty', route => route.fulfill({ status: 503 }));
+  await page.goto('/');
+  await page.getByRole('button', { name: '04 South Kota' }).tap();
+  await expect(page.getByRole('button', { name: '04 South Kota' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.atlas-lens')).toHaveCSS('opacity', '1');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(page.locator('.atlas-colour-toggle')).toBeHidden();
+  await expect(page.locator('.atlas-reduced-hint')).toBeVisible();
+  await expect(page.locator('.atlas-colour')).toHaveCSS('mask-image', 'none');
   await page.getByLabel('My coaching campus').selectOption('pw-demo');
   await page.getByLabel('Monthly budget', { exact: true }).selectOption('8000');
   await page.getByLabel('My kind of room').selectOption('double');
-  await expect(page.locator('.ks-caption a')).toHaveAttribute('href', '/map?campus=pw-demo');
-  await page.getByRole('button', { name: 'Find my stay', exact: true }).click();
-  await expect(page).toHaveURL(/campus=pw-demo&maxBudget=8000&sharing=double/);
-});
-
-test('touch and reduced-motion users can explore the Kota hero without hover or page overflow', async ({ browser, baseURL }) => {
-  const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-  const page = await context.newPage();
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Bring it to life' }).tap();
-  await expect(page.locator('.ks-reveal')).toHaveCSS('opacity', '1');
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.getByRole('button', { name: 'Choose ALLEN Talwandi campus', exact: true }).tap();
-  await expect(page.getByLabel('My coaching campus')).toHaveValue('allen-talwandi');
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await expect(page.locator('.ks-colour-toggle')).toBeHidden();
-  await expect(page.locator('.ks-reduced-hint')).toBeVisible();
-  await expect(page.locator('.ks-colour-layer')).toHaveCSS('mask-image', 'none');
-  await expect(page.locator('.ks-map-plane')).toHaveCSS('transform', 'none');
-  await expect(page.locator('.ks-lift').first()).toHaveCSS('transform', 'none');
   await page.getByRole('button', { name: 'Find my stay', exact: true }).tap();
-  await expect(page).toHaveURL(/campus=allen-talwandi/);
+  await expect(page).toHaveURL(/campus=pw-demo&maxBudget=8000&sharing=double/);
   await context.close();
 });

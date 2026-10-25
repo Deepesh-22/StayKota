@@ -175,3 +175,34 @@ describe('Kota map navigation area', () => {
     expect(Number.isFinite(minimumKotaZoom(0,0))).toBe(true);
   });
 });
+
+describe('geographic landing hero', () => {
+  it('retains geographic orientation and projects a two-kilometre scale at Kota latitude', async () => {
+    const { projectKota, ATLAS_TWO_KM, KOTA_GEOGRAPHY, KOTA_GEOGRAPHIC_PATHS } = await import('../src/lib/hero-geography');
+    const centre = projectKota(75.84, 25.18);
+    expect(projectKota(75.85, 25.18)[0]).toBeGreaterThan(centre[0]);
+    expect(projectKota(75.84, 25.19)[1]).toBeLessThan(centre[1]);
+    expect(centre[0]).toBeGreaterThan(0); expect(centre[0]).toBeLessThan(700);
+    expect(centre[1]).toBeGreaterThan(0); expect(centre[1]).toBeLessThan(650);
+    expect(ATLAS_TWO_KM).toBeGreaterThan(40); expect(ATLAS_TWO_KM).toBeLessThan(60);
+    expect(KOTA_GEOGRAPHY.metadata.license).toBe('Public domain');
+    expect(KOTA_GEOGRAPHIC_PATHS.find(path => path.layer === 'urban')?.d.endsWith('Z')).toBe(true);
+    expect(KOTA_GEOGRAPHIC_PATHS.find(path => path.layer === 'river')?.name).toBe('Chambal');
+  });
+  it('keeps source coordinates and road filters while dropping POIs and unused sprite sources', async () => {
+    const { heroMapStyle } = await import('../src/lib/hero-map-style');
+    const source = { type: 'vector' as const, url: 'https://example.test/real-vector-data.json' };
+    const filter: ['==', string, string] = ['==', 'class', 'primary'];
+    const result = heroMapStyle({ version: 8, glyphs: 'unused', sprite: 'unused', sources: { streets: source, unused: { type: 'geojson', data: { type: 'FeatureCollection', features: [] } } }, layers: [
+      { id: 'background', type: 'background' },
+      { id: 'road', type: 'line', source: 'streets', 'source-layer': 'transportation', filter, paint: { 'line-width': 2 } },
+      { id: 'water', type: 'fill', source: 'streets', 'source-layer': 'water' },
+      { id: 'shops', type: 'symbol', source: 'streets', 'source-layer': 'poi' },
+    ] });
+    expect(result.sources.streets).toEqual(source);
+    expect(result.sources.unused).toBeUndefined();
+    expect(result.layers.find(layer => layer.id === 'road')).toMatchObject({ filter, 'source-layer': 'transportation', paint: { 'line-width': 2 } });
+    expect(result.layers.some(layer => layer.type === 'symbol')).toBe(false);
+    expect(result.sprite).toBeUndefined(); expect(result.glyphs).toBeUndefined();
+  });
+});

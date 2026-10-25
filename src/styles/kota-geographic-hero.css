@@ -1,0 +1,132 @@
+/* Editorial atlas: real geographic shapes in ink, with a registered colour reveal. */
+.home-hero--geographic { background: #f5f2e9; padding: 35px 0 22px; }
+.home-hero--geographic .home-hero-inner { grid-template-columns: 32% 68%; }
+.home-hero--geographic .home-hero-copy { padding: 32px 15px 55px 0; }
+.home-hero--geographic .home-eyebrow { color: #726e63; font-family: ui-monospace, monospace; font-size: 10px; letter-spacing: .19em; margin-bottom: 24px; }
+.home-hero--geographic .home-status-dot { background: #c66537; box-shadow: 0 0 0 5px #c6653710; }
+.home-hero--geographic h1 { color: #292b26; font-size: clamp(52px, 5vw, 72px); letter-spacing: -.065em; line-height: 1.06; }
+.home-hero--geographic .home-heading-here { color: #be6037; }
+.home-hero--geographic .home-heading-here svg { display: none; }
+.home-hero--geographic .home-hero-description { color: #6b6b60; font-size: 14px; max-width: 280px; line-height: 1.9; margin-top: 25px; }
+.home-hero--geographic .home-hero-detail { flex-wrap: wrap; gap: 12px; font-size: 10px; }
+.home-hero--geographic .home-hero-map-link { margin-top: 27px; display: inline-flex; align-items: center; gap: 18px; border-bottom: 1px solid #8d9888; padding-bottom: 9px; font-size: 12px; }
+.home-hero--geographic .home-hero-art { height: auto; margin: 0 -26px 0 -36px; min-width: 0; max-width: 760px; align-self: center; }
+.home-hero--geographic .home-search-wrap { margin-top: 23px; }
+.kota-atlas { margin: 0; color: #373b31; }
+.atlas-coordinates { text-align: right; padding-right: 10px; font-family: ui-monospace, monospace; font-size: 8px; letter-spacing: .07em; line-height: 1.9; color: #6c6f61; }
+.atlas-coordinates span { display: block; }
+.atlas-composition { display: grid; grid-template-columns: minmax(0, 1fr) 140px; align-items: center; }
+.atlas-map { position: relative; min-width: 0; }
+.atlas-svg { display: block; width: 100%; aspect-ratio: 700 / 650; overflow: hidden; touch-action: pan-y pinch-zoom; }
+.atlas-path { vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
+.atlas-urban { fill: #efede2; stroke: #42483c; stroke-width: 1.3; }
+.atlas-roads { fill: none; stroke: #999b8c; stroke-width: .9; }
+.atlas-river { fill: none; stroke: #535f56; stroke-width: 2; }
+.atlas-colour .atlas-urban { fill: #c4d2a5; stroke: #647a50; stroke-width: 1.4; }
+.atlas-colour .atlas-roads { stroke: #cf8d56; stroke-width: 2.7; }
+.atlas-colour .atlas-river { stroke: #4c9ca8; stroke-width: 6; }
+.atlas-lettering { pointer-events: none; fill: #40493c; text-anchor: middle; }
+.atlas-city-name { font-size: 23px; letter-spacing: 8px; font-weight: 600; paint-order: stroke; stroke: #f5f2e9; stroke-width: 4px; stroke-linejoin: round; }
+.atlas-city-subtitle { font-size: 7px; letter-spacing: 2px; }
+.atlas-river-name { font-family: Georgia, serif; font-style: italic; font-size: 12px; letter-spacing: 2px; fill: #587a78; paint-order: stroke; stroke: #f5f2e9; stroke-width: 3; }
+.atlas-lens { opacity: 0; }
+.atlas-focus { opacity: 0; pointer-events: none; transition: opacity .2s; }
+.atlas-focus.is-visible { opacity: 1; }
+.atlas-focus-halo { fill: #c9673420; }
+.atlas-focus-dot { fill: #c96734; stroke: #fff4df; stroke-width: 3; }
+.atlas-compass { fill: #565e4e; font-size: 10px; font-family: ui-monospace, monospace; }
+.atlas-compass-line { stroke: #8e9484; fill: none; stroke-width: 1; }
+.atlas-scale { fill: #777e6c; font: 8px ui-monospace, monospace; letter-spacing: 1px; }
+.atlas-scale path { fill: none; stroke: #777e6c; stroke-width: 1; }
+.atlas-map-note { position: absolute; bottom: 2%; left: 40%; pointer-events: none; }
+.atlas-map-note > span { color: #7b806e; font: 7px ui-monospace, monospace; letter-spacing: .1em; }
+.atlas-map-note p { color: #4d5d46; font-size: 11px; margin-top: 7px; font-family: Georgia, serif; font-style: italic; }
+.atlas-areas { align-self: center; padding: 30px 0 0 8px; }
+.atlas-area-kicker { display: block; font: 7px ui-monospace, monospace; letter-spacing: .16em; color: #797b6d; margin-bottom: 20px; }
+.atlas-area-list { border-right: 1px solid #a5a897; position: relative; }
+.atlas-area-list::after { content: ''; position: absolute; top: 0; bottom: 0; right: -3px; width: 7px; background: repeating-linear-gradient(to bottom, transparent 0px, transparent 7px, #8f9586 7px, #8f9586 8px); pointer-events: none; }
+.atlas-area-list button { display: flex; align-items: center; gap: 7px; width: 100%; min-height: 47px; padding: 8px 0 8px 0; text-align: left; cursor: pointer; font-size: 14px; font-family: ui-monospace, monospace; color: #616555; position: relative; }
+.atlas-area-number { font-size: 7px; color: #959784; }
+.atlas-area-tick { height: 1px; width: 7px; background: #7c8572; margin-left: auto; transition: width .2s, background .2s; }
+.atlas-area-list button.is-active { color: #c66537; }
+.atlas-area-list button.is-active .atlas-area-tick { background: #c66537; width: 17px; height: 2px; }
+.atlas-area-footnote { color: #7d816f; font-size: 8px; line-height: 1.7; display: block; margin-top: 15px; }
+.atlas-open-map { display: flex; align-items: center; gap: 6px; color: #3e5c48; font-size: 10px; margin-top: 26px; min-height: 44px; border-top: 1px solid #d6d8c7; padding-top: 10px; }
+.atlas-open-map > svg:last-child { margin-left: auto; width: 13px; }
+.atlas-bottom { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 10px 0 33px; border-top: 1px solid #dddfd0; padding-top: 10px; }
+.atlas-bottom p { font-size: 10px; color: #6f7864; margin: 0; }
+.atlas-colour-toggle { display: flex; align-items: center; gap: 7px; padding: 10px 12px; background: #edece1; border: 1px solid #d8dbca; border-radius: 24px; min-height: 44px; font-size: 10px; color: #4b6148; cursor: pointer; flex-shrink: 0; }
+.atlas-colour-toggle:hover, .atlas-colour-toggle[aria-pressed='true'] { background: #dee7cc; border-color: #a5b791; }
+.atlas-attribution { display: flex; justify-content: space-between; gap: 14px; margin: 10px 10px 0 33px; font-size: 8px; color: #777d6c; }
+.atlas-attribution a { text-decoration: underline; text-underline-offset: 3px; }
+.atlas-touch-hint, .atlas-reduced-hint { display: none; }
+.kota-atlas button:focus-visible, .kota-atlas a:focus-visible, .home-hero-map-link:focus-visible { outline: 2px solid #a45129; outline-offset: 4px; }
+@media (max-width: 1199px) {
+  .home-hero--geographic .home-hero-inner { grid-template-columns: 34% 66%; }
+  .home-hero--geographic .home-hero-art { margin-left: -20px; margin-right: -14px; }
+  .home-hero--geographic h1 { font-size: 60px; }
+  .atlas-composition { grid-template-columns: minmax(0, 1fr) 116px; }
+  .atlas-area-list button { font-size: 12px; }
+  .atlas-area-kicker { font-size: 6px; }
+  .atlas-area-number { display: none; }
+  .atlas-bottom { margin-left: 18px; }
+  .atlas-bottom p { font-size: 9px; max-width: 170px; line-height: 1.6; }
+  .atlas-map-note p { font-size: 10px; }
+}
+@media (max-width: 959px) and (min-width: 768px) {
+  .home-hero--geographic h1 { font-size: 51px; }
+  .home-hero--geographic .home-hero-description { font-size: 12px; max-width: 220px; }
+  .atlas-composition { grid-template-columns: minmax(0, 1fr) 98px; }
+  .atlas-area-list button { font-size: 10px; min-height: 44px; }
+  .atlas-area-footnote { font-size: 7px; }
+  .atlas-map-note { left: 27%; bottom: 0; }
+  .atlas-map-note p { font-size: 8px; }
+  .atlas-bottom { margin-top: 21px; }
+  .atlas-attribution { font-size: 7px; margin-left: 18px; }
+}
+@media (max-width: 767px) {
+  .home-hero--geographic { padding-top: 10px; }
+  .home-hero--geographic .home-hero-inner { grid-template-columns: 1fr; }
+  .home-hero--geographic .home-hero-copy { padding: 24px 3px 15px; }
+  .home-hero--geographic .home-eyebrow { font-size: 8px; margin-bottom: 17px; }
+  .home-hero--geographic h1 { font-size: clamp(50px, 14vw, 70px); }
+  .home-hero--geographic .home-hero-description { max-width: 310px; font-size: 13px; margin-top: 20px; }
+  .home-hero--geographic .home-hero-map-link { margin-top: 18px; font-size: 11px; padding-bottom: 6px; }
+  .home-hero--geographic .home-hero-art { grid-row: 2; margin: 17px -4px 0; height: auto; }
+  .home-hero--geographic .home-search-wrap { grid-row: 3; margin-top: 24px; }
+  .atlas-coordinates { font-size: 7px; }
+  .atlas-composition { grid-template-columns: 1fr; }
+  .atlas-map { margin: -8px -12px 0; }
+  .atlas-map-note { bottom: 1%; left: 36%; }
+  .atlas-areas { padding: 12px 8px 0; }
+  .atlas-area-kicker { font-size: 7px; margin-bottom: 10px; }
+  .atlas-area-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; border: 0; }
+  .atlas-area-list::after { display: none; }
+  .atlas-area-list button { border: 1px solid #dedfcf; border-radius: 5px; padding: 10px; min-height: 44px; font-size: 11px; }
+  .atlas-area-list button.is-active { border-color: #c79a77; background: #f1e6d7; }
+  .atlas-area-number { display: inline; }
+  .atlas-area-tick { display: none; }
+  .atlas-area-footnote { display: none; }
+  .atlas-open-map { margin-top: 7px; padding-top: 0; border: 0; font-size: 11px; }
+  .atlas-bottom { margin: 0 8px; padding-top: 10px; }
+  .atlas-bottom p { font-size: 9px; }
+  .atlas-colour-toggle { font-size: 9px; padding: 8px 10px; }
+  .atlas-attribution { margin: 10px 8px 0; font-size: 7px; line-height: 1.6; }
+  .atlas-attribution > span { max-width: 170px; }
+  .home-campus-section { padding-top: 24px; }
+}
+@media (hover: none), (pointer: coarse) { .atlas-desktop-hint { display: none; } .atlas-touch-hint { display: inline; } }
+@media (prefers-reduced-motion: reduce) {
+  .atlas-colour { mask: none; }
+  .atlas-colour-toggle { display: none; }
+  .atlas-desktop-hint, .atlas-touch-hint { display: none; }
+  .atlas-reduced-hint { display: inline; }
+}
+.kota-atlas { position: relative; }
+.atlas-renderer-shell { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+.atlas-renderer { width: 700px; height: 650px; position: relative; }
+.atlas-renderer .maplibregl-canvas-container { width: 100%; height: 100%; }
+.atlas-renderer canvas { position: absolute; left: 0; top: 0; }
+.atlas-service-status { font-size: 9px; color: #737867; margin: 10px 10px 0 33px; line-height: 1.7; }
+.atlas-service-status button { margin-left: 8px; text-decoration: underline; cursor: pointer; color: #87512f; min-height: 32px; }
+@media (max-width: 767px) { .atlas-service-status { margin-inline: 8px; font-size: 8px; } }
