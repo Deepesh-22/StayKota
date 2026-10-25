@@ -7,7 +7,7 @@ import { useFeaturedDeckMotion } from './useFeaturedDeckMotion';
 import '../../styles/featured-reveal.css';
 
 export function FeaturedHostelDeck({ items, campus, onActiveChange }: {
-  items: { hostel: Hostel; rooms: RoomType[] }[]; campus: Campus; onActiveChange: (index: number) => void;
+  items: { hostel: Hostel; rooms: RoomType[] }[]; campus: Campus; onActiveChange?: (index: number) => void;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -29,7 +29,7 @@ export function FeaturedHostelDeck({ items, campus, onActiveChange }: {
       const cards = [...deck.children] as HTMLElement[];
       const nearest = currentExpandedId ? items.findIndex(item => item.hostel.id === currentExpandedId) : cards.reduce((best, card, index) => Math.abs(card.offsetLeft - deck.scrollLeft) < Math.abs(cards[best].offsetLeft - deck.scrollLeft) ? index : best, 0);
       setActiveIndex(nearest);
-      onActiveChange(nearest);
+      onActiveChange?.(nearest);
     };
     update();
     deck.addEventListener('scroll', update, { passive: true });
