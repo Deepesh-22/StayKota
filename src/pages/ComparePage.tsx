@@ -6,9 +6,7 @@ import { useCompare } from '../context/CompareContext';
 import { CAMPUSES } from '../data/campuses';
 import { distanceKm, formatDistance, getCampus, getMatchingRooms, monthlyTotal } from '../lib/discovery';
 import { CustomSelect } from '../components/ui/CustomSelect';
-import { KotaHorizon3DCanvas } from '../components/three/KotaHorizon3DCanvas';
 import { KotaShortlist3DCanvas } from '../components/three/KotaShortlist3DCanvas';
-import { KotaBeacon3DCanvas } from '../components/three/KotaBeacon3DCanvas';
 import type { Hostel, RoomType } from '../types';
 import '../styles/compare.css';
 
@@ -130,11 +128,21 @@ export function ComparePage() {
     distanceKm: distanceKm(hostel, campus),
   }));
 
+  const bestMonthly = rows
+    .filter((entry): entry is { hostel: Hostel; room: RoomType } => Boolean(entry.room))
+    .sort((a, b) => monthlyTotal(a.room) - monthlyTotal(b.room))[0];
+  const closestStay = rows
+    .map((entry) => ({ ...entry, dist: distanceKm(entry.hostel, campus) }))
+    .filter((entry): entry is typeof entry & { dist: number } => entry.dist !== null)
+    .sort((a, b) => a.dist - b.dist)[0];
+  const lowestDeposit = rows
+    .filter((entry): entry is { hostel: Hostel; room: RoomType } => Boolean(entry.room))
+    .sort((a, b) => a.room.deposit - b.room.deposit)[0];
+
   return (
     <div className="compare-page">
-      <div className="compare-hero-band sk-horizon-wrap">
-        <KotaHorizon3DCanvas />
-        <div className="compare-shell sk-horizon-content">
+      <div className="compare-hero-band">
+        <div className="compare-shell">
           <Link className="compare-back" to={`/explore?campus=${campus.id}`}>
             <ArrowLeft size={15} />
             Back to exploring
@@ -183,10 +191,7 @@ export function ComparePage() {
 
         {selected.length === 0 ? (
           <div className="compare-empty">
-            <div className="compare-empty__scene">
-              <KotaBeacon3DCanvas mode="campus" height={220} label="SHORTLIST IN 3D" compact />
-            </div>
-            <Scale size={32} strokeWidth={1.5} />
+            <Scale size={40} strokeWidth={1.5} />
             <h2>A shortlist starts with a possibility.</h2>
             <p>
               Add up to three hostels while exploring, then compare their rooms, commute distance and fixed monthly costs side by side here.
@@ -197,6 +202,32 @@ export function ComparePage() {
           </div>
         ) : (
           <>
+            {selected.length >= 2 && (
+              <div className="compare-insights" aria-label="Quick shortlist highlights">
+                {bestMonthly && (
+                  <div className="compare-insight-pill">
+                    <small>LOWEST FIXED MONTHLY</small>
+                    <strong>{bestMonthly.hostel.name}</strong>
+                    <span>₹{monthlyTotal(bestMonthly.room).toLocaleString('en-IN')}/mo</span>
+                  </div>
+                )}
+                {closestStay && (
+                  <div className="compare-insight-pill">
+                    <small>CLOSEST TO CAMPUS</small>
+                    <strong>{closestStay.hostel.name}</strong>
+                    <span>{formatDistance(closestStay.dist)} straight-line</span>
+                  </div>
+                )}
+                {lowestDeposit && (
+                  <div className="compare-insight-pill">
+                    <small>LOWEST SECURITY DEPOSIT</small>
+                    <strong>{lowestDeposit.hostel.name}</strong>
+                    <span>₹{lowestDeposit.room.deposit.toLocaleString('en-IN')} refundable</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             <KotaShortlist3DCanvas
               items={skylineItems}
               campusName={`${campus.institute} · ${campus.name}`}

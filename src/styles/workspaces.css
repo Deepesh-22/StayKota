@@ -190,6 +190,10 @@
   box-shadow: 0 22px 48px -18px rgba(12, 50, 42, 0.34);
 }
 
+.workspace-welcome--clean {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .workspace-welcome .workspace-eyebrow {
   color: #99f6e4;
 }

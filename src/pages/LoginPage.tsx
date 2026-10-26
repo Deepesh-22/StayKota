@@ -4,8 +4,6 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Check, Calendar, Heart, Shield } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Button } from '../components/ui/Button';
-import { KotaHorizon3DCanvas } from '../components/three/KotaHorizon3DCanvas';
-import { KotaBeacon3DCanvas } from '../components/three/KotaBeacon3DCanvas';
 import type { UserRole } from '../types';
 import '../styles/public-support.css';
 
@@ -145,19 +143,15 @@ export function LoginPage() {
   return (
     <div className="login-page min-h-[calc(100vh-4rem)] bg-[#faf8f5] flex items-center justify-center px-4 py-10 animate-fade-in">
       <div className="login-shell w-full max-w-5xl grid lg:grid-cols-2 rounded-3xl overflow-hidden shadow-xl border border-slate-100 bg-white">
-        <div className="login-art-panel sk-horizon-wrap relative hidden lg:flex flex-col justify-between">
-          <KotaHorizon3DCanvas fullMask />
-          <Link to="/" className="login-brand sk-horizon-content inline-flex items-center gap-2.5 self-start"><div className="w-9 h-9 flex items-center justify-center font-bold text-white">S</div><span className="font-semibold text-lg">StayKota</span></Link>
-          <div className="sk-horizon-content">
+        <div className="login-art-panel relative hidden lg:flex flex-col justify-between">
+          <Link to="/" className="login-brand inline-flex items-center gap-2.5 self-start"><div className="w-9 h-9 flex items-center justify-center font-bold text-white">S</div><span className="font-semibold text-lg">StayKota</span></Link>
+          <div>
             <p className="public-eyebrow mb-4">Same city. Bigger dreams.</p>
             <h2>Your next chapter<br/><em>starts close by.</em></h2>
             <p className="mt-4 text-sm leading-relaxed max-w-xs">A room near your coaching. A little space to make your own. Find your starting point in Kota.</p>
-            <div className="login-scene">
-              <KotaBeacon3DCanvas mode="campus" height={214} label="DRAG TO ORBIT · 3D" compact />
-            </div>
             <div className="login-benefits"><span><Check size={12}/> Clear room costs</span><span><Heart size={12}/> Your shortlist</span><span><Calendar size={12}/> Plan a visit</span></div>
           </div>
-          <p className="login-reassurance sk-horizon-content">Frontend preview · all listings are sample content.<br/>Demo login saves your session on this device. No real SMS is sent.</p>
+          <p className="login-reassurance">Frontend preview · all listings are sample content.<br/>Demo login saves your session on this device. No real SMS is sent.</p>
         </div>
 
         {/* Right panel */}

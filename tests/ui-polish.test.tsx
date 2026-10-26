@@ -4,10 +4,8 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { CustomSelect } from '../src/components/ui/CustomSelect';
-import { HostelRoom3DCanvas } from '../src/components/three/HostelRoom3DCanvas';
-import { KotaHorizon3DCanvas } from '../src/components/three/KotaHorizon3DCanvas';
-import { KotaBeacon3DCanvas } from '../src/components/three/KotaBeacon3DCanvas';
 import { KotaShortlist3DCanvas } from '../src/components/three/KotaShortlist3DCanvas';
+import { detectGpuProfile } from '../src/lib/gpu-budget';
 import { AppProvider } from '../src/context/AppContext';
 import { CompareProvider } from '../src/context/CompareContext';
 import { HostelTransitionProvider } from '../src/context/HostelTransitionContext';
@@ -18,6 +16,7 @@ import { HomePage } from '../src/pages/HomePage';
 import { HostelDetailPage } from '../src/pages/HostelDetailPage';
 import { HostelPreviewPage } from '../src/pages/HostelPreviewPage';
 import { HowItWorksPage } from '../src/pages/HowItWorksPage';
+import { LoginPage } from '../src/pages/LoginPage';
 import { NotFoundPage } from '../src/pages/NotFoundPage';
 import { StudentDashboard } from '../src/pages/StudentDashboard';
 
@@ -55,7 +54,7 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
-describe('StayKota Non-Homepage UI/UX, CustomSelect & 3D Interactions', () => {
+describe('StayKota Non-Homepage UI/UX, CustomSelect & Compare 3D Skyline', () => {
   it('opens custom animated popover menu, selects an option, and stays synced with native select for accessibility/Playwright', () => {
     const onChange = vi.fn();
     mount(
@@ -92,7 +91,6 @@ describe('StayKota Non-Homepage UI/UX, CustomSelect & 3D Interactions', () => {
     expect(onChange).toHaveBeenCalledWith('8000');
     expect(document.querySelector('.sk-select__menu')).toBeNull();
 
-    // Verify native <select> programmatic change (used by Playwright .selectOption()) also works seamlessly
     const nativeSelect = document.getElementById('budget-filter') as HTMLSelectElement;
     expect(nativeSelect).not.toBeNull();
     act(() => {
@@ -143,7 +141,7 @@ describe('StayKota Non-Homepage UI/UX, CustomSelect & 3D Interactions', () => {
     expect(document.querySelector('.sk-select__menu')).toBeNull();
   });
 
-  it('renders ExplorePage with custom dropdowns and interactive 3D pointer-tilt HostelCards', () => {
+  it('renders ExplorePage cleanly without 3D micro-city box while preserving custom dropdowns and interactive pointer-tilt HostelCards', () => {
     mount(
       <AppProvider>
         <CompareProvider>
@@ -155,6 +153,18 @@ describe('StayKota Non-Homepage UI/UX, CustomSelect & 3D Interactions', () => {
         </CompareProvider>
       </AppProvider>,
     );
+
+    // Explicitly verify 3D Kota Coaching Micro-City & horizon 3D canvas are completely removed
+    expect(document.querySelector('.sk-district3d')).toBeNull();
+    expect(document.querySelector('.sk-horizon3d')).toBeNull();
+    expect(document.body.textContent).not.toContain('3D KOTA COACHING MICRO-CITY');
+
+    // Verify HostelCards show ONLY the 1st photo with NO Room toggle and NO Left/Right photo buttons
+    expect(document.querySelector('.room-card-model')).toBeNull();
+    expect(document.querySelector('.room-card-views')).toBeNull();
+    expect(document.querySelector('.room-card-photo-controls')).toBeNull();
+    const cardPhotos = document.querySelectorAll('.discovery-card .room-card-photo');
+    expect(cardPhotos.length).toBeGreaterThan(0);
 
     const customSelects = document.querySelectorAll('.discovery-page .sk-select');
     expect(customSelects.length).toBe(4);
@@ -194,7 +204,7 @@ describe('StayKota Non-Homepage UI/UX, CustomSelect & 3D Interactions', () => {
     expect(firstCard.style.getPropertyValue('--card-rx')).toBe('0deg');
   });
 
-  it('renders 3D interactive isometric journey cards on HowItWorksPage', () => {
+  it('renders HowItWorksPage and LoginPage cleanly without any 3D beacon or horizon models', () => {
     mount(
       <MemoryRouter initialEntries={['/how-it-works']}>
         <HowItWorksPage />
@@ -204,9 +214,30 @@ describe('StayKota Non-Homepage UI/UX, CustomSelect & 3D Interactions', () => {
     const stepCards = document.querySelectorAll('.help-step.sk-tilt-3d');
     expect(stepCards).toHaveLength(3);
     expect(document.querySelectorAll('.help-step__stage')).toHaveLength(3);
+    expect(document.querySelector('.sk-beacon3d')).toBeNull();
+    expect(document.querySelector('.sk-horizon3d')).toBeNull();
+    expect(document.body.textContent).not.toContain('INTERACTIVE 3D KOTA GUIDE');
+
+    act(() => {
+      root?.unmount();
+    });
+    container?.remove();
+
+    mount(
+      <AppProvider>
+        <MemoryRouter initialEntries={['/login']}>
+          <LoginPage />
+        </MemoryRouter>
+      </AppProvider>,
+    );
+
+    expect(document.body.textContent).toContain('Your next chapter');
+    expect(document.body.textContent).toContain('starts close by.');
+    expect(document.querySelector('.sk-beacon3d')).toBeNull();
+    expect(document.querySelector('.sk-horizon3d')).toBeNull();
   });
 
-  it('renders redesigned HostelDetailPage below untouched CurvedPhotoGallery with 4-metric overview, 3D room stage, transparent ledger, and concierge sidebar', () => {
+  it('renders redesigned HostelDetailPage below untouched CurvedPhotoGallery without the 3D cutaway box', () => {
     localStorage.setItem(
       'staykota_user',
       JSON.stringify({ id: 'u-student', name: 'Aarav Sharma', email: 'student@demo.local', role: 'student' }),
@@ -234,9 +265,9 @@ describe('StayKota Non-Homepage UI/UX, CustomSelect & 3D Interactions', () => {
     expect(document.querySelectorAll('.detail-metric-tile')).toHaveLength(4);
     expect(document.querySelectorAll('.detail-anchor-nav a')).toHaveLength(5);
 
-    // Interactive Three.js 3D room cutaway stage, bento amenity cards, and sticky visit concierge sidebar
-    expect(document.querySelector('.detail-room-scene.detail-room-scene--3d')).not.toBeNull();
-    expect(document.querySelector('.detail-room-scene__canvas .sk-room3d__canvas-host')).not.toBeNull();
+    // Verify 3D room cutaway is completely removed while rooms, amenities, costs & sidebar remain clean
+    expect(document.querySelector('.detail-room-scene')).toBeNull();
+    expect(document.body.textContent).not.toContain('THREE.JS 3D CUTAWAY');
     expect(document.querySelectorAll('.detail-amenity-card').length).toBeGreaterThan(0);
     expect(document.querySelector('.detail-sidebar .detail-enquiry')).not.toBeNull();
     expect(document.querySelector('#detail-costs .detail-price')).not.toBeNull();
@@ -245,7 +276,7 @@ describe('StayKota Non-Homepage UI/UX, CustomSelect & 3D Interactions', () => {
     localStorage.clear();
   });
 
-  it('renders redesigned HostelPreviewPage with room switcher pills, Three.js 3D room diorama, and full-detail privacy boundary', () => {
+  it('renders clean HostelPreviewPage with only the 1st cover photo, no room switcher, no photo arrows, and full-detail privacy boundary', () => {
     localStorage.removeItem('staykota_user');
 
     mount(
@@ -264,43 +295,25 @@ describe('StayKota Non-Homepage UI/UX, CustomSelect & 3D Interactions', () => {
 
     expect(document.querySelector('#hostel-preview-title')?.textContent).toContain('Comfort Stay Hostel');
     expect(document.querySelector('.hostel-preview-price')?.textContent).toContain('₹5,500');
-    expect(document.querySelector('.hostel-preview-visual img')).not.toBeNull();
-    expect(document.querySelector('.hostel-preview-3d-card .sk-room3d__canvas-host')).not.toBeNull();
+    expect(document.querySelectorAll('.hostel-preview-visual img')).toHaveLength(1);
+
+    // Verify 3D room card, room option pills, and photo navigation buttons are all absent
+    expect(document.querySelector('.hostel-preview-3d-card')).toBeNull();
+    expect(document.querySelector('.hostel-preview-room-picker')).toBeNull();
+    expect(document.querySelector('.hostel-preview-room-pills')).toBeNull();
+    expect(document.body.textContent).not.toContain('Explore room scale in 3D');
 
     // Strictly preserves full-detail privacy gate boundaries on /preview
     expect(document.querySelector('.detail-page')).toBeNull();
     expect(document.querySelector('.curved-gallery')).toBeNull();
     expect(document.querySelector('.detail-price')).toBeNull();
-
-    // Room switcher pills update selected preview room and monthly total live
-    const roomPills = Array.from(
-      document.querySelectorAll<HTMLButtonElement>('.hostel-preview-room-pills button[aria-pressed]'),
-    );
-    expect(roomPills.length).toBeGreaterThan(1);
-    act(() => {
-      roomPills[0].click();
-    });
-    expect(roomPills[0].getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('mounts HostelRoom3DCanvas and KotaHorizon3DCanvas cleanly with graceful headless fallback when WebGL is unavailable', async () => {
-    mount(
-      <div>
-        <KotaHorizon3DCanvas />
-        <HostelRoom3DCanvas capacity={2} roomName="Double Sharing" height={240} />
-      </div>,
-    );
+  it('retains the full Compare 3D Cost & Commute Skyline + winner callout strip on /compare while keeping Homepage & dashboards clean', async () => {
+    const profile = detectGpuProfile();
+    expect(['high', 'balanced', 'lite']).toContain(profile.tier);
+    expect(profile.dpr).toBeGreaterThan(0);
 
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 60));
-    });
-
-    expect(document.querySelector('.sk-horizon3d')).not.toBeNull();
-    expect(document.querySelector('.sk-room3d__canvas-host')).not.toBeNull();
-    expect(document.body.textContent).toContain('2 Students · 2-Sharing');
-  });
-
-  it('renders ComparePage with live 3D Shortlist Skyline, StudentDashboard & 404 3D Kota Beacon scenes, while keeping Homepage free of non-home chrome', async () => {
     localStorage.setItem(
       'staykota_user',
       JSON.stringify({ id: 'u-student', name: 'Aarav Sharma', email: 'student@demo.local', role: 'student' }),
@@ -322,8 +335,15 @@ describe('StayKota Non-Homepage UI/UX, CustomSelect & 3D Interactions', () => {
       </AppProvider>,
     );
 
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 60));
+    });
+
+    // Compare 3D Skyline + Winner Insights + Comparison Matrix remain fully functional
     expect(document.querySelector('.sk-scroll-progress')).not.toBeNull();
     expect(document.querySelector('.sk-shortlist3d')).not.toBeNull();
+    expect(document.body.textContent).toContain('3D COST & COMMUTE SKYLINE');
+    expect(document.querySelector('.compare-insights')).not.toBeNull();
     expect(document.querySelectorAll('.compare-table thead th')).toHaveLength(3);
 
     // Unmount and verify Homepage (`/`) renders ZERO non-home scroll progress bar
@@ -349,7 +369,7 @@ describe('StayKota Non-Homepage UI/UX, CustomSelect & 3D Interactions', () => {
     );
     expect(document.querySelector('.sk-scroll-progress')).toBeNull();
 
-    // Unmount and verify StudentDashboard + NotFoundPage + standalone 3D canvases render cleanly
+    // Unmount and verify StudentDashboard + NotFoundPage + standalone KotaShortlist3DCanvas render cleanly with zero non-Compare 3D scenes
     act(() => {
       root?.unmount();
     });
@@ -363,9 +383,11 @@ describe('StayKota Non-Homepage UI/UX, CustomSelect & 3D Interactions', () => {
               <div>
                 <StudentDashboard />
                 <NotFoundPage />
-                <KotaBeacon3DCanvas mode="detour" height={200} />
                 <KotaShortlist3DCanvas
-                  items={[{ id: 'h1', name: 'Comfort Stay Hostel', monthlyRent: 5500, distanceKm: 0.8 }]}
+                  items={[
+                    { id: 'h1', name: 'Comfort Stay Hostel', monthlyRent: 5500, distanceKm: 0.8 },
+                    { id: 'h4', name: 'Vigyan Nagar Residency', monthlyRent: 6800, distanceKm: 1.4 },
+                  ]}
                   campusName="ALLEN · Talwandi"
                 />
               </div>
@@ -379,9 +401,10 @@ describe('StayKota Non-Homepage UI/UX, CustomSelect & 3D Interactions', () => {
       await new Promise((resolve) => setTimeout(resolve, 60));
     });
 
-    expect(document.querySelector('.workspace-welcome__3d .sk-beacon3d')).not.toBeNull();
-    expect(document.querySelector('.not-found-art .sk-beacon3d')).not.toBeNull();
+    expect(document.querySelector('.sk-beacon3d')).toBeNull();
+    expect(document.querySelector('.sk-horizon3d')).toBeNull();
     expect(document.querySelector('.workspace-kpis')).not.toBeNull();
+    expect(document.querySelector('.sk-shortlist3d')).not.toBeNull();
 
     localStorage.clear();
   });

@@ -10,7 +10,6 @@ import {
 import { useApp } from '../context/AppContext';
 import { CurvedPhotoGallery, GalleryImage } from '../components/hostel/CurvedPhotoGallery';
 import { CustomSelect } from '../components/ui/CustomSelect';
-import { HostelRoom3DCanvas } from '../components/three/HostelRoom3DCanvas';
 import { HostelProximityMap } from '../components/hostel/HostelProximityMap';
 import { CAMPUSES } from '../data/campuses';
 import { distanceKm, formatDistance, getCampus, getMatchingRooms, monthlyTotal } from '../lib/discovery';
@@ -474,26 +473,6 @@ export function HostelDetailPage() {
                   );
                 })}
               </div>
-
-              {selectedRoom && (
-                <div className="detail-room-scene detail-room-scene--3d" key={'scene-' + selectedRoom.id}>
-                  <div className="detail-room-scene__copy">
-                    <span className="detail-eyebrow">THREE.JS 3D CUTAWAY</span>
-                    <h3>{selectedRoom.name}</h3>
-                    <p>Drag horizontally on the 3D room diorama to inspect bed count, study desk, lighting and space.</p>
-                    <span className="detail-room-scene__badge">
-                      <Users size={14} /> {selectedRoom.capacity} {selectedRoom.capacity === 1 ? 'Single occupancy' : `Sharing (${selectedRoom.capacity} beds)`}
-                    </span>
-                  </div>
-                  <div className="detail-room-scene__canvas">
-                    <HostelRoom3DCanvas
-                      capacity={selectedRoom.capacity}
-                      roomName={selectedRoom.name}
-                      height={260}
-                    />
-                  </div>
-                </div>
-              )}
 
               {selectedRoom ? (
                 <div className="detail-room-facts" key={selectedRoom.id}>

@@ -11,8 +11,6 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Modal } from '../components/ui/Modal';
 import { CustomSelect } from '../components/ui/CustomSelect';
-import { KotaHorizon3DCanvas } from '../components/three/KotaHorizon3DCanvas';
-import { KotaBeacon3DCanvas } from '../components/three/KotaBeacon3DCanvas';
 import { monthlyTotal } from '../lib/discovery';
 import '../styles/workspaces.css';
 import type { Hostel, ListingStatus } from '../types';
@@ -79,9 +77,6 @@ export function AdminPage() {
   if (!user || user.role !== 'admin') {
     return (
       <div className="workspace-gate animate-fade-in">
-        <div className="workspace-gate__3d">
-          <KotaBeacon3DCanvas mode="campus" height={205} label="MODERATION STUDIO · 3D" compact />
-        </div>
         <span className="workspace-gate-icon"><Shield className="w-7 h-7" /></span>
         <p className="workspace-eyebrow">Moderation workspace</p>
         <h1>Trust &amp; clarity for <em>every Kota stay.</em></h1>
@@ -198,9 +193,8 @@ export function AdminPage() {
       <p className="workspace-local-note"><Shield size={15} /> Local moderation workspace · Sign-in and permissions are simulated in this frontend demo.</p>
 
       <div className="workspace-admin-inner">
-        <div className="admin-hero-banner sk-horizon-wrap flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
-          <KotaHorizon3DCanvas />
-          <div className="sk-horizon-content">
+        <div className="admin-hero-banner flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
+          <div>
             <p className="workspace-eyebrow">Behind every good stay</p>
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
               {section === 'queue' ? 'Review listings' :
@@ -213,7 +207,7 @@ export function AdminPage() {
             </p>
           </div>
           {section === 'queue' && (
-            <div className="sk-horizon-content flex gap-2">
+            <div className="flex gap-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
